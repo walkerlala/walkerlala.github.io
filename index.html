@@ -3,21 +3,21 @@
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="chrome=1">
-        <title>Walkerlala.GitHub.io by walkerlala</title>
+        <title>walkerlala's site</title>
 
         <link rel="stylesheet" href="stylesheets/styles.css">
-        <link rel="stylesheet" href="stylesheets/github-light.css">
-        <script src="javascripts/scale.fix.js"></script>
+        <link rel="stylesheet" href="stylesheets/doxy.css">
+        <script src="javascripts/prettify.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
         <!--[if lt IE 9]>
         <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
         <![endif]-->
     </head>
-    <body>
+    <body onload="prettyPrint()"> <!--run prettify script when finished loading the html-->
         <div class="wrapper">
             <header>
                 <h1 class="header">walkerlala's site</h1>
-                <p class="header">walkerlala's site</p>
+                <p class="header">Yubin Ruan</p-->
 
                 <ul>
                     <li><a class="buttons github" href="https://github.com/walkerlala">GitHub Profile</a></li>
@@ -25,60 +25,116 @@
 
             </header>
             <section>
-                <h3>
-                    <a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+                <h3><a id="linus-ast-debate" class="anchor" href=""  aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>misc: The Tanenbaum-Torvalds Debate</h3>
+                <p>&emsp;<font size=5>随</font>便读点什么。没想到还真把这鬼东西给读完了。整个群邮，一边倒向支持Linux，
+                各种各样的理由。但是，我个人的情感倾向却是从倒向Linux，到倒向Minix。整个群邮回复无非在讨论这几件事：<br>
+                1)像Minix的Micro-kernel好；还是如Linux的Monolithic-kernel好<br>
+                2)Minix是single-thread的(single-thread filesystem, etc)；而Linux是multithread的...<br>
+                3)Minix的目标是portable，可以被轻易移植到各种平台；Linux是专门针对i386开发的...<br>
+                4)......<br><br></p>
 
-                <p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here <a href="https://guides.github.com/features/mastering-markdown/">using GitHub Flavored Markdown</a>, select a template crafted by a designer, and publish. After your page is generated, you can check out the new <code>gh-pages</code> branch locally. If you’re using GitHub Desktop, simply sync your repository and you’ll see the new branch.</p>
+                <h3><a id="c++-static-member" class="anchor" href="" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>C++: static member have to be defined seperately</h3>
+                <p>&emsp;<font size=5>在</font>众多编程语言之中，有一种语言被称为Native Language，比如C、C++、Pascal。
+                之所以称为Native，并不是因为他们可以被编译（Java也可以被编译，Python也可以），
+                而是因为他们编译出来的东西可以直接变成机器码，然后由底层的操作系统执行。Java、Python、Perl、C#这一类
+                依靠虚拟机来运作的语言就不行。这就意味着，他们编译出来的OBJ文件是通用的。只要你所用的C++ compiler，C compiler，
+                Pascal compiler遵循同一个OBJ文件格式的规范（比如ELF, PE, COFF等），那么同一个linker就可以将这些OBJ文件链接成一个可执行文件<br><br></p>
 
-                <h3>
-                    <a id="designer-templates" class="anchor" href="#designer-templates" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Designer Templates</h3>
+                <h3><a id="bloom-filter" class="anchor" href="" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>misc: 布隆过滤器</h3>
+                <p>&emsp;<strong>插入过程：</strong><br>
+                &emsp;Bloom Filter里面有一个vector，用到多个hash function对同一个输入进行hashing，每一个hash function都会产生一个数值，
+                这个数值可以作为index，vector[index]会被设为1。这个插入过程持续进行......</br>
+                <strong>检查一个元素是否已经存在于vector里面：</strong><br>
+                &emsp;这个检查的过程和插入的相似。先用多个hash function对这个输入进行hashing，也会产生多个数值（作为index）。
+                假如有某个index_1，使得vector[index_1] == 0，则这个输入肯定没有输入过；假如对于任意的index，vector[index]都为1，
+                则这个输入有可能曾经被输入过。这个有可能的意思是，有两种可能：<br>
+                &emsp;&emsp;(1):这个输入的确被输入过；<br>
+                &emsp;&emsp;(2)这个输入没有被输入过，但是被误认为输入过了。第2种情况就是所谓的false positive......<br><br></p>
 
-                <p>We’ve crafted some handsome templates for you to use. Go ahead and click 'Continue to layouts' to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved.</p>
+                <h3><a id="python-open-mode" class="anchor" href="" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>python: file open modes: r, r+, w, w+, a, a+, and that tedious 'b'</h3>
+                <p>&emsp;<font size=5>F</font>rom stackoverflow:<br>
+                &emsp;首先是最基本的6种模式：</br>
+                &emsp;&emsp;<a href="http://stackoverflow.com/questions/1466000/python-open-built-in-function-difference-between-modes-a-a-w-w-and-r">
+                    python-open-built-in-function-difference-between-modes-a-a-w-w-and-r</a><br>
+                &emsp;&emsp;......<br>
+                可以看到，在 r, w, a 后面加个 + 就代表可读可写了。<br>
+                在这六种模式中又可以加上一个 b 代表binary mode......<br><br></p>
 
-                <h3>
-                    <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating pages manually</h3>
 
-                <p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+                <h3><a id="support-or-contact" class="anchor" href="" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>misc: 2's complement,
+                    signed / unsigned number,carry flags, and overflow flags</h3>
+                <p>&emsp;<font size=5>学</font>习汇编的过程中，一个很容易搞混的概念就是有符号数和无符号数的运算。<br>
+                一个很自然的问题是，当对两个数做运算时（比如加法、减法），运算操作会因为两个符号有所不同吗？
+                比如，我们都知道，在汇编里面，将两个数相加和相减，是这样的：<br>
+                <code>
+                    &emsp;addl %eax, %edx<br>
+                    &emsp;subl %eax, %edx<br>
+                </code>
+                <!-- see `https://github.com/google/code-prettify` for more detail
+                <?prettify lang=c linenums=true?>
+                <pre class="prettyprint">
+                    int main()
+                    {
+                        printf("Hello world");
+                        return 0;
+                    }
+                </pre>
+                -->
+                那么，这两个操作会因为有符号数、无符号数的差别而有不同吗？是不是有有符号的 addl 和无符号的 addl......<br><br></p>
 
-                <h3>
-                    <a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Authors and Contributors</h3>
 
-                <p>You can <a href="https://help.github.com/articles/basic-writing-and-formatting-syntax/#mentioning-users-and-teams" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor’s GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+                <h3><a id="look-into-binary" class="anchor" href="" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>misc: looking into the binary</h3>
+                <p>&emsp;<font size=5>要</font>写kernel当然要知道如何用一些常用的工具检查编译出来的object file, 如何手动链接等知识啦....<br>
+                ......<br>
+                我终于搞清楚了C中的varadic function parameter是怎么实现的...<br><br><br></p>
 
-                <h3>
-                    <a id="support-or-contact" class="anchor" href="index2.html" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Support or Contact</h3>
 
-                <p>Having trouble with Pages? Check out our <a href="https://help.github.com/pages">documentation</a> or <a href="https://github.com/contact">contact support</a> and we’ll help you sort it out.</p>
-                <h3>
-                    <a id="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+                <h3><a id="c++-map" class="anchor" href="" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>misc: C++ Map</h3>
+                <p>&emsp;<br>[Image]<br><br><br></p>
 
-                <p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here <a href="https://guides.github.com/features/mastering-markdown/">using GitHub Flavored Markdown</a>, select a template crafted by a designer, and publish. After your page is generated, you can check out the new <code>gh-pages</code> branch locally. If you’re using GitHub Desktop, simply sync your repository and you’ll see the new branch.</p>
 
-                <h3>
-                    <a id="designer-templates" class="anchor" href="#designer-templates" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Designer Templates</h3>
+                <h3><a id="strict-weak-ordering" class="anchor" href="#creating-pages-manually" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>C++: Strict Weak Ordering</h3>
+                <p>&emsp;<font size=5>想</font>讲讲C++ STL中各种算法都用到的一个概念，Strict Weak Ordering。<br>
+                举个例子，来说明为什么写C++要知道这个东西。<br>
+                假如你定义了一个类型 MyType ，而且这个类型是可比的（comparable，定义了 < 这个operator）....<br><br><br></p>
 
-                <p>We’ve crafted some handsome templates for you to use. Go ahead and click 'Continue to layouts' to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved.</p>
 
-                <h3>
-                    <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Creating pages manually</h3>
+                <h3><a id="name-mangling" class="anchor" href="#authors-and-contributors" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span></a>PL: name mangling and extern "C" in C++</h3>
+                <p>&emsp;<font size=5>在</font>编程语言中，有个术语叫 name mangling, 意思是编译器为一些 identifiers 增加一些修饰符号，
+                使得一些含有歧义的 identifier 可以被区分开来。<br>
+                比如，C++ 和 Java 中都允许function overload，所以会有很多重名的函数名称，这时候就需要使用name mangling,
+                为不同的同名函数增加一些修饰，使得在以后的使用中可以被区分开来。<br>
+                又比如，C++中，处于不同的namespace的identifier是可以重名的，所以要用 name mangling 将不同namespace 的identifier区分开来。<br>
+                又比如，Java 中可以有匿名类，但是匿名类也是需要名字的，否则后面就不能被使用了，这时候就需要name mangling......<br><br><br></p>
 
-                <p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
 
-                <h3>
-                    <a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+                <h3><a id="support-or-contact" class="anchor" href="index2.html" aria-hidden="true">
+                        <span aria-hidden="true" class="octicon octicon-link"></span>
+                </a>Misc: 那些放在函数定义前的 _cdecl , _stdcall, _fastcall 到底是什么鬼</h3>
+                <p>&emsp;<font size=5>如</font>果看一些很底层的代码（比如很多库的代码，或者内核代码），会经常见到形如 _cdecl ,
+                _stdcall （这个在Windows下的代码中很常见）,  _fastcall （这个比较少见）这一类的东西，到底是什么？<br>
+                这些其实是用来指示编译器做函数调用的时候，应该如何调用，比如说，<br>
+                　　&emsp;&emsp;a)参数的传递是放在寄存器中还是放在栈中，<br>
+                　　&emsp;&emsp;b)参数是从左传到右还是从右传到左，<br>
+                　　&emsp;&emsp;etc.<br>
+                &emsp;说得专业一点，就是calling convention.　<br><br><br></p>
 
-                <p>You can <a href="https://help.github.com/articles/basic-writing-and-formatting-syntax/#mentioning-users-and-teams" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor’s GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
 
-                <h3>
-                    <a id="support-or-contact" class="anchor" href="index2.html" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Support or Contact</h3>
-
-                <p>Having trouble with Pages? Check out our <a href="https://help.github.com/pages">documentation</a> or <a href="https://github.com/contact">contact support</a> and we’ll help you sort it out.</p>
             </section>
             <footer>
-                <p><small>Hosted on <a href="index2.html">GitHub Pages</a> using the Dinky theme</small></p>
+                <p><strong>If I have not seen as far as others, it is because giants were standing on my shoulders.</strong>   <i>--Hal Abelson</i></p>
+                <p><font size=2>Copyright &copy;2015-2016 walkerlala</font></p>
             </footer>
         </div>
         <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-
     </body>
 </html>
