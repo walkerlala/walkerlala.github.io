@@ -42,7 +42,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 p, ul, ol, table, dl {
-    margin:0 0 22px;
+    margin:15px 0 22px 0;
 }
 
 h1, h2, h3 {
@@ -75,7 +75,7 @@ h4, h5, h6 {
 }
 
 a {
-    color:#C30000;
+    color:#98ccc2;
     font-weight:200;
     text-decoration:none;
 }
@@ -204,41 +204,26 @@ td {
     background: #ccc;
 }
 
-/* -------- start tab conf ------- */
-#tabs:after{
-  content:".";
-  display:block;
-  visibility:hidden;
-  clear:both;
+/* -------- start tabs conf ------- */
+#s_tab {
+    line-height: 93px;
+    height: 57px;
+    padding: 0px 0 10px 114px;
+    border: 1px solid #fbfaf7;
+    border-width: 0px 1px;
+    float: none;
+    zoom: 1;
+    font-size:23px;
+    font-family: Arvo, Monaco, serif;
+    border-bottom: 0.5px dotted #d2b5b5;
 }
-#tabs{
-  *zoom:1;
+
+#s_tab a {
+    margin-left: 128px;
+    font-weight: 100;
 }
-#tabs li{
-  float:left;
-  height:50px;
-  list-style:none;
-  background-color:#fff;
-  margin:0 1px 0 0;
-  border:1px #000 solid;
-}
-#tabs a{
-  display:inline-block;
-  
- 
-  min-width:40px;
-  font-size:18px;
-  height:50px;
-  line-height:50px;
-  padding:0 10px;
-  color:#000;
-  text-decoration:none;
-}
-#tabs a:hover{
- border-bottom:3px blue solid;
-  color:blue;
-}
-/* -------- end tab conf ------- */
+/* -------- end tabs conf ------- */
+
 
 /* Wrapper */
 .wrapper {
@@ -250,9 +235,9 @@ td {
 /* 链接的颜色 */
 /*
 .anchor {
-    color: #000000;
+color: #000000;
 }
-*/
+ */
 
 /* Header */
 
@@ -363,8 +348,8 @@ section {
     box-sizing: border-box;
     float:right;
     margin: 0 2px 0 0;
-    /*padding-bottom:50px;*/
-    padding: 34px 25px 35px 50px;
+    padding-bottom:50px;
+    padding: 22px 22px 5px 50px;
     width:100%;
 
 }
