@@ -26,10 +26,10 @@ time, mark, audio, video {
 /* Base text styles */
 
 body {
-    padding:10px 50px 0 0;
+    padding:10px 0 0 0;
     color: #232323;
     background-color: #FBFAF7;
-    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 14px;
     line-height: 1.8em;
     margin: 0;
@@ -204,6 +204,41 @@ td {
     background: #ccc;
 }
 
+/* -------- start tab conf ------- */
+#tabs:after{
+  content:".";
+  display:block;
+  visibility:hidden;
+  clear:both;
+}
+#tabs{
+  *zoom:1;
+}
+#tabs li{
+  float:left;
+  height:50px;
+  list-style:none;
+  background-color:#fff;
+  margin:0 1px 0 0;
+  border:1px #000 solid;
+}
+#tabs a{
+  display:inline-block;
+  
+ 
+  min-width:40px;
+  font-size:18px;
+  height:50px;
+  line-height:50px;
+  padding:0 10px;
+  color:#000;
+  text-decoration:none;
+}
+#tabs a:hover{
+ border-bottom:3px blue solid;
+  color:blue;
+}
+/* -------- end tab conf ------- */
 
 /* Wrapper */
 .wrapper {
@@ -212,6 +247,12 @@ td {
     width: 960px;
 }
 
+/* 链接的颜色 */
+/*
+.anchor {
+    color: #000000;
+}
+*/
 
 /* Header */
 
@@ -333,10 +374,16 @@ section {
 footer {
     bottom: 0;
     box-sizing: border-box;
-    padding-left: 50px;
-    /*position: fixed;*/
+    padding-left: 10px;
     text-align: center;
     width: 100%;
+}
+
+footer p:first-child {
+    /* 0.5px是border的粗细 */
+    border-top: 0.5px dotted #000;
+    display: inline-block;
+    padding: 5px 60px 0 0;
 }
 
 @media print, screen and (max-width: 960px) {
