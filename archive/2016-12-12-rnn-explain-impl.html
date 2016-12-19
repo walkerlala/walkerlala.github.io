@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<!-- saved from url=(0035)http://www.winedt.com/download.html -->
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <!--http://walkerlala.com/-->
+        <link rev="made" href="mailto:yubinr@qq.com">
+        <link rel="icon" type="image/png" href="../site-icon.png">
+        <link rel="stylesheet" type="text/css" href="../css/yubinr.css">
+        <script src="../js/prettify.js"></script>
+        <meta http-equiv="CACHE-CONTROL" content="NO-CACHE">
+        <meta http-equiv="EXPIRES" content="0">
+        <meta http-equiv="CONTENT-LANGUAGE" content="en-US">
+
+        <meta name="AUTHOR" content="walkerlala">
+        <title>RNN Tutorial -- by walkerlala</title>
+    </head>
+
+    <body data-feedly-mini="yes">
+        <div id="wrapper">
+            <div id="wrap">
+                <div id="top">
+                    <div class="top_nav">
+                        <span class="tab0"><a href="http://walkerlala.github.io/index.html">Home</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/blog.html">Blog</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/archive.html">Archive</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/about.html">About Me</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/download.html">Download</a></span>
+                    </div>  <!--top_nav-->
+                    <div class="logo">
+                        <img align="left" class="logo_img" src="../img/lambda.png">
+                        <span class="logo_text">
+                            walkerlala
+                        </span>
+                    </div>
+                </div>     <!--top-->
+
+                <div id="main">
+                    <br>
+                    <div><!-- blog content start -->
+                        <h1>A Recurrent Neural Network Tutorial</h1>
+                        <p>Artificial neural network have been prevalent these days for machine learning and artificial tasks. It was first introduced in the 40s, reborn in the 80s and gain much interest in recent years. The reason why it it not as popular as some other machine learning techniques lies in that training a neural network is computational hard, and the training algorithms available were not smart enough to decrease the computational cost. Nevertheless, it finally regain many researcher’s interest recently, with the introduction of some fancy new models and parallel design of the algorithms.</p>
+                        <p>In this essay, I will focus on one kind of artificial neural network – <strong>Recurrent Neural Network (RNN)</strong>. Essentially there is not so much new in RNN. If you are familiar with the well-known Feedforward Neural Network, then RNN won’t cause you any trouble.(If not, refer to Google). Besides, there have been some another good blog/articles about RNN, but many of those only tend to provide a crude image of RNN, not detail. So I decide to write one more, and hopefully some other will find something interesting here. This materials are based on what I have learned from papers and online tutorials recently, which may not be 100% correct. Feel free to correct me :)</p>
+                        <h2>what is RNN</h2>
+                        <p>Basically the architecture of RNN is:</p>
+                        <p><div style="display: flex; justify-content: center;"><img src="../img/RNN-basic-arch.png" alt="alt text"></div></p>
+                        <center>figure 1</center>
+                        It's just like a feedforward neural network. The only difference is that, now the output of the hidden layer is feed to its own input, thus the work *recurrent*. If you *unroll* the hidden layer, you get a more clear image:
+                        <p><div style="display: flex; justify-content: center;"><img src="../img/RNN-unroll.png" alt="alt text" style="width: 700px; height: 500px;"></div></p>
+                        <center>figure 2</center>
+                        <p>Note that we use one node for the hidden layer for simplicity(just an abstraction). In real world, the architecture would be much more general and complicated. For example, if we look inside into the hidden layer node, you will see something like this:</p>
+                        <p><div style="display: flex; justify-content: center;"><img src="../img/RNN-hidden-detail.png" alt="alt text"></div></p>
+                        <center>figure 3</center>
+                        <center>(pic-src: http://r2rt.com/static/images/NH_VanillaRNNcell.png)</center>
+                        <p>As you can see, it’s very similar to a feed-forward neural network.</p>
+                        <h2>What is RNN used for</h2>
+                        <p>The goodness of RNN is its ability to learn sequential knowledge. For example, given a sequence of input, we can use RNN to predict the next output:</p>
+                        <blockquote>
+                            <p>Today is sunny and I am very __</p>
+                        </blockquote>
+                        <p>With the help of RNN, we can easily predict that the next word of these sequence  is <em>happy</em> or some other similar words. Why can RNN be used for this? Because it record the sequential information of input by the way of its recurrent mechanism:</p>
+                        <p><div style="display: flex; justify-content: center;"><img src="../img/RNN-predict-detail.png" alt="alt text"></div></p>
+                        <center>figure 4</center>
+                        <p>Here is a very intuitive explanation. Imagine that RNN has seen some sentences like these:</p>
+                        <ul>
+                            <li>Today was sunny, I am very happy.</li>
+                            <li>Today is sunny, I feel very happy</li>
+                            <li>weather is good, I feel very happy</li>
+                            <li>…</li>
+                        </ul>
+                        <p>Note that although some words are different, they have very similar meaning with others (e.g. <em>was</em> vs <em>is</em>), so with lots of these sentences going through RNN repeatedly, it <code>&quot;</code>learn<code>&quot;</code> to build an internal architecture which embody info about these sentences. Consequently, when you input</p>
+                        <blockquote>
+                            <p>Today is sunny, I _</p>
+                        </blockquote>
+                        <p>it would confidently predict the next word to be <em>am</em> or <em>feel</em>. When you input</p>
+                        <blockquote>
+                            <p>Today is sunny, I am very _</p>
+                        </blockquote>
+                        <p>it would confidently predict the next word to be <em>happy</em>.</p>
+                        <p>The old FNN can not do this (as least not as easily as RNN), however, because it has no state information like RNN. Also, we can see that FNN’s input dimension is fixed, while RNN can scale to as many dimensions as needed. Moreover, RNN had been changed / extended to many other powerful model, like LSTM, GRU and word2vec.</p>
+                        <p>Of course the application of RNN is not limited to word prediction. With a little change, we can achieve various usages. For example,</p>
+                        <ul>
+                            <li><a href="http://karpathy.github.io/2015/05/21/rnn-effectiveness/">char-rnn</a>, <em>character-level language models</em> by Andrej Karpathy</li>
+                            <li>image/video captioning</li>
+                            <li>translation</li>
+                            <li>image processing</li>
+                        </ul>
+                        <h2>How to use RNN</h2>
+                        <p>This is the main part of this essay. In this part, I will explain the mathematics behind RNN, and then give a implementation of it. Some knowledge of mathematics is required to go through this part, though (read carefully, it’s not that hard). You can also refer to <em>Razvan Pascanu et al.</em>, <a href="http://cs224d.stanford.edu/lecture_notes/LectureNotes4.pdf">here</a> and <a href="http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-1-introduction-to-rnns/">here</a> if having any difficulties going through the algorithms.</p>
+                        <h4>The Forward Pass of RNN</h4>
+                        <p>A generic recurrent neural network, with input <img src="../img/tex-img/t3RaeWY78ccHeJaT.svg" alt=" \inline \boldsymbol{u_{t}} " /> and state <img src="../img/tex-img/I9rpSmaPmTXZS9Oo.svg" alt=" \inline \boldsymbol{x_{t}} " /> (state <img src="../img/tex-img/pDDGjoBsdoMgJSwd.svg" alt=" \inline \boldsymbol{x_{t-1}} " /> is the previous state) for time step <img src="../img/tex-img/qKDsMnESUkXt5HOY.svg" alt=" t " />, is given by:</p>
+                        <p><span style="float:right">(1)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/Va4mlaxKz3UUTD8s.svg" alt=" \boldsymbol{x_t} = F(\boldsymbol{x_{t-1}}, \boldsymbol{u_t}, \theta) " /></div></p>
+                        <p><span style="float:right">(2)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/KDtRDnuzO8o4ouL1.svg" alt=" \boldsymbol{y_t} = \delta(\boldsymbol x_t)" /></div></p>
+                        <p>Note that those bold symbols above are vectors.</p>
+                        <p>More generally:</p>
+                        <p><span style="float:right">(3)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/OVvl6SXR3Ad0sDeU.svg" alt=" \boldsymbol{x_{t}} = \boldsymbol{W_{rec}}\sigma(\boldsymbol{x_{t-1}}) + \boldsymbol{W_{in}}\boldsymbol{u_{t}} + \boldsymbol{b}" /></div></p>
+                        <p>In this case, the parameters of model are given by the recurrent weight matrix <img src="../img/tex-img/uTuwZGhGNNZMBtTk.svg" alt=" \inline \boldsymbol{W_{rec}}" />, the bias <img src="../img/tex-img/EZDaDCedQeRPZ7oI.svg" alt=" \boldsymbol{b} " /> and input weight matrix <img src="../img/tex-img/Gf7BNRy61iDELEhx.svg" alt=" \boldsymbol{W_{in}} " />, collected in <img src="../img/tex-img/Htyc9Dryk36giCf8.svg" alt=" \theta " /> for general case. <img src="../img/tex-img/wT98MANhqaAmM4c1.svg" alt=" x_{0} " /> is provided by the user, set to zero or learned, and <img src="../img/tex-img/xznB9K7Vyk7l0S2h.svg" alt=" \sigma " /> is and element-wise function. A cost <img src="../img/tex-img/GMF0MRsaow9OatZT.svg" alt=" \boldsymbol\varepsilon = \sum_{1\leq t \leq T} \boldsymbol \varepsilon_t " /> messures the performance of the network of the given task. We define <img src="../img/tex-img/PHReE519APm5JFzN.svg" alt=" \boldsymbol\varepsilon_t = - y_j log(\hat{y_i}) - (1-y_j)log(1-\hat{y_j}) " />, which is the so-called <em>cross-entropy</em>. Here <img src="../img/tex-img/qTGRRNy7wvs9Wrmb.svg" alt=" y_j " /> is the correct answer and <img src="../img/tex-img/wWHTnqevmpBtHeI1.svg" alt=" \hat{y_j} " /> is the output of RNN.</p>
+                        <h4>The Backward Pass of RNN</h4>
+                        <p>When training RNN, the most widely used algorithm is <strong>BPTT</strong> (BackPropagation Through Time). Essentially, BPTT is just like the ordinary BP algorithm used in Feedforward Neural Network. The thing that makes it distinguished from ordinary BP is that when backpropagating at node/time <img src="../img/tex-img/qKDsMnESUkXt5HOY.svg" alt=" t " />, BPTT generate the error gradient with respect to all nodes from <img src="../img/tex-img/GmSOA12LQhrmwGfY.svg" alt=" t-1 " /> to <img src="../img/tex-img/HASlkhdkrQ63G02R.svg" alt=" 1 " />, thus the name <strong>backpropagate through time</strong>.</p>
+                        <p>The gradient is calculated as follow:</p>
+                        <p><span style="float:right">(4)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/ZgVbW3uleyVKj7xd.svg" alt=" {\patial\boldsymbol\varepsilon \over \partial\theta} = 
+                            \sum_{1 \leq t \leq T}
+                            {\patial\boldsymbol\varepsilon_t \over \partial\theta}  " /></div></p>
+                        <p><span style="float:right">(5)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/5yKhNXuVSzmnVMjA.svg" alt=" {\partial\boldsymbol\varepsilon_t \over \partial\theta} = 
+                            \sum_{1\leq k \leqt}\big({\partial \boldsymbol\varepsilon_t \over \partial \boldsymbol x_t} {\partial \boldsymbol x_t \over \partial \boldsymbol x_k} {\partial^+\boldsymbol x_k \over \partial\theta} )" /></div></p>
+                        <p><span style="float:right">(6)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/90f08SmdUSfaUYIt.svg" alt=" {\partial \boldsymbol x_t \over \partial \boldsymbol x_k} = 
+                            {\prod_{k &lt; i \leq t} {\partial \boldsymbol x_i \over \partial \boldsymbol x_{i-1} } = 
+                            {\prod_{k &lt; i \leq t} \boldsymbol W^T_{rec} {\mathit diag}(\sigma'(\boldsymbol x_{i-1}))" /></div></p>
+                        <p>These equations were obtained by writing the grdients in a sum-of-product form[2].</p>
+                        <p><img src="../img/tex-img/domOBEutcr2YzL00.svg" alt=" \inline \partial^+\boldsymbol x_k \over \partial\theta " /> refers to the <em>immediate</em> partial derivative of the state <img src="../img/tex-img/SxAkGSRbKBZYynUp.svg" alt=" \mathbf x_k " />
+                        with respect to <img src="../img/tex-img/Htyc9Dryk36giCf8.svg" alt=" \theta " />, where <img src="../img/tex-img/1Z8HP4o2GJwlazNE.svg" alt=" \boldsymbol x_{k-1} " /> is taken as a constant withe respect to <img src="../img/tex-img/Htyc9Dryk36giCf8.svg" alt=" \theta " />(more detail <a href="http://derivative-detail-todo">here</a>). Specifically, considering eq.3, the value of any row <img src="../img/tex-img/iLbqQ8I1gSzJvLqc.svg" alt=" i " /> of the matrix <img src="../img/tex-img/SwnwC72koGbZwn2D.svg" alt=" \partial^+\boldsymbol x_k \over \partial \boldsymbol W_{rec}" /> is just <img src="../img/tex-img/4uNC5iDz6Skj22nP.svg" alt=" \sigma(\boldsymbol x_{k-1})" />. Eq.6 also provides the form of Jacobian matrix <img src="../img/tex-img/j0umxUkV8YKN2tYF.svg" alt=" \partial \boldsymbol x_i \over \partial \boldsymbol x_{i-1} " /> for the specific parametrization given in eq.3, where <img src="../img/tex-img/hJwpD6KkmjS3IP6h.svg" alt=" \mathit diag " /> convert a vector into a diagnol matrix, and <img src="../img/tex-img/EHRtBLBffMraDNUn.svg" alt=" \sigma' " /> compute the element-wise derivative of <img src="../img/tex-img/0QWQ7OJZidiXYQvS.svg" alt="\sigma" />.</p>
+                        <p>Any gradient component <img src="../img/tex-img/z6ixM0SDjZ4Y3Uyp.svg" alt=" \partial \boldsymbol\varepsilon_t \over \theta " /> is also a sum(see eq.5), whose terms we refer to as <em>temporal contribution</em> or <em>temporal component</em>. One can see that each such temporal contribution <img src="../img/tex-img/3K30pahQsvPrw6Z6.svg" alt=" {\partial \boldsymbol\varepsilon_t \over \partial \boldsymbol x_t} {\partial \boldsymbol x_t \over \partial \boldsymbol x_k} {\partial^+\boldsymbol x_k \over \partial\theta} " /> measures how <img src="../img/tex-img/Htyc9Dryk36giCf8.svg" alt=" \theta " /> at step <img src="../img/tex-img/iDZKc2k6VHqH7CxH.svg" alt=" k " /> affects the cost at step <img src="../img/tex-img/j21GUaHfx7GDzmGJ.svg" alt=" t &gt; k " /> and the factors <img src="../img/tex-img/P4wh3ViwM1aFfrdv.svg" alt=" \partial \boldsymbol x_t \over \partial \boldsymbol x_k " /> (eq.6) transport the error <em>in time</em> from step <img src="../img/tex-img/qKDsMnESUkXt5HOY.svg" alt=" t " /> back to step <img src="../img/tex-img/iDZKc2k6VHqH7CxH.svg" alt=" k " /> (because <img src="../img/tex-img/6rlJB6m0jujTp1g4.svg" alt="{\partial \boldsymbol x_t \over \partial \boldsymbol x_k} =  {\partial \boldsymbol x_t \over \partial \boldsymbol x_{t-1}}  {\partial \boldsymbol x_{t-1} \over \partial \boldsymbol x_{t-2}}... {\partial \boldsymbol x_{k+1} \over \partial \boldsymbol x_k} " />). This is the essence of <strong>Backpropogationo Through Time</strong>. This way, the error is back-propogated from time <img src="../img/tex-img/qKDsMnESUkXt5HOY.svg" alt=" t " /> to time <img src="../img/tex-img/iDZKc2k6VHqH7CxH.svg" alt=" k " />, <img src="../img/tex-img/MAeH8EJKvF6mEENo.svg" alt=" k = 1,2,..,t " />.</p>
+                        <p>When I implement a example RNN below I would give a concrete derivation of these gradient so that you can see it clearly.</p>
+                        <p>One more thing: we would further loosely distinguish between <em>long term</em> and <em>short term</em> contributions, where long term refers to components for which <img src="../img/tex-img/4X6gJfUS7N2YtXkw.svg" alt=" k \ll t " /> and short term to everything else.</p>
+                        <h4>Exploding and Vanishing Gradient</h4>
+                        <p>When using BPTT to train RNN, one can easily get trapped into the <em>exploding gradient problem</em> or <em>vanishing gradient problem</em>. It turn out that 2-norm, which you can think of as absolute value, of the above Jacobian matrix can grow to extremely large (exploding) or small (vanishing) when <img src="../img/tex-img/4X6gJfUS7N2YtXkw.svg" alt=" k \ll t " />. This problem was first introduced in Bengio et al. (1994). In that paper, the <img src="../img/tex-img/oLv2tqFmyuB4LJ0r.svg" alt=" exploding " /> <img src="../img/tex-img/2gxiyWWdFubBYkXF.svg" alt=" gradients " /> problem refers to the large increase in the norm of the gradient during training. Such events are due to the explosion of the long term components, which can grow exponentially more than short term ones. The <img src="../img/tex-img/ERppo3aYOFjk15M8.svg" alt=" vanishing " /> <img src="../img/tex-img/2gxiyWWdFubBYkXF.svg" alt=" gradients " /> problem refers to the opposite behaviour, when long term components go exponentially fast to norm 0, making it impossible for the model to learn correlation between temporally distant events.</p>
+                        <p>We can easily see the problem from eq.6. When we calculate a long-term contribution, i.e. <img src="../img/tex-img/4X6gJfUS7N2YtXkw.svg" alt=" k \ll t " />, eq.6 would explode or vanish (Multiplying a number <img src="../img/tex-img/wQoVhoeHTOo17Wuf.svg" alt=" x &gt; 1 " /> multiple time would cause the product to explode eventually, and vanish if <img src="../img/tex-img/TdyXevDoGWPr8qCD.svg" alt=" x &lt; 1 " />)</p>
+                        <p>Here is a example regarding the <em>vanishing gradient problem</em>:</p>
+                        <p>sentence-1:</p>
+                        <blockquote>
+                            <p>Jane walked into the room. John walked in too. Jane said hi to __</p>
+                        </blockquote>
+                        <p>sentence-2:</p>
+                        <blockquote>
+                            <p>Jane walked into the room. John walked in too. It was late in the day, and everyone was walking home after a long day at work. Jane said hi to __</p>
+                        </blockquote>
+                        <p>Ideally, RNN should predict both to be <code>&quot;</code>John<code>&quot;</code> . However, in practice, RNN may fail at sentence-2. This is because during the back-propapation phase, the contribution of gradient values gradually vanishes as they propagate to earlier time steps. Thus, for lone sentences, the probability that <code>&quot;</code>John<code>&quot;</code> would be recognized as the next word reduces with the size of the context.</p>
+                        <h4>Solutions to the Exploding &amp; Vanishing Gradients problem</h4>
+                        <p>Researcher have propose many solution to solve the Exploding &amp; Vanishing problem. Below I would talk about some famous ones.</p>
+                        <p>(more to be added here)</p>
+                        <p>ReLU</p>
+                        <p>GRU</p>
+                        <p>LSTM</p>
+                        <h2>Implementation of RNN in python</h2>
+                        <p>Now we implement a simple RNN in python. In this example implementation, we use plain numbers instead of words as input, since using words as input would requires that we transform every word to a <em>word vector</em> for RNN to train, which is another topic and is out of the scope of this post. We leave it to another essays.</p>
+                        <p>In this simple example, we want to do is build a RNN, train it on a sequence of numbers, hopefully it can figure out the pattern in that numbers sequence and the predict the next one. For simplicity, here we assume that all the numbers are bound within [0, 1].</p>
+                        <hr>
+                        After training, the RNN would behave as follow:
+                        <p>Pass 1</p>
+                        <blockquote>
+                            <p><strong>input</strong>: 0.1</p>
+                        </blockquote>
+                        <blockquote>
+                            <p><strong>predict</strong>: 0.998</p>
+                        </blockquote>
+                        <p>Next</p>
+                        <blockquote>
+                            <p><strong>input</strong>: 0.1, 0.2</p>
+                        </blockquote>
+                        <blockquote>
+                            <p><strong>predict</strong>: 0.998, 0.189</p>
+                        </blockquote>
+                        <p>…</p>
+                        <p>Next</p>
+                        <blockquote>
+                            <p><strong>input</strong>: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9</p>
+                        </blockquote>
+                        <blockquote>
+                            <p><strong>predict</strong>: 0.998, 0.189, 0.399, 0.478, 0.601, 0.702, 0.788, 0.870</p>
+                        </blockquote>
+                        <hr>
+                        <h3>Python code</h3>
+                        <!-- see `https://github.com/google/code-prettify` for more detail -->
+                        <?prettify lang=c linenums=false?>
+                        <pre class="prettyprint">
+#!/usr/bin/python3
+#coding:utf-8
+
+# pylint: disable=superfluous-parens, invalid-name, broad-except, missing-docstring
+
+import math
+
+#initialize weight
+w = 0.5
+v = 0.5
+b = 0.5
+learning_rate = 0.5
+
+&quot;&quot;&quot;
+    x_t_sum = w * x_t + v * u_t + b
+    y_t_sum = w * x_t + v * u_t + b
+    x_t = sigmoid(x_t_sum),
+    y_t = sigmoid(y_t_sum),
+(we could change any sigmoid to tanh)
+where:
+w is the recurrent weight,
+v is the input weight
+b it the bais
+&quot;&quot;&quot;
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
+def sum_recursive(seq, pred_seq, upperbound, r, previous_part):
+    if r &lt; 0:
+        return 0
+    if r == 0:
+        x_t_own = 0
+    else:
+        x_t_own = pred_seq[r-1]
+    in_t = seq[r]
+    sg = sigmoid(w * x_t_own + v * in_t + b)
+    own_part = sg * (1 - sg) * x_t_own
+
+    if r == upperbound:
+        left_part = 1
+    else:
+        left_own = pred_seq[r]
+        left_in_t = seq[r+1]
+        sg_left_own = sigmoid(w * left_own + v * left_in_t + b)
+        left_part = sg_left_own * (1 - sg_left_own) * w
+        left_part = previous_part * left_part
+
+    return (left_part * own_part) + sum_recursive(seq, pred_seq, upperbound, r-1, left_part)
+
+def calculate_w_grad(seq, pred_seq, i):
+    # + 0.0001 so that it won't cause Divided-by-zero-Exception
+    de_over_dxt = -seq[i] / (pred_seq[i] + 0.0001) + (1 - seq[i]) / (1 - pred_seq[i])
+    g = sum_recursive(seq, pred_seq, i, i, 1)
+    return de_over_dxt * g
+
+def calculate_v_grad(seq, pred_seq, i):
+    # + 0.0001 so that it won't cause Divided-by-zero-Exception
+    de_over_dxt = -seq[i] / (pred_seq[i] + 0.0001) + (1 - seq[i]) / (1 - pred_seq[i])
+    if i == 0:
+        x_t_1 = 0
+    else:
+        x_t_1 = pred_seq[i-1]
+    in_t = seq[i]
+    sg = sigmoid(w * x_t_1 + v * in_t + b)
+    derivative = sg * (1 - sg)
+    return de_over_dxt * derivative * in_t
+
+def calculate_b_grad(seq, pred_seq, i):
+    # + 0.0001 so that it won't cause Divided-by-zero-Exception
+    de_over_dxt = -seq[i] / (pred_seq[i] + 0.0001) + (1 - seq[i]) / (1 - pred_seq[i])
+    if i == 0:
+        x_t_1 = 0
+    else:
+        x_t_1 = pred_seq[i-1]
+    in_t = seq[i]
+    sg = sigmoid(w * x_t_1 + v * in_t + b)
+    derivative = sg * (1 - sg)
+    return de_over_dxt * derivative
+
+def rnn(in_seq):
+    global w
+    global v
+    global b
+
+    # train RNN with 3000 round
+    for _ in range(3000):
+        x_t_1 = 0
+        pred_seq = []
+        for index, in_t in enumerate(in_seq):
+            x_t = sigmoid(w * x_t_1 + v * in_t + b)
+            pred_seq.append(x_t)
+
+            w_gradient = 0
+            v_gradient = 0
+            b_gradient = 0
+
+            for i in range(index + 1):
+                w_gradient += calculate_w_grad(in_seq, pred_seq, i)
+                v_gradient += calculate_v_grad(in_seq, pred_seq, i)
+                b_gradient += calculate_b_grad(in_seq, pred_seq, i)
+
+            w_gradient = w_gradient / (index + 1)
+            v_gradient = v_gradient / (index + 1)
+            b_gradient = b_gradient / (index + 1)
+
+            w = w - learning_rate * w_gradient
+            v = v - learning_rate * v_gradient
+            b = b - learning_rate * b_gradient
+
+            x_t_1 = x_t
+
+    print(&quot;Finished training: w: %f, v: %f, b: %f&quot; % (w, v, b))
+
+    print(&quot;Start to predict:&quot;)
+    x_t_1 = 0
+    for in_t in in_seq:
+        x_t = sigmoid(w * x_t_1 + v * in_t + b)
+        print(&quot;Result %f\t%f&quot; % (in_t, x_t))
+        x_t_1 = x_t
+
+rnn([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
+                        </pre>
+
+                        <p>Try run this snippet youself.</p>
+                        <hr>
+                        <p>To help you understand the code above, let me illustrate the basic structure of the rnn above and calculate the gradients(derivatives) for you.</p>
+                        <p>The basic structure is pretty much the same as that in <em>figure 1</em> above:</p>
+                        <p><div style="display: flex; justify-content: center;"><img src="../img/python-rnn-basic-arch.png" alt="alt-text"></div></p>
+                        <center>figure 5</center>
+                        <p>The unrolled version would be:</p>
+                        <p><div style="display: flex; justify-content: center;"><img src="../img/python-rnn-arch-unroll.png" alt="alt-text" style="width: 700px; height: 400px;"></div></p>
+                        <center>figure 6</center>
+                        <p>This RNN predict the output given the current input, previous state(previous output) and current weights.</p>
+                        <p>We calculate the error gradient as follow.</p>
+                        <p>We denote the cost function as:</p>
+                        <p><span style="float:right">(7)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/UvWJtPlfgi4604Zq.svg" alt=" J = - y_t log(\hat{y_t}) - (1-y_t)(1-log(\hat{y_t})) " /></div></p>
+                        <p>where <img src="../img/tex-img/C1k0xEhthqJ0krNm.svg" alt="\inline \hat{y_t}" /> is the actual output and is calculated as:</p>
+                        <p><span style="float:right">(8)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/urqioJ2cRbqFp90F.svg" alt=" \hat{y_t} = \sigma(w x_{t-1} + v in_t + b) " /></div></p>
+                        <p>Here we use the same function for <img src="../img/tex-img/50KM1go8pV7aWGF1.svg" alt=" x_t " />:</p>
+                        <p><span style="float:right">(9)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/eNfBN0Vx7DYvY7E8.svg" alt=" x_t = \sigma(w x_{t-1} + v in_t + b) " /></div></p>
+                        <p>In the above two formulas:</p>
+                        <p><span style="float:right">(10)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/FcjpyhyPkURUMdOr.svg" alt=" \sigma(x) = {1 \over {1 + e^{-x}}} " /></div></p>
+                        <p>This way, the gradients are:</p>
+                        <ul>
+                            <li>The error gradient for <img src="../img/tex-img/9tCun4SCZnVM02wW.svg" alt="w" /> is:</li>
+                        </ul>
+                        <p><span style="float:right">(11)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/ufuoM6o4dMm5zpSA.svg" alt=" {dJ \over dw} = 
+                            \sum_{1 \leq k \leq t}
+                            ({\partial J \over \partial x_t}
+                            {\partial x_t \over \partial x_k}
+                            {\partial ^+ x_k \over \partial w}) =
+                            {\partial J \over \partial x_k} 
+                            \sum_{1 \leq k \leq t}(
+                            {\partial x_t \over \partial x_k}
+                            {\partial ^+ x_k \over \partial w}) " /></div></p>
+                        <ul>
+                            <li>error gradient for <img src="../img/tex-img/4iUYx7uMMSb5Pdia.svg" alt="v" /> is</li>
+                        </ul>
+                        <p><span style="float:right">(12)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/cBhd756R2BP3cotY.svg" alt=" {dJ \over dv} = 
+                            \sum_{1 \leq k \leq t}
+                            ({\partial J \over \partial in_t}
+                            {\partial in_t \over \partial in_k}
+                            {\partial ^+ in_k \over \partial v}) = 
+                            {\partial J \over \partial in_t} \sum_{1 \leq k \leq t} (
+                            {\partial in_t \over \partial in_k}
+                            {\partial ^+ in_k \over \partial v})" /></div></p>
+                        <p>because there is no relation between <img src="../img/tex-img/XF4NrHOHKykOUhMR.svg" alt="in_t" /> and <img src="../img/tex-img/fFtj7qN1TKBEQ5uk.svg" alt="in_k" />, where <img src="../img/tex-img/HyepHLLJboA3oA2M.svg" alt="k = 1,2,..,k-1" />, we <strong>don’t</strong> have to write this derivative as <em>immediate</em> partial derivative form:</p>
+                        <p><span style="float:right">(13)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/AFg05rUtk9arFTXD.svg" alt=" {dJ \over dv} = {dJ \over d\hat{y}} {d\hat{y} \over dv} = 
+                            ({-y_t \over \hat{y_t}} + {{1-y_t} \over {1-\hat{y_t}}})
+                            \sigma(w x_{t-1} + v in_t + b)(1 - \sigma(w x_{t-1} + v in_t + b)) in_t " /></div></p>
+                        <ul>
+                            <li>error gradient for <img src="../img/tex-img/5ePYdbhaRCT3xYrL.svg" alt="b" /> is</li>
+                        </ul>
+                        <p><span style="float:right">(14)</span><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/FihWB3zo3Y1lueZQ.svg" alt=" {dJ \over db} = {dJ \over d\hat{y}} {d\hat{y} \over db} = 
+                            ({-y_t \over \hat{y_t}} + {{1-y_t} \over {1-\hat{y_t}}})
+                            \sigma(w x_{t-1} + v in_t + b)(1 - \sigma(w x_{t-1} + v in_t + b))" /></div></p>
+                        <p>And then we subtract the gradients from the previous parameter:</p>
+                        <p><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/jynjksaFMZ3r6fL4.svg" alt=" w := w - \gamma w " /></div></p>
+                        <p><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/sGKyLYedRN0b5QKU.svg" alt=" v := v - \gamma v " /></div></p>
+                        <p><div style="display: flex; justify-content: center;"><img  src="../img/tex-img/7N77dsPoK2X7BeMv.svg" alt=" b := b - \gamma b " /></div></p>
+                        <p>where <img src="../img/tex-img/9LbQpi5pLPVOZttk.svg" alt=" \gamma " /> is the learning rate.</p>
+                        <h2>References</h2>
+                        <ol>
+                            <li>
+                            <p>Bengio et al. (1994), <em>Learning long-term dependency with gradient descent is difficult</em>, <em>IEEE Transactions on Neural Networks</em>, 5(2), 157-166</p>
+                            </li>
+                            <li>
+                            <p>Razvan Pascanu, Tomas Mikolov, Yoshua Bengio, <em>On the difficulty of training recurrent neural networks</em>, JMLR W&amp;CP 28 (3) : 1310–1318, 2013</p>
+                            </li>
+                        </ol>
+                        <hr>
+                        <p class="LastModified">Yubin Ruan, last modified in 2016-12-12</p>
+                    </div>  <!-- end blog conten -->
+
+                    <div id="footer">
+                        Copyright © 2015-2016 by Yubin Ruan, &nbsp;
+                        Some rights reserved, some are not<br>
+                    </div>
+
+                </div> <!--main-->
+                <p>  &nbsp;   </p>
+            </div> <!--wrap-->
+        </div> <!--wrapper-->
+
+
+        <audio controls="controls" style="display: none;"></audio><div id="feedly-mini" title="feedly Mini tookit"></div></body><style type="text/css">#yddContainer{display:block;font-family:Microsoft YaHei;position:relative;width:100%;height:100%;top:-4px;left:-4px;font-size:12px;border:1px solid}#yddTop{display:block;height:22px}#yddTopBorderlr{display:block;position:static;height:17px;padding:2px 28px;line-height:17px;font-size:12px;color:#5079bb;font-weight:bold;border-style:none solid;border-width:1px}#yddTopBorderlr .ydd-sp{position:absolute;top:2px;height:0;overflow:hidden}.ydd-icon{left:5px;width:17px;padding:0px 0px 0px 0px;padding-top:17px;background-position:-16px -44px}.ydd-close{right:5px;width:16px;padding-top:16px;background-position:left -44px}#yddKeyTitle{float:left;text-decoration:none}#yddMiddle{display:block;margin-bottom:10px}.ydd-tabs{display:block;margin:5px 0;padding:0 5px;height:18px;border-bottom:1px solid}.ydd-tab{display:block;float:left;height:18px;margin:0 5px -1px 0;padding:0 4px;line-height:18px;border:1px solid;border-bottom:none}.ydd-trans-container{display:block;line-height:160%}.ydd-trans-container a{text-decoration:none;}#yddBottom{position:absolute;bottom:0;left:0;width:100%;height:22px;line-height:22px;overflow:hidden;background-position:left -22px}.ydd-padding010{padding:0 10px}#yddWrapper{color:#252525;z-index:10001;background:url(chrome-extension://eopjamdnofihpioajgfdikhhbobonhbb/ab20.png);}#yddContainer{background:#fff;border-color:#4b7598}#yddTopBorderlr{border-color:#f0f8fc}#yddWrapper .ydd-sp{background-image:url(chrome-extension://eopjamdnofihpioajgfdikhhbobonhbb/ydd-sprite.png)}#yddWrapper a,#yddWrapper a:hover,#yddWrapper a:visited{color:#50799b}#yddWrapper .ydd-tabs{color:#959595}.ydd-tabs,.ydd-tab{background:#fff;border-color:#d5e7f3}#yddBottom{color:#363636}#yddWrapper{min-width:250px;max-width:400px;}</style></html>
