@@ -48,12 +48,43 @@
                     }
                 </pre>
                 -->
-                    </div>  <!-- end blog conten -->
+                    </div>  <!-- end blog content -->
 
+                    <!--  here should be some pictures for seperating -->
+                    <div class="Comments" > <!-- start comments content -->
+                        <h2 class="CommentsTitle">Comments</h2>
+                        <!-- TODO -->
+                        <p class="visit-this-page">Visit this <a href="">issue page</a> on Github to post a comment </p>
+
+<script type="text/javascript">
+$issuenum = "1";   // TODO
+$.ajax({
+    url: "https://api.github.com/repos/walkerlala/walkerlala.github.io/issues/" + $issuenum + "/comments"
+  , method: "get"
+  , headers: { Accept: "application/vnd.github.full+json" }
+  , dataType: 'json'
+  , error: function(e){}
+  , success: function(resp){
+      var cuser, cuserlink, clink, cbody, cavatarlink, cdate;
+      for (var i=0; i<resp.length; i++) {
+        cuser = resp[i].user.login;
+        cuserlink = "https://github.com/" + resp[i].user.login;
+        clink = "https://github.com/walkerlala/walkerlala.github.io/issues/" + $issuenum + "#issuecomment-" + resp[i].url.substring(resp[i].url.lastIndexOf("/")+1);
+        cbody = resp[i].body_html;
+        cavatarlink = resp[i].user.avatar_url;
+        cdate = (new Date(resp[i].created_at)).toLocaleString();
+
+        $(".Comments").append('<div class="comment"><div class="comment-header"><a class="comment-user" href="' + cuserlink + '"><img class="comment-gravatar" src="' + cavatarlink + '" alt="" width="20" height="20"> ' + cuser + '</a><a class="comment-date" href="' + clink + '">' + cdate + '</a></div><div class="comment-body">' + cbody + '</div></div>');
+      }
+    }
+});
+</script>
+
+                    </div> <!-- end comments content -->
                     <hr>
 
                     <div id="footer">
-                        Copyright © 2015-2016 by Yubin Ruan, &nbsp;
+                        Copyright © 2015-2016 by Yubin Ruan. &nbsp;
                         Some rights reserved, some are not<br>
                     </div>
 

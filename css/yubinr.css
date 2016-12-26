@@ -279,3 +279,48 @@ th{
     font-weight: normal;
   /*block-size: 10px;*/
 }
+
+.CommentsTitle{
+    margin: 2px 0px 0px 0px;
+    float:left;
+    color: #000000;
+    background: #FFFFFF;
+    width:834px;
+}
+
+.visit-this-page {
+  /*background-color: grey;*/
+    font-weight: normal;
+  /*block-size: 10px;*/
+}
+div.comment{
+    margin: 3px 0px 15px 0px;
+    /*padding:0px 32px 8px 32px;*/
+    /*float:left;*/
+    color: #000000;
+    background: #FFFFFF;
+    border: 2px solid rgb(204, 204, 204);
+    width:834px;
+}
+
+div.comment .comment-header {
+background:#f2f8fa;
+border-bottom:1px solid #E6E0CE;
+}
+
+div.comment .comment-body {
+    margin: 3px 0px 15px 0px;
+    padding:0px 32px 8px 32px;
+}
+
+div.comment .comment-date {
+    padding:0px 32px 8px 32px;
+}
+
+.comment-seperator{
+    margin: -10px 0px 0px 30px;
+    height:20px;
+    width:0px;
+    /*position:relative;*/
+    border-left:1px solid gray;
+}
