@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- saved from url=(0035)http://www.winedt.com/download.html -->
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -8,6 +7,8 @@
         <link rel="icon" type="image/png" href="../site-icon.png">
         <link rel="stylesheet" type="text/css" href="../css/yubinr.css">
         <script src="../js/prettify.js"></script>
+        <!-- <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.1.1.min.js"></script> -->
+        <script src="../js/jquery-3.1.1.min.js"></script>
         <meta http-equiv="CACHE-CONTROL" content="NO-CACHE">
         <meta http-equiv="EXPIRES" content="0">
         <meta http-equiv="CONTENT-LANGUAGE" content="en-US">
@@ -51,14 +52,14 @@
                             <h1>Immediate partial derivative</h1>
                             <p>This is just a fancy name. No magic, if you have some knowledge of partial derivative. This name is proposed by <em>Razvan Pascanu et al.</em> in this <a href="https://arxiv.org/pdf/1211.5063v2.pdf">paper</a> to make thing easier to explain. I couldn’t find any formal definition and proof anywhere, so, with some help from my friend Haicheng Xu, I prove it, as follow:</p>
                             <p>What we want to prove is:</p>
-                            <p><div style="display: flex; justify-content: center;"><img src="https://tex.s2cms.ru/svg/%20%7B%5Cpartial%5Cboldsymbol%5Cvarepsilon_t%20%5Cover%20%5Cpartial%5Ctheta%7D%20%3D%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5Csum_%7B1%20%5Cleq%20k%20%5Cleq%20t%7D%5Cbig(%7B%5Cpartial%20%5Cboldsymbol%5Cvarepsilon_t%20%5Cover%20%5Cpartial%20%5Cboldsymbol%20x_t%7D%20%7B%5Cpartial%20%5Cboldsymbol%20x_t%20%5Cover%20%5Cpartial%20%5Cboldsymbol%20x_k%7D%20%7B%5Cpartial%5E%2B%5Cboldsymbol%20x_k%20%5Cover%20%5Cpartial%5Ctheta%7D%20)%20" alt=" {\partial\boldsymbol\varepsilon_t \over \partial\theta} = 
+                            <p><div style="display: flex; justify-content: center;"><img src="../img/tex-img/buo5T96pQiN463MJ.svg" alt=" {\partial\boldsymbol\varepsilon_t \over \partial\theta} = 
                             \sum_{1 \leq k \leq t}\big({\partial \boldsymbol\varepsilon_t \over \partial \boldsymbol x_t} {\partial \boldsymbol x_t \over \partial \boldsymbol x_k} {\partial^+\boldsymbol x_k \over \partial\theta} ) " /></div></p>
                             <p>That is in vector form. To simplify, we use scalar form, and the change the notation a little bit, to prove:</p>
-                            <p><span style="float:right">(1)</span><div style="display: flex; justify-content: center;"><img src="https://tex.s2cms.ru/svg/%20%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20%3D%20%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5Csum_%7B1%5Cleq%20i%20%5Cleq%20k%7D%20%5Cleft%20(%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20h_i(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_i(x)%20%5Cover%20%5Cpartial%20x%7D%20%5Cright%20)%20" alt=" {\partial h_k(x) \over \partial x} = 
+                            <p><span style="float:right">(1)</span><div style="display: flex; justify-content: center;"><img src="../img/tex-img/2HrIV71CWExgqTPQ.svg" alt=" {\partial h_k(x) \over \partial x} = 
                             \sum_{1\leq i \leq k} \left ({\partial h_k(x) \over \partial h_i(x)} {\partial ^+ h_i(x) \over \partial x} \right ) " /></div></p>
                             <p>We would use mathematical induction to prove it.</p>
                             <p>Suppose:</p>
-                            <p><span style="float:right">(2)</span><div style="display: flex; justify-content: center;"><img src="https://tex.s2cms.ru/svg/%20%20%20%5C%5B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%5Cleft%5C%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5Cbegin%7Barray%7D%7Bll%7D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20h_%7Bk%2B1%7D(x)%20%3D%20F(h_k(x)%2C%20x)%5C%5C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20h_%7Bk%7D(x)%20%20%20%3D%20F(h_%7Bk-1%7D(x)%2C%20x)%5C%5C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20.%5C%5C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20.%5C%5C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20.%5C%5C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20h_0(x)%20%20%20%20%20%3D%20h_0(x)%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5Cend%7Barray%7D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5Cright.%0A%20%20%5C%5D%0A" alt="   \[
+                            <p><span style="float:right">(2)</span><div style="display: flex; justify-content: center;"><img src="../img/tex-img/C1s2OVpgTo48k4Cu.svg" alt="   \[
                             \left\{
                             \begin{array}{ll}
                             h_{k+1}(x) = F(h_k(x), x)\\
@@ -72,22 +73,22 @@
                             \]
                             " /></div></p>
                             <p>Using the the mathematical induction method, we assume that</p>
-                            <p><span style="float:right">(3)</span><div style="display: flex; justify-content: center;"><img src="https://tex.s2cms.ru/svg/%20%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20%3D%20%7B%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20h_k(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20%2B%20%0A%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20h_%7Bk-1%7D(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_%7Bk-1%7D(x)%20%5Cover%20%5Cpartial%20x%7D%20%2B%20...%20%2B%0A%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20h_0(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_0(x)%20%5Cover%20%5Cpartial%20x%7D%20%7D%20" alt=" {\partial h_k(x) \over \partial x} = {{\partial h_k(x) \over \partial h_k(x)} {\partial ^+ h_k(x) \over \partial x} + 
+                            <p><span style="float:right">(3)</span><div style="display: flex; justify-content: center;"><img src="../img/tex-img/b2Bxfmjvuu7Tu9dl.svg" alt=" {\partial h_k(x) \over \partial x} = {{\partial h_k(x) \over \partial h_k(x)} {\partial ^+ h_k(x) \over \partial x} + 
                             {\partial h_k(x) \over \partial h_{k-1}(x)} {\partial ^+ h_{k-1}(x) \over \partial x} + ... +
                             {\partial h_k(x) \over \partial h_0(x)} {\partial ^+ h_0(x) \over \partial x} } " /></div></p>
-                            <p>For <img src="https://tex.s2cms.ru/svg/%20k%20%3D%201%2C2%20" alt=" k = 1,2 " />, this is trivial to prove, and we leave that to the user.</p>
-                            <p>For <img src="https://tex.s2cms.ru/svg/%20k%2B1%20" alt=" k+1 " />, using the partial derivative principle, we obtain:</p>
-                            <p><span style="float:right">(3)</span><div style="display: flex; justify-content: center;"><img src="https://tex.s2cms.ru/svg/%20%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20x%7D%20%5Clinebreak%20%5Clinebreak%0A%3D%20%7B%5Cpartial%20F(h_k(x)%2C%20x)%20%5Cover%20%5Cpartial%20h_k(x)%7D%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20%2B%20%5C%0A%7B%5Cpartial%20F(h_k(x)%2C%20x)%20%5Cover%20%5Cpartial%20x%7D%20%7B%5Cpartial%20x%20%5Cover%20%5Cpartial%20x%7D%20%20%5Clinebreak%20%5Clinebreak%0A%3D%20%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20h_k(x)%7D%20%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20%2B%0A%7B%5Cpartial%20%5E%2B%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20x%7D%20%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20h_%7Bk%2B1%7D(x)%7D%20%5Clinebreak%20%5Clinebreak%0A%20" alt=" {\partial h_{k+1}(x) \over \partial x} \linebreak \linebreak
+                            <p>For <img src="../img/tex-img/tp87pJsRielqVJ2L.svg" alt=" k = 1,2 " />, this is trivial to prove, and we leave that to the user.</p>
+                            <p>For <img src="../img/tex-img/Ge6TF6MW2f8r3lYn.svg" alt=" k+1 " />, using the partial derivative principle, we obtain:</p>
+                            <p><span style="float:right">(3)</span><div style="display: flex; justify-content: center;"><img src="../img/tex-img/luxXjGZROKzSPn23.svg" alt=" {\partial h_{k+1}(x) \over \partial x} \linebreak \linebreak
                             = {\partial F(h_k(x), x) \over \partial h_k(x)}{\partial h_k(x) \over \partial x} + \
                             {\partial F(h_k(x), x) \over \partial x} {\partial x \over \partial x}  \linebreak \linebreak
                             = {\partial h_{k+1}(x) \over \partial h_k(x)} {\partial h_k(x) \over \partial x} +
                             {\partial ^+ h_{k+1}(x) \over \partial x} {\partial h_{k+1}(x) \over \partial h_{k+1}(x)} \linebreak \linebreak
                             " /></div></p>
-                            <p>Assuming that eq.2 is true, we replace <img src="https://tex.s2cms.ru/svg/%20%7B%5Cpartial%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20" alt=" {\partial h_k(x) \over \partial x} " /> in eq.3 with eq.2, and get:</p>
-                            <p><span style="float:right">(4)</span><div style="display: flex; justify-content: center;"><img src="https://tex.s2cms.ru/svg/%20%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20x%7D%20%5Clinebreak%20%5Clinebreak%0A%3D%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20h_%7Bk%2B1%7D(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20x%7D%20%2B%20%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20h_k(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_k(x)%20%5Cover%20%5Cpartial%20x%7D%20%2B%20...%20%2B%7B%5Cpartial%20h_%7Bk%2B1%7D(x)%20%5Cover%20%5Cpartial%20h_0(x)%7D%20%7B%5Cpartial%20%5E%2B%20h_0(x)%20%5Cover%20%5Cpartial%20x%7D%20%7D" alt=" {\partial h_{k+1}(x) \over \partial x} \linebreak \linebreak
+                            <p>Assuming that eq.2 is true, we replace <img src="../img/tex-img/TQ5H5bksfTgq0VNu.svg" alt=" {\partial h_k(x) \over \partial x} " /> in eq.3 with eq.2, and get:</p>
+                            <p><span style="float:right">(4)</span><div style="display: flex; justify-content: center;"><img src="../img/tex-img/A1DKgc7buwPOB4zV.svg" alt=" {\partial h_{k+1}(x) \over \partial x}
 ={\partial h_{k+1}(x) \over \partial h_{k+1}(x)} {\partial ^+ h_{k+1}(x) \over \partial x} + {\partial h_{k+1}(x) \over \partial h_k(x)} {\partial ^+ h_k(x) \over \partial x} + ... +{\partial h_{k+1}(x) \over \partial h_0(x)} {\partial ^+ h_0(x) \over \partial x} }" /></div></p>
                             <p>which is of the same form of eq.1.</p>
-                            <p>So, assume that eq.1 is true for <img src="https://tex.s2cms.ru/svg/%20k%20" alt=" k " />, we prove that it’s also true for <img src="https://tex.s2cms.ru/svg/%20k%2B1%20" alt=" k+1 " />. For <img src="https://tex.s2cms.ru/svg/%20k%20%3D%201%20" alt=" k = 1 " />, it’s also true. Thus, by principle of mathematical induction, we prove that eq.1 hold for <img src="https://tex.s2cms.ru/svg/%20k%20%3D%201%2C2%2C3...%20" alt=" k = 1,2,3... " />. <img src="https://tex.s2cms.ru/svg/%5Cblacksquare%20" alt="\blacksquare " /></p>
+                            <p>So, assume that eq.1 is true for <img src="../img/tex-img/yhVNPXQwGefve8VS.svg" alt=" k " />, we prove that it’s also true for <img src="../img/tex-img/Ge6TF6MW2f8r3lYn.svg" alt=" k+1 " />. For <img src="../img/tex-img/TF6GDhKk7wTKF62J.svg" alt=" k = 1 " />, it’s also true. Thus, by principle of mathematical induction, we prove that eq.1 hold for <img src="../img/tex-img/ULkblgYkc9xt9VTW.svg" alt=" k = 1,2,3... " />. <img src="../img/tex-img/jZS8FWc1sXdeIYkd.svg" alt="\blacksquare " /></p>
 
                             <h2>References</h2>
                             <ol>
@@ -95,6 +96,8 @@
                                     <p>Razvan Pascanu, Tomas Mikolov, Yoshua Bengio, <em>On the difficulty of training recurrent neural networks</em>, JMLR W&amp;CP 28 (3) : 1310–1318, 2013</p>
                                 </li>
                             </ol>
+                            <hr>
+                            <p class="LastModified">Yubin Ruan, last modified in 2016-12-30</p>
                     </div>  <!-- end blog content -->
 
                     <!--  here should be some pictures for seperating -->
