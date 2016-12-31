@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <!--http://walkerlala.com/-->
+        <link rev="made" href="mailto:yubinr@qq.com">
+        <link rel="icon" type="image/png" href="../site-icon.png">
+        <link rel="stylesheet" type="text/css" href="../css/yubinr.css">
+        <script src="../js/prettify.js"></script>
+        <!-- <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.1.1.min.js"></script> -->
+        <script src="../js/jquery-3.1.1.min.js"></script>
+        <meta http-equiv="CACHE-CONTROL" content="NO-CACHE">
+        <meta http-equiv="EXPIRES" content="0">
+        <meta http-equiv="CONTENT-LANGUAGE" content="en-US">
+
+        <meta name="AUTHOR" content="walkerlala">
+        <title>4layerFNN-gradient-descent</title>
+    </head>
+
+    <body data-feedly-mini="yes">
+        <div id="wrapper">
+            <div id="wrap">
+                <div id="top">
+                    <div class="top_nav">
+                        <span class="tab0"><a href="http://walkerlala.github.io/index.html">Home</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/blog.html">Blog</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/archive.html">Archive</a></span>
+                        <span class="tab0"><a href="http://walkerlala.github.io/about.html">About Me</a></span>
+                        <span class="tab1"><a href="http://walkerlala.github.io/download.html">Download</a></span>
+                    </div>  <!--top_nav-->
+                    <div class="logo">
+                        <img align="left" class="logo_img" src="../img/lambda.png">
+                        <span class="logo_text">
+                            walkerlala
+                        </span>
+                    </div>
+                </div>     <!--top-->
+
+                <div id="main">
+                    <br>
+                    <div><!-- blog content start -->
+                <!-- see `https://github.com/google/code-prettify` for more detail
+                <?prettify lang=c linenums=true?>
+                <pre class="prettyprint">
+                    int main()
+                    {
+                        printf("Hello world");
+                        return 0;
+                    }
+                </pre>
+                -->
+                <h2>Gradient Descent of 4 layers Feedforward Neural Network</h2>
+                <p><div style="display: flex; justify-content: center;"><img src="../img/4layer-FNN-gradient-descent.png" alt="Alt text"></div></p>
+                <hr>
+                <h3>Forward Phase</h3>
+                <p>Input from <strong>input layer</strong> to <strong>hidden layer 1</strong>:</p>
+                <p align="center"><span style="float:right">(1)</span><img align="center" src="../img/tex-img/SHQX5AWF-9XPWEGBEMQSSL.svg" alt=" \bold{X_j} = \sum_{i=1}^n x_i w_{ij} - \theta_j " /></p>
+                <p><strong>hidden layer 1</strong> output(activate function):</p>
+                <p align="center"><span style="float:right">(2)</span><img align="center" src="../img/tex-img/MVPVT-7Z7K_ZZK7PF5I4X3NX.svg" alt=" y_j = sigmoid(\bold{X_j}) = {1 \over {1 + e^{-\bold{X_j}}}} " /></p>
+                <p>Input from <strong>hidden layer 1</strong> to <strong>hidden layer 2</strong>:</p>
+                <p align="center"><span style="float:right">(3)</span><img align="center" src="../img/tex-img/-W350AL5A8-NCYVMBL3P_NG5.svg" alt=" \bold{X_o} = \sum_{i=1}^n y_j w_{jo} - \theta_o" /></p>
+                <p><strong>hidden layer 2</strong> output (activate function):</p>
+                <p align="center"><span style="float:right">(4)</span><img align="center" src="../img/tex-img/-UHJGXOTKJM5717JRXIN_HX.svg" alt=" y_o = sigmoid(\bold{X_o}) = {1 \over {1 + e^{-\bold{X_o}}}} " /></p>
+                <p>Input from <strong>hidden layer 2</strong> to <strong>hidden layer 3</strong>:</p>
+                <p align="center"><span style="float:right">(5)</span><img align="center" src="../img/tex-img/5HQEHEV6MP405VCMNFAQT168.svg" alt=" \bold{X_k} = \sum_{i=1}^n y_o w_{ok} - \theta_k " /></p>
+                <p><strong>output layer</strong> output (activate function):</p>
+                <p align="center"><span style="float:right">(6)</span><img align="center" src="../img/tex-img/ZL9P5QKI1YABKHM238GFFLW.svg" alt=" y_k = sigmoid(\bold{X_k}) = {1 \over {1 + e^{-\bold{X_k}}}} " /></p>
+                <hr>
+                <h3>Error function</h3>
+                <p>(or so-called the <em>cost function</em>)</p>
+                <p align="center"><span style="float:right">(7)</span><img align="center" src="../img/tex-img/X1BEWVPD8KKR20U1L4MPBCYG.svg" alt=" E(w) = {1 \over 2} \sum_{k=1}^l {(y_{d,k}-y_k)^2} " /></p>
+                <p>where   <img src="../img/tex-img/5CBH8UNOBZHZ25_YMB0JF0IR.svg" alt="y_{d,k}" />   is the desired output.</p>
+                <hr>
+                <h3>Backward Phase</h3>
+                <p>Generally, the learning algorithm is based on the <em>gradient descent</em> technique :</p>
+                <p align="center"><span style="float:right">(8)</span><img align="center" src="../img/tex-img/VH0YSE3IMN0Q4_ICQ6ZOT5X6.svg" alt=" \Delta w_{ij} = - \alpha {\partial E \over \partial w_{ij}} " /></p>
+                <p>where <img src="../img/tex-img/5VJ_212JVS4TFIDIW9P2BQGB.svg" alt=" \alpha " /> is the learning rate.</p>
+                <p>After the gradient <img src="../img/tex-img/DOBABTQADF4HWG128-GVA9B7.svg" alt=" \Delta w_{ij} " /> have been calculated, we can adjust the parameter using :</p>
+                <p align="center"><span style="float:right">(9)</span><img align="center" src="../img/tex-img/8UWPUIUP27SWXFIAG5K0-ZXS.svg" alt=" w(p+1) = w(p) + \Delta w(p) " /></p>
+                <p>where <img src="../img/tex-img/5AH1GT6O281BUC_VAZYV3-E.svg" alt=" p " /> is the p-th pattern presented.</p>
+                <h4><img src="../img/tex-img/9_DKQ1YJC6A2EISZTOD_RIG-.svg" alt="\blacksquare" /> Gradient descent from output layer to the 2nd hidden layer</h4>
+                <p align="center"><span style="float:right">(10)</span><img align="center" src="../img/tex-img/-O4XXJ--1A1H--S1J-0VYHHX.svg" alt=" \Delta w_{ok} = -\alpha \cdot {\partial E \over \partial w_{ok}}
+                = -\alpha \cdot {\partial E \over \partial y_k}
+                {\partial y_k \over \partial \bold{X_k}}
+                {\partail \bold{X_k} \over \partial w_{ok}}
+                = -\alpha \cdot (-(y_{d,k}-y_k)) \cdot y_k(1-y_k) \cdot y_o
+                " /></p>
+                <p>Because</p>
+                <p align="center"><img align="center" src="../img/tex-img/8OX7PI5C3CIVATKV5FP4IIX5.svg" alt=" {\partial E \over \partial w_{ok}} = -(y_{d,k}-y_k) " /></p>
+                <p align="center"><img align="center" src="../img/tex-img/-UQ4L7W_0_83HL-T3JHQD2TR.svg" alt=" {\partial y_k \over \partial \bold{X_k}} = y_k(1-y_k) " /></p>
+                <p align="center"><img align="center" src="../img/tex-img/7R_2FYID6I8S1O-SDTR6_Z5C.svg" alt=" {\partail \bold{X_k} \over \partial w_{ok}} = y_o " /></p>
+                <p>we obtain</p>
+                <p align="center"><span style="float:right">(11)</span><img align="center" src="../img/tex-img/OICZVGW6EQG7G_-NXED_N2N2.svg" alt=" \Delta w_{ok} = \alpha \cdot (y_{d,k}-y_k) \cdot y_k(1-y_k) \cdot y_o " /></p>
+                <p>If we denote that <img src="../img/tex-img/FRRUIZ-KIWC465RS__C1BZ7.svg" alt=" e_k = y_{d,k}-y_k " /> and <img src="../img/tex-img/H9QYK100KS7AQT0EPG8QF7DZ.svg" alt="\delta_k =e_k \cdot y_k(1-y_k)" />, then we get</p>
+                <p align="center"><span style="float:right">(12)</span><img align="center" src="../img/tex-img/O2KTBX8AG5ZL83MNXLLJOUBK.svg" alt=" \Delta w_{ok} = \alpha \cdot y_o \cdot \delta_k " /></p>
+                <h4><img src="../img/tex-img/9_DKQ1YJC6A2EISZTOD_RIG-.svg" alt="\blacksquare" /> Gradient descent from the 2nd hidden layer to 1st hidden layer</h4>
+                <p align="center"><span style="float:right">(13)</span><img align="center" src="../img/tex-img/FQH_GTDTX1E9JR82K8RHR9J2.svg" alt=" w_{jo} = -\alpha {\partial E \over \partial w_{jo}}
+                = -\alpha ({\partial E \over y_o}
+                {\partial y_o \over \partial \bold{X_o}}
+                {\partial \bold{X_o} \over w_{jo}})
+                = -\alpha ({\partial E \over \partial y_o} \cdot y_o(1-y_o) \cdot y_j)
+                " /></p>
+                <p>where</p>
+                <p align="center"><span style="float:right">(14)</span><img align="center" src="../img/tex-img/1611X4R3TE8UHIWNQPECTNCI.svg" alt=" {\partial E \over \partial y_o}
+                = {{\partial {{1 \over 2} \displaystyle\sum_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_o}
+                = {1 \over 2} \displaystyle\sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_o}
+                = {1 \over 2} \displaystyle\sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_o}}
+                = - \displaystyle\sum_{k=1}^q (y_{d,k}-y_k) \cdot {\partial y_k \over \partial y_o}
+                = - \displaystyle\sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_o}
+                " /></p>
+                <p>where</p>
+                <p align="center"><span style="float:right">(15)</span><img align="center" src="../img/tex-img/J8_CPNAL646ZGFO-YK3NV80Q.svg" alt=" {\partial y_k \over y_o} = {\partial y_k \over \partial y_o} {\partial \bold X_k \over \partial y_o}
+                = y_k(1-y_k)\cdot w_{ok} " /></p>
+                <p>thus,</p>
+                <p align="center"><span style="float:right">(16)</span><img align="center" src="../img/tex-img/N3ZTZNEGNOQDW34HZS7MR9A.svg" alt=" {\partial E \over \partial y_o} = - \displaystyle\sum_{k=1}^q e_k \cdot  y_k(1-y_k)\cdot w_{ok} " /></p>
+                <p>thus,</p>
+                <p align="center"><span style="float:right">(17)</span><img align="center" src="../img/tex-img/XU6GOWDROKQL20YRR0OAUD4.svg" alt=" w_{jo} 
+                = -\alpha \cdot y_o(1-y_o) \cdot y_j \cdot
+                (- \displaystyle\sum_{k=1}^q e_k \cdot  y_k(1-y_k)\cdot w_{ok} \cdot )
+                " /></p>
+                <p>If we denote   <img src="../img/tex-img/H9QYK100KS7AQT0EPG8QF7DZ.svg" alt="\delta_k =e_k \cdot y_k(1-y_k)" />   and   <img src="../img/tex-img/ZP3-_SLNGQM1G3S70FKPBNZE.svg" alt=" \delta_j = y_o(1-y_o) \displaystyle\sum_{k=1}^q \delta_k \cdot w_{ok} " />  , we obtain</p>
+                <p align="center"><span style="float:right">(18)</span><img align="center" src="../img/tex-img/QDKUCA3R-PY674-IIG_4OTXE.svg" alt=" w_{jo} = \alpha \cdot y_j \cdot \delta_j " /></p>
+                <h4><img src="../img/tex-img/9_DKQ1YJC6A2EISZTOD_RIG-.svg" alt="\blacksquare" /> Gradient descent from the 1st hidden layer to input layer</h4>
+                <p align="center"><span style="float:right">(19)</span><img align="center" src="../img/tex-img/_1B5VL25ASTJIDXLF0UFV05G.svg" alt=" \Delta w_{ij} = -\alpha {\partial E \over \partial w_{ij}}
+                = -\alpha {\partial E \over \partial y_j}
+                {\partial y_j \over \partial \bold X_j}
+                {\partial \bold X_j \over \partial w_{ij}}
+                = -\alpha \cdot {\partial E \over \partial y_j} \cdot y_j(1-y_j) \cdot y_j
+                " /></p>
+                <p>where</p>
+                <p align="center"><span style="float:right">(20)</span><img align="center" src="../img/tex-img/WOH71Q847190EMCLF2FK-SP.svg" alt=" {\partial E \over \partial y_j}
+                = {{\partial {{1 \over 2} \displaystyle\sum_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_j}
+                = {1 \over 2} \displaystyle\sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_j}
+                = {1 \over 2} \displaystyle\sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_j}}
+                = - \displaystyle\sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_j}
+                " /></p>
+                <p>because</p>
+                <p align="center"><span style="float:right">(21)</span><img align="center" src="../img/tex-img/BWL1B58OON3I6C2OMKNA01-.svg" alt=" {\partial y_k \over \partial y_j}
+                = {\partial y_k \over \partial \bold X_k} {\partial \bold X_k \over \partial y_j}
+                = y_k(1-y_k) {\partial \bold X_k \over \partial y_j}
+                " /></p>
+                <p>we obtain</p>
+                <p align="center"><span style="float:right">(22)</span><img align="center" src="../img/tex-img/06LW4Y1_XIODLZPDFIL-M6YM.svg" alt=" {\partial E \over \partial y_j}
+                = - \displaystyle\sum_{k=1}^q e_k \cdot y_k(1-y_k) {\partial \bold X_k \over \partial y_j} 
+                " /></p>
+                <p>beacuse</p>
+                <p align="center"><span style="float:right">(23)</span><img align="center" src="../img/tex-img/-XOBNX6V8F239SZ0LUMZOPPL.svg" alt=" {\partial \bold X_k \over \partial y_j} 
+                = {{\partial (\displaystyle\sum_{o=1}^h y_o w_{ok} - \theta_k)}
+                \over
+                {\partial y_j}}
+                = \displaystyle\sum_{o=1}^h {\partial (y_o w_{ok} - \theta_k) \over \partial y_j}
+                " /></p>
+                <p>where</p>
+                <p align="center"><span style="float:right">(24)</span><img align="center" src="../img/tex-img/R6ZW6R7GURYVOL4KA2I3L43L.svg" alt=" {\partial y_o \over \partial y_j }
+                = {\partial y_o \over \partial \bold X_o} {\partial \bold X_o \over \partial y_j}
+                = y_o(1-y_o) \cdot {\partial \bold X_o \over \partial y_j} = y_o(1-y_o)w_{jo}
+                " /></p>
+                <p>we obtain</p>
+                <p align="center"><span style="float:right">(25)</span><img align="center" src="../img/tex-img/5SM0OWR3LSZK01_IEJEHX1Z.svg" alt=" {\partial \bold X_k \over \partial y_j} 
+                = \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+                " /></p>
+                <p>thus, we obtain</p>
+                <p align="center"><span style="float:right">(26)</span><img align="center" src="../img/tex-img/OEM1XI0FGAJZ9G45TN_XF4Z1.svg" alt=" {\partial E \over \partial y_j}
+                = - \displaystyle\sum_{k=1}^q e_k \cdot y_k(1-y_k) \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+                = - \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+                " /></p>
+                <p>Put   <img src="../img/tex-img/YL9SOG0FB42L8P3RO8G9_EW.svg" alt=" eq.25 " />   into   <img src="../img/tex-img/TGTTYNYV9AHFO09W1A2W_62K.svg" alt=" eq.22 " />   , and then put that into   <img src="../img/tex-img/UBQW6E3Q2XE12GM3MSH4_7LZ.svg" alt=" eq.20 " />  , we obtain</p>
+                <p align="center"><span style="float:right">(27)</span><img align="center" src="../img/tex-img/N4_4XMFILQ-N82Y7FE5ZR740.svg" alt=" \Delta w_{ij}  \linebreak \linebreak
+                = -\alpha 
+                \cdot
+                y_j(1-y_j)
+                \cdot 
+                y_j
+                \cdot
+                (- \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok} ) \linebreak \linebreak
+                =  \alpha 
+                \cdot
+                y_j(1-y_j)
+                \cdot
+                \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+                \cdot 
+                y_j
+                " /></p>
+                <p>If we denote</p>
+                <p align="center"><span style="float:right">(28)</span><img align="center" src="../img/tex-img/AQRMPU8ZJXZCEXF7E6WELT.svg" alt=" \delta_o = 
+                y_j(1-y_j)
+                \cdot
+                \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+                " /></p>
+                <p>then we have</p>
+                <p align="center"><span style="float:right">(29)</span><img align="center" src="../img/tex-img/N0P6RJG86M5XQN49KV8WIQC0.svg" alt=" \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o " /></p>
+                <hr>
+                <p>To summarize,</p>
+                <ul>
+                    <li>Gradient descent from output layer to the 2nd hidden layer</li>
+                </ul>
+                <p align="center"><img align="center" src="../img/tex-img/O2KTBX8AG5ZL83MNXLLJOUBK.svg" alt=" \Delta w_{ok} = \alpha \cdot y_o \cdot \delta_k " /></p>
+                <ul>
+                    <li>Gradient descent from the 2nd hidden layer to the 1st hidden layer</li>
+                </ul>
+                <p align="center"><img align="center" src="../img/tex-img/QDKUCA3R-PY674-IIG_4OTXE.svg" alt=" w_{jo} = \alpha \cdot y_j \cdot \delta_j " /></p>
+                <ul>
+                    <li>Gradient descent from the 1st hidden layer to the input layer</li>
+                </ul>
+                <p align="center"><img align="center" src="../img/tex-img/XB95F7L34DKRPER04IF8RUN.svg" alt=" \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o " /></p>
+
+                <hr>
+                <p class="LastModified">Yubin Ruan, last modified in 2016-12-31</p>
+                    </div>  <!-- end blog content -->
+
+                    <!--  here should be some pictures for seperating -->
+                    <div class="Comments" > <!-- start comments content -->
+                        <h2 class="CommentsTitle">Comments</h2>
+                        <p class="visit-this-page">Visit this <a href="https://github.com/walkerlala/walkerlala.github.io/issues/4">issue page</a> on Github to post a comment </p>
+
+                        <script type="text/javascript">
+$issuenum = "4";
+                $.ajax({
+                    url: "https://api.github.com/repos/walkerlala/walkerlala.github.io/issues/" + $issuenum + "/comments"
+                        , method: "get"
+                        , headers: { Accept: "application/vnd.github.full+json" }
+                    , dataType: 'json'
+                        , error: function(e){}
+                    , success: function(resp){
+                        var cuser, cuserlink, clink, cbody, cavatarlink, cdate;
+                        for (var i=0; i<resp.length; i++) {
+                            cuser = resp[i].user.login;
+                            cuserlink = "https://github.com/" + resp[i].user.login;
+                            clink = "https://github.com/walkerlala/walkerlala.github.io/issues/" + $issuenum + "#issuecomment-" + resp[i].url.substring(resp[i].url.lastIndexOf("/")+1);
+                            cbody = resp[i].body_html;
+                            cavatarlink = resp[i].user.avatar_url;
+                            cdate = (new Date(resp[i].created_at)).toLocaleString();
+
+                            $(".Comments").append('<div class="comment"><div class="comment-header"><a class="comment-user" href="' + cuserlink + '"><img class="comment-gravatar" src="' + cavatarlink + '" alt="" width="20" height="20"> ' + cuser + '</a><a class="comment-date" href="' + clink + '">' + cdate + '</a></div><div class="comment-body">' + cbody + '</div></div>');
+                        }
+                    }
+                });
+                        </script>
+
+                    </div> <!-- end comments content -->
+                    <hr>
+
+                    <div id="footer">
+                        Copyright © 2015-2016 by Yubin Ruan. &nbsp;
+                        Some rights reserved, some are not<br>
+                    </div>
+
+                </div> <!--main-->
+                <p>  &nbsp;   </p>
+            </div> <!--wrap-->
+        </div> <!--wrapper-->
+
+
+        <audio controls="controls" style="display: none;"></audio><div id="feedly-mini" title="feedly Mini tookit"></div></body><style type="text/css">#yddContainer{display:block;font-family:Microsoft YaHei;position:relative;width:100%;height:100%;top:-4px;left:-4px;font-size:12px;border:1px solid}#yddTop{display:block;height:22px}#yddTopBorderlr{display:block;position:static;height:17px;padding:2px 28px;line-height:17px;font-size:12px;color:#5079bb;font-weight:bold;border-style:none solid;border-width:1px}#yddTopBorderlr .ydd-sp{position:absolute;top:2px;height:0;overflow:hidden}.ydd-icon{left:5px;width:17px;padding:0px 0px 0px 0px;padding-top:17px;background-position:-16px -44px}.ydd-close{right:5px;width:16px;padding-top:16px;background-position:left -44px}#yddKeyTitle{float:left;text-decoration:none}#yddMiddle{display:block;margin-bottom:10px}.ydd-tabs{display:block;margin:5px 0;padding:0 5px;height:18px;border-bottom:1px solid}.ydd-tab{display:block;float:left;height:18px;margin:0 5px -1px 0;padding:0 4px;line-height:18px;border:1px solid;border-bottom:none}.ydd-trans-container{display:block;line-height:160%}.ydd-trans-container a{text-decoration:none;}#yddBottom{position:absolute;bottom:0;left:0;width:100%;height:22px;line-height:22px;overflow:hidden;background-position:left -22px}.ydd-padding010{padding:0 10px}#yddWrapper{color:#252525;z-index:10001;background:url(chrome-extension://eopjamdnofihpioajgfdikhhbobonhbb/ab20.png);}#yddContainer{background:#fff;border-color:#4b7598}#yddTopBorderlr{border-color:#f0f8fc}#yddWrapper .ydd-sp{background-image:url(chrome-extension://eopjamdnofihpioajgfdikhhbobonhbb/ydd-sprite.png)}#yddWrapper a,#yddWrapper a:hover,#yddWrapper a:visited{color:#50799b}#yddWrapper .ydd-tabs{color:#959595}.ydd-tabs,.ydd-tab{background:#fff;border-color:#d5e7f3}#yddBottom{color:#363636}#yddWrapper{min-width:250px;max-width:400px;}</style></html>

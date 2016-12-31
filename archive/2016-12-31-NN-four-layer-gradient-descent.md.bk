@@ -1,0 +1,230 @@
+![Alt text][four-layer-img]
+ 
+----------------------------
+## Forward Phase
+Input from **input layer** to **hidden layer 1**:
+
+$$ \bold{X_j} = \sum_{i=1}^n x_i w_{ij} - \theta_j $$(1)
+
+**hidden layer 1** output(activate function):
+
+$$ y_j = sigmoid(\bold{X_j}) = {1 \over {1 + e^{-\bold{X_j}}}} $$(2)
+
+Input from **hidden layer 1** to **hidden layer 2**:
+
+$$ \bold{X_o} = \sum_{i=1}^n y_j w_{jo} - \theta_o$$(3)
+
+**hidden layer 2** output (activate function):
+
+$$ y_o = sigmoid(\bold{X_o}) = {1 \over {1 + e^{-\bold{X_o}}}} $$(4)
+
+Input from **hidden layer 2** to **hidden layer 3**:
+
+$$ \bold{X_k} = \sum_{i=1}^n y_o w_{ok} - \theta_k $$(5)
+
+**output layer** output(activate function):
+
+$$ y_k = sigmoid(\bold{X_k}) = {1 \over {1 + e^{-\bold{X_k}}}} $$(6)
+
+------------------------
+
+## Error function
+(or so-called the *cost function*)
+
+$$ E(w) = {1 \over 2} \sum_{k=1}^l {(y_{d,k}-y_k)^2} $$(7)
+
+where &nbsp; $$y_{d,k}$$ &nbsp; is the desired output.
+
+--------------
+
+## Backward Phase
+
+Generally, the learning algorithm is based on the *gradient descent* technique :
+
+$$ \Delta w_{ij} = - \alpha {\partial E \over \partial w_{ij}} $$(8)
+
+where $$ \alpha $$ is the learning rate.
+
+After the gradient $$ \Delta w_{ij} $$ have been calculated, we can adjust the parameter using :
+
+$$ w(p+1) = w(p) + \Delta w(p) $$(9)
+
+where $$ p $$ is the p-th pattern presented.
+
+#### $$\blacksquare$$ Gradient descent from output layer to the 2nd hidden layer
+
+$$ \Delta w_{ok} = -\alpha \cdot {\partial E \over \partial w_{ok}}
+ = -\alpha \cdot {\partial E \over \partial y_k}
+        {\partial y_k \over \partial \bold{X_k}}
+              {\partail \bold{X_k} \over \partial w_{ok}}
+= -\alpha \cdot (-(y_{d,k}-y_k)) \cdot y_k(1-y_k) \cdot y_o
+$$(10)
+
+Because
+
+$$ {\partial E \over \partial w_{ok}} = -(y_{d,k}-y_k) $$
+
+$$ {\partial y_k \over \partial \bold{X_k}} = y_k(1-y_k) $$
+
+$$ {\partail \bold{X_k} \over \partial w_{ok}} = y_o $$
+
+we obtain
+
+$$ \Delta w_{ok} = \alpha \cdot (y_{d,k}-y_k) \cdot y_k(1-y_k) \cdot y_o $$(11)
+
+
+If we denote that $$ e_k = y_{d,k}-y_k $$ and $$\delta_k =e_k \cdot y_k(1-y_k)$$, then we get
+
+$$ \Delta w_{ok} = \alpha \cdot y_o \cdot \delta_k $$(12)
+
+#### $$\blacksquare$$ Gradient descent from the 2nd hidden layer to 1st hidden layer
+
+$$ w_{jo} = -\alpha {\partial E \over \partial w_{jo}}
+          = -\alpha ({\partial E \over y_o}
+                       {\partial y_o \over \partial \bold{X_o}}
+                         {\partial \bold{X_o} \over w_{jo}})
+          = -\alpha ({\partial E \over \partial y_o} \cdot y_o(1-y_o) \cdot y_j)
+$$(13)
+
+where 
+
+$$ {\partial E \over \partial y_o}
+ = {{\partial {{1 \over 2} \displaystyle\sum_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_o}
+ = {1 \over 2} \displaystyle\sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_o}
+ = {1 \over 2} \displaystyle\sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_o}}
+ = - \displaystyle\sum_{k=1}^q (y_{d,k}-y_k) \cdot {\partial y_k \over \partial y_o}
+ = - \displaystyle\sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_o}
+$$(14)
+
+where
+
+$$ {\partial y_k \over y_o} = {\partial y_k \over \partial y_o} {\partial \bold X_k \over \partial y_o}
+ = y_k(1-y_k)\cdot w_{ok} $$(15)
+
+thus,
+
+$$ {\partial E \over \partial y_o} = - \displaystyle\sum_{k=1}^q e_k \cdot  y_k(1-y_k)\cdot w_{ok} $$(16)
+
+thus,
+
+$$ w_{jo} 
+   = -\alpha \cdot y_o(1-y_o) \cdot y_j \cdot
+            (- \displaystyle\sum_{k=1}^q e_k \cdot  y_k(1-y_k)\cdot w_{ok} \cdot )
+$$(17)
+
+If we denote &nbsp; $$\delta_k =e_k \cdot y_k(1-y_k)$$ &nbsp; and &nbsp; $$ \delta_j = y_o(1-y_o) \displaystyle\sum_{k=1}^q \delta_k \cdot w_{ok} $$ &nbsp;, we obtain
+
+$$ w_{jo} = \alpha \cdot y_j \cdot \delta_j $$(18)
+
+
+#### $$\blacksquare$$ Gradient descent from the 1st hidden layer to input layer
+
+$$ \Delta w_{ij} = -\alpha {\partial E \over \partial w_{ij}}
+ = -\alpha {\partial E \over \partial y_j}
+            {\partial y_j \over \partial \bold X_j}
+             {\partial \bold X_j \over \partial w_{ij}}
+ = -\alpha \cdot {\partial E \over \partial y_j} \cdot y_j(1-y_j) \cdot y_j
+$$(19)
+
+where
+
+$$ {\partial E \over \partial y_j}
+ = {{\partial {{1 \over 2} \displaystyle\sum_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_j}
+ = {1 \over 2} \displaystyle\sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_j}
+ = {1 \over 2} \displaystyle\sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_j}}
+ = - \displaystyle\sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_j}
+$$(20)
+
+because
+
+$$ {\partial y_k \over \partial y_j}
+  = {\partial y_k \over \partial \bold X_k} {\partial \bold X_k \over \partial y_j}
+  = y_k(1-y_k) {\partial \bold X_k \over \partial y_j}
+$$(21)
+
+we obtain
+
+$$ {\partial E \over \partial y_j}
+ = - \displaystyle\sum_{k=1}^q e_k \cdot y_k(1-y_k) {\partial \bold X_k \over \partial y_j} 
+$$(22)
+
+beacuse
+
+$$ {\partial \bold X_k \over \partial y_j} 
+ = {{\partial (\displaystyle\sum_{o=1}^h y_o w_{ok} - \theta_k)}
+        \over
+     {\partial y_j}}
+ = \displaystyle\sum_{o=1}^h {\partial (y_o w_{ok} - \theta_k) \over \partial y_j}
+$$(23)
+
+where 
+
+$$ {\partial y_o \over \partial y_j }
+ = {\partial y_o \over \partial \bold X_o} {\partial \bold X_o \over \partial y_j}
+ = y_o(1-y_o) \cdot {\partial \bold X_o \over \partial y_j} = y_o(1-y_o)w_{jo}
+$$(24)
+
+we obtain
+
+$$ {\partial \bold X_k \over \partial y_j} 
+  = \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+$$(25)
+
+thus, we obtain
+
+$$ {\partial E \over \partial y_j}
+= - \displaystyle\sum_{k=1}^q e_k \cdot y_k(1-y_k) \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+= - \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+$$(26)
+
+Put &nbsp; $$ eq.25 $$ &nbsp; into &nbsp; $$ eq.22 $$ &nbsp; , and then put that into &nbsp; $$ eq.20 $$ &nbsp;, we obtain
+
+$$ \Delta w_{ij}  \linebreak \linebreak
+  = -\alpha 
+       \cdot
+      y_j(1-y_j)
+        \cdot 
+      y_j
+         \cdot
+      (- \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok} ) \linebreak \linebreak
+ =  \alpha 
+       \cdot
+     y_j(1-y_j)
+         \cdot
+     \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+        \cdot 
+      y_j
+$$(27)
+
+If we denote 
+
+$$ \delta_o = 
+     y_j(1-y_j)
+         \cdot
+     \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
+$$(28)
+
+then we have
+
+$$ \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o $$(29)
+
+---------------------------
+
+To summarize, 
+
+* Gradient descent from output layer to the 2nd hidden layer
+
+$$ \Delta w_{ok} = \alpha \cdot y_o \cdot \delta_k $$
+
+* Gradient descent from the 2nd hidden layer to the 1st hidden layer
+
+$$ w_{jo} = \alpha \cdot y_j \cdot \delta_j $$
+
+* Gradient descent from the 1st hidden layer to the input layer
+
+$$ \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o $$
+
+
+
+
+[four-layer-img]: [http://somethingsss.com/aaa.png]

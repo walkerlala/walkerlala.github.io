@@ -1,17 +1,22 @@
+<!DOCTYPE html>
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <!--http://walkerlala.com/-->
-        <link rev="made" href="mailto:yubinr{at}qq.com">
-        <link rel="icon" type="image/png" href="./site-icon.png">
-        <link rel="stylesheet" type="text/css" href="./css/yubinr.css">
+        <link rev="made" href="mailto:yubinr@qq.com">
+        <link rel="icon" type="image/png" href="../site-icon.png">
+        <link rel="stylesheet" type="text/css" href="../css/yubinr.css">
+        <script src="../js/prettify.js"></script>
+        <!-- <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.1.1.min.js"></script> -->
+        <script src="../js/jquery-3.1.1.min.js"></script>
         <meta http-equiv="CACHE-CONTROL" content="NO-CACHE">
         <meta http-equiv="EXPIRES" content="0">
         <meta http-equiv="CONTENT-LANGUAGE" content="en-US">
 
         <meta name="AUTHOR" content="walkerlala">
-        <title>Home Page of Walkerlala</title>
+        <title>Home Page of Walkerlala</title> <!-- TODO -->
     </head>
+
     <body data-feedly-mini="yes">
         <div id="wrapper">
             <div id="wrap">
@@ -24,7 +29,7 @@
                         <span class="tab1"><a href="http://walkerlala.github.io/download.html">Download</a></span>
                     </div>  <!--top_nav-->
                     <div class="logo">
-                        <img align="left" class="logo_img" src="./img/lambda.png">
+                        <img align="left" class="logo_img" src="../img/lambda.png">
                         <span class="logo_text">
                             walkerlala
                         </span>
@@ -33,68 +38,53 @@
 
                 <div id="main">
                     <br>
+                    <div><!-- blog content start -->
+                <!-- see `https://github.com/google/code-prettify` for more detail
+                <?prettify lang=c linenums=true?>
+                <pre class="prettyprint">
+                    int main()
+                    {
+                        printf("Hello world");
+                        return 0;
+                    }
+                </pre>
+                -->
+                <hr>
+                                                                <!-- TODO -->
+                <p class="LastModified">Yubin Ruan, last modified in 2016-12-12</p>
+                    </div>  <!-- end blog content -->
 
-                    <p>This is Yubin Ruan on the net.
-                    <br>
-                    I am a software developer, currently studying at <a href="http://www.scut.edu.cn/">South China University of Technology</a> for bachelor
-                    degree. I'm interested in programming language, algorithm design and currently doing
-                    some machine learning and AI stuff. Ocassionally I will post something that I find interesting here, most of which in form of essay.
-                    My Chinese blog is <a href="http://www.cnblogs.com/walkerlala">here</a>,
-                    but contents in these two places are not synchronized. 
-                    <br><br>
-                    You can also find me on <a href="https://github.com/walkerlala/">github</a> or <a href="mailto:yubinr{at}qq.com">email me</a></p>
+                    <!--  here should be some pictures for seperating -->
+                    <div class="Comments" > <!-- start comments content -->
+                        <h2 class="CommentsTitle">Comments</h2>
+                                                                <!-- TODO -->
+                        <p class="visit-this-page">Visit this <a href="">issue page</a> on Github to post a comment </p>
 
-                    <hr>
+<script type="text/javascript">
+$issuenum = "1";   // TODO
+$.ajax({
+    url: "https://api.github.com/repos/walkerlala/walkerlala.github.io/issues/" + $issuenum + "/comments"
+  , method: "get"
+  , headers: { Accept: "application/vnd.github.full+json" }
+  , dataType: 'json'
+  , error: function(e){}
+  , success: function(resp){
+      var cuser, cuserlink, clink, cbody, cavatarlink, cdate;
+      for (var i=0; i<resp.length; i++) {
+        cuser = resp[i].user.login;
+        cuserlink = "https://github.com/" + resp[i].user.login;
+        clink = "https://github.com/walkerlala/walkerlala.github.io/issues/" + $issuenum + "#issuecomment-" + resp[i].url.substring(resp[i].url.lastIndexOf("/")+1);
+        cbody = resp[i].body_html;
+        cavatarlink = resp[i].user.avatar_url;
+        cdate = (new Date(resp[i].created_at)).toLocaleString();
 
-                    <h3>Something I wrote:</h3>
+        $(".Comments").append('<div class="comment"><div class="comment-header"><a class="comment-user" href="' + cuserlink + '"><img class="comment-gravatar" src="' + cavatarlink + '" alt="" width="20" height="20"> ' + cuser + '</a><a class="comment-date" href="' + clink + '">' + cdate + '</a></div><div class="comment-body">' + cbody + '</div></div>');
+      }
+    }
+});
+</script>
 
-                    <p>Here are something I wrote recently. Hopefully you can find something interesting :)</p>
-
-                    <blockquote>
-                        <li>
-                        <a href="http://walkerlala.github.io/archive/2016-12-31-NN-four-layer-gradient-descent">Gradient descent of 4 Layers FNN</a>&nbsp;&nbsp;
-                        [2016-12-30]
-                        </li>
-                        <li>
-                        <a href="http://walkerlala.github.io/archive/2016-12-12-rnn-explain-impl.html">A Recurrent Neural Network Tutorial</a>&nbsp;&nbsp;
-                        [2016-12-12]
-                        </li>
-                    </blockquote>
-
-                    <p>
-                    You can view a full archive <a href="http://walkerlala.github.io/archive.html">here</a>
-                    </p>
-
-                    <hr> <!-- a line -->
-
-                    <h3> Softwares </h3>
-
-                    <p>Here are some thing I made. Hopefully you would be interested in some. Feedbacks are welcome :)</p>
-
-                    <blockquote>
-                        <li>
-                        </li>
-                    </blockquote>
-
-                    <p>
-                    You can also visit the <a href="http://walkerlala.github.io/download.html" >downloads</a> page or my <a href="https://github.com/walkerlala">github repository</a>.
-                    </p>
-
-                    <hr>
-
-                    <h4>Links to some interesting page</h4>
-
-                    <blockquote>
-                        <!--
-                        <li><a target="top" href="http://www.ctan.org/">CTAN: Comprehensive TeX Archive Network</a></li>
-                        <li><a target="top" href="http://www.tug.org/">TUG: TeX Users Group</a></li>
-                        <li><a target="top" href="http://www.miktex.org/">MiKTeX's Home Page</a></li>
-                        <li><a target="top" href="http://www.tug.org/texlive/">TeX Live Home Page (TUG)</a></li>
-                        <li><a target="top" href="http://latex-community.org/">LaTeX Community Forum</a></li>
-                        -->
-                        <li><a target="top" href="https://upmath.me/">upmath.me</a>, an online/offline markdown-latex editor</li>
-                    </blockquote>
-
+                    </div> <!-- end comments content -->
                     <hr>
 
                     <div id="footer">
