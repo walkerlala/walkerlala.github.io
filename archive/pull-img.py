@@ -42,10 +42,10 @@ for file in fnames:
         for url in urls:
             # note that on Windows you cannot put a # in a filename, or the
             # browser cannot find it
-            name = "".join(random.choice(string.ascii_uppercase + string.digits + "-_") for _ in range(tex_file_len))
+            name = "".join(random.choice(string.ascii_uppercase + string.digits + "-") for _ in range(tex_file_len))
             c = 0
             while os.path.exists(os.path.join(tex_out, name)):
-                name = "".join(random.choice(string.ascii_uppercase + string.digits + "-_") for _ in range(tex_file_len))
+                name = "".join(random.choice(string.ascii_uppercase + string.digits + "-") for _ in range(tex_file_len))
                 c += 1
                 if c > 20:
                     print("WARNING: generate over %d random file name and cannot one that doesn't exist!" % c, file=sys.stderr)
