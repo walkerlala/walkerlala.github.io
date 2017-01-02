@@ -80,25 +80,27 @@ $$ \Delta w_{ok} = \alpha \cdot y_o \cdot \delta_k $$(12)
 #### $$\blacksquare$$ Gradient descent from the 2nd hidden layer to 1st hidden layer
 
 $$ w_{jo} = -\alpha {\partial E \over \partial w_{jo}}
-          = -\alpha ({\partial E \over y_o}
+          = -\alpha ({\partial E \over \partial y_o}
                        {\partial y_o \over \partial \bold{X_o}}
-                         {\partial \bold{X_o} \over w_{jo}})
+                         {\partial \bold{X_o} \over \partial w_{jo}})
           = -\alpha ({\partial E \over \partial y_o} \cdot y_o(1-y_o) \cdot y_j)
 $$(13)
 
 where 
 
-$$ {\partial E \over \partial y_o}
- = {{\partial {{1 \over 2} \displaystyle\sum_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_o}
- = {1 \over 2} \displaystyle\sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_o}
- = {1 \over 2} \displaystyle\sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_o}}
- = - \displaystyle\sum_{k=1}^q (y_{d,k}-y_k) \cdot {\partial y_k \over \partial y_o}
- = - \displaystyle\sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_o}
+$$
+\begin{align*}{\partial E \over \partial y_o}
+ &= {\partial {{1 \over 2} \sum\limits_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_o}
+ = {1 \over 2} \sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_o}
+ = {1 \over 2} \sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_o}}\\
+ &= - \sum_{k=1}^q (y_{d,k}-y_k) \cdot {\partial y_k \over \partial y_o}
+ = - \sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_o}
+\end{align*}
 $$(14)
 
 where
 
-$$ {\partial y_k \over y_o} = {\partial y_k \over \partial y_o} {\partial \bold X_k \over \partial y_o}
+$$ {\partial y_k \over \partial y_o} = {\partial y_k \over \partial y_o} {\partial \bold X_k \over \partial y_o}
  = y_k(1-y_k)\cdot w_{ok} $$(15)
 
 thus,
@@ -123,7 +125,7 @@ $$ \Delta w_{ij} = -\alpha {\partial E \over \partial w_{ij}}
  = -\alpha {\partial E \over \partial y_j}
             {\partial y_j \over \partial \bold X_j}
              {\partial \bold X_j \over \partial w_{ij}}
- = -\alpha \cdot {\partial E \over \partial y_j} \cdot y_j(1-y_j) \cdot y_j
+ = -\alpha \cdot {\partial E \over \partial y_j} \cdot y_j(1-y_j) \cdot y_i
 $$(19)
 
 where
@@ -179,21 +181,23 @@ $$(26)
 
 Put &nbsp; $$ eq.25 $$ &nbsp; into &nbsp; $$ eq.22 $$ &nbsp; , and then put that into &nbsp; $$ eq.20 $$ &nbsp;, we obtain
 
-$$ \Delta w_{ij}  \linebreak \linebreak
-  = -\alpha 
+$$  \begin{align*}
+  \Delta w_{ij}
+  &= -\alpha 
        \cdot
       y_j(1-y_j)
         \cdot 
-      y_j
+      y_i
          \cdot
-      (- \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok} ) \linebreak \linebreak
- =  \alpha 
+      (- \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok} ) \\
+ &=  \alpha 
        \cdot
      y_j(1-y_j)
          \cdot
+     y_i
+         \cdot
      \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
-        \cdot 
-      y_j
+  \end{align*}
 $$(27)
 
 If we denote 
@@ -206,7 +210,7 @@ $$(28)
 
 then we have
 
-$$ \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o $$(29)
+$$ \Delta w_{ij} = \alpha \cdot y_i \cdot \delta_o $$(29)
 
 ---------------------------
 
@@ -225,6 +229,13 @@ $$ w_{jo} = \alpha \cdot y_j \cdot \delta_j $$
 $$ \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o $$
 
 
+-----------------------
+Here is a naive implementation of 4 layers FNN in C++. It accept a *comma seperated* data file and a single column label file and then use that to do 10-fold cross validation. Once compiled, it can be run as `./program data label`. Once complete, it would output the all the accuracy in the 10-fold cross-validation process. It would also output some gradient descent message along the way the it's trained. If you don't want that message, just go into the `4layerFNN.hpp` file and comment out the `cout`. Note again that the data file have to be comma seperated.
+
+* [downloads.zip](http://ssss.wwww.com/agc.zip) I have include some data in it.
+
+
 
 
 [four-layer-img]: [http://somethingsss.com/aaa.png]
+

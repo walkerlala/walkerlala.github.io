@@ -101,12 +101,14 @@
                 = -\alpha ({\partial E \over \partial y_o} \cdot y_o(1-y_o) \cdot y_j)
                 " /></p>
                 <p>where</p>
-                <p align="center"><span style="float:right">(14)</span><img align="center" src="../img/tex-img/1611X4R3TE8UHIWNQPECTNCI.svg" alt=" {\partial E \over \partial y_o}
-                = {{\partial {{1 \over 2} \displaystyle\sum_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_o}
-                = {1 \over 2} \displaystyle\sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_o}
-                = {1 \over 2} \displaystyle\sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_o}}
-                = - \displaystyle\sum_{k=1}^q (y_{d,k}-y_k) \cdot {\partial y_k \over \partial y_o}
-                = - \displaystyle\sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_o}
+                <p align="center"><span style="float:right">(14)</span><img align="center" src="https://tex.s2cms.ru/svg/%0A%5Cbegin%7Balign*%7D%7B%5Cpartial%20E%20%5Cover%20%5Cpartial%20y_o%7D%0A%20%26%3D%20%7B%5Cpartial%20%7B%7B1%20%5Cover%202%7D%20%5Csum%5Climits_%7Bk%3D1%7D%5Eq%20(y_%7Bd%2Ck%7D-y_k)%5E2%7D%20%5Cover%20%5Cpartial%20y_o%7D%0A%20%3D%20%7B1%20%5Cover%202%7D%20%5Csum_%7Bk%3D1%7D%5Eq%20%7B%5Cpartial%20(y_%7Bd%2Ck%7D-y_k)%5E2%20%5Cover%20%5Cpartial%20y_o%7D%0A%20%3D%20%7B1%20%5Cover%202%7D%20%5Csum_%7Bk%3D1%7D%5Eq%20%7B%7B%5Cpartial%20(y_%7Bd%2Ck%7D-y_k)%5E2%20%5Cover%20%5Cpartial%20y_k%7D%5Ccdot%7B%5Cpartial%20y_k%20%5Cover%20%5Cpartial%20y_o%7D%7D%5C%5C%0A%20%26%3D%20-%20%5Csum_%7Bk%3D1%7D%5Eq%20(y_%7Bd%2Ck%7D-y_k)%20%5Ccdot%20%7B%5Cpartial%20y_k%20%5Cover%20%5Cpartial%20y_o%7D%0A%20%3D%20-%20%5Csum_%7Bk%3D1%7D%5Eq%20e_k%20%5Ccdot%20%7B%5Cpartial%20y_k%20%5Cover%20%5Cpartial%20y_o%7D%0A%5Cend%7Balign*%7D%0A" alt="
+                \begin{align*}{\partial E \over \partial y_o}
+                &amp;= {\partial {{1 \over 2} \sum\limits_{k=1}^q (y_{d,k}-y_k)^2} \over \partial y_o}
+                = {1 \over 2} \sum_{k=1}^q {\partial (y_{d,k}-y_k)^2 \over \partial y_o}
+                = {1 \over 2} \sum_{k=1}^q {{\partial (y_{d,k}-y_k)^2 \over \partial y_k}\cdot{\partial y_k \over \partial y_o}}\\
+                &amp;= - \sum_{k=1}^q (y_{d,k}-y_k) \cdot {\partial y_k \over \partial y_o}
+                = - \sum_{k=1}^q e_k \cdot {\partial y_k \over \partial y_o}
+                \end{align*}
                 " /></p>
                 <p>where</p>
                 <p align="center"><span style="float:right">(15)</span><img align="center" src="../img/tex-img/J8_CPNAL646ZGFO-YK3NV80Q.svg" alt=" {\partial y_k \over y_o} = {\partial y_k \over \partial y_o} {\partial \bold X_k \over \partial y_o}
@@ -165,22 +167,24 @@
                 = - \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
                 " /></p>
                 <p>Put   <img src="../img/tex-img/YL9SOG0FB42L8P3RO8G9_EW.svg" alt=" eq.25 " />   into   <img src="../img/tex-img/TGTTYNYV9AHFO09W1A2W_62K.svg" alt=" eq.22 " />   , and then put that into   <img src="../img/tex-img/UBQW6E3Q2XE12GM3MSH4_7LZ.svg" alt=" eq.20 " />  , we obtain</p>
-                <p align="center"><span style="float:right">(27)</span><img align="center" src="../img/tex-img/N4_4XMFILQ-N82Y7FE5ZR740.svg" alt=" \Delta w_{ij}  \linebreak \linebreak
-                = -\alpha 
+                <p align="center"><span style="float:right">(27)</span><img align="center" src=" https://tex.s2cms.ru/svg/%20%20%5Cbegin%7Balign*%7D%0A%20%20%5CDelta%20w_%7Bij%7D%0A%20%20%26%3D%20-%5Calpha%20%0A%20%20%20%20%20%20%20%5Ccdot%0A%20%20%20%20%20%20y_j(1-y_j)%0A%20%20%20%20%20%20%20%20%5Ccdot%20%0A%20%20%20%20%20%20y_i%0A%20%20%20%20%20%20%20%20%20%5Ccdot%0A%20%20%20%20%20%20(-%20%5Cdisplaystyle%5Csum_%7Bk%3D1%7D%5Eq%20%5Cdelta_k%20%5Cdisplaystyle%5Csum_%7Bo%3D1%7D%5Eh%20y_o%20(1-y_o)%20w_%7Bjo%7D%20w_%7Bok%7D%20)%20%5C%5C%0A%20%26%3D%20%20%5Calpha%20%0A%20%20%20%20%20%20%20%5Ccdot%0A%20%20%20%20%20y_j(1-y_j)%0A%20%20%20%20%20%20%20%20%20%5Ccdot%0A%20%20%20%20%20y_i%0A%20%20%20%20%20%20%20%20%20%5Ccdot%0A%20%20%20%20%20%5Cdisplaystyle%5Csum_%7Bk%3D1%7D%5Eq%20%5Cdelta_k%20%5Cdisplaystyle%5Csum_%7Bo%3D1%7D%5Eh%20y_o%20(1-y_o)%20w_%7Bjo%7D%20w_%7Bok%7D%0A%20%20%5Cend%7Balign*%7D%0A" alt="  \begin{align*}
+                \Delta w_{ij}
+                &amp;= -\alpha 
                 \cdot
                 y_j(1-y_j)
                 \cdot 
-                y_j
+                y_i
                 \cdot
-                (- \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok} ) \linebreak \linebreak
-                =  \alpha 
+                (- \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok} ) \\
+                &amp;=  \alpha 
                 \cdot
                 y_j(1-y_j)
+                \cdot
+                y_i
                 \cdot
                 \displaystyle\sum_{k=1}^q \delta_k \displaystyle\sum_{o=1}^h y_o (1-y_o) w_{jo} w_{ok}
-                \cdot 
-                y_j
-                " /></p>
+                \end{align*}
+                "/></p>
                 <p>If we denote</p>
                 <p align="center"><span style="float:right">(28)</span><img align="center" src="../img/tex-img/AQRMPU8ZJXZCEXF7E6WELT.svg" alt=" \delta_o = 
                 y_j(1-y_j)
@@ -203,9 +207,13 @@
                     <li>Gradient descent from the 1st hidden layer to the input layer</li>
                 </ul>
                 <p align="center"><img align="center" src="../img/tex-img/XB95F7L34DKRPER04IF8RUN.svg" alt=" \Delta w_{ij} = \alpha \cdot y_j \cdot \delta_o " /></p>
-
                 <hr>
-                <p class="LastModified">Yubin Ruan, last modified in 2016-12-31</p>
+                <p>Here is a naive implementation of 4 layers FNN in C++. It accept a <em>comma seperated</em> data file and a single column label file and then use that to do 10-fold cross validation. Once compiled, it can be run as <code>./program data label</code>. Once complete, it would output the all the accuracy in the 10-fold cross-validation process. It would also output some gradient descent message along the way the it’s trained. If you don’t want that message, just go into the <code>4layerFNN.hpp</code> file and comment out the <code>cout</code>. Note again that the data file have to be comma seperated.</p>
+                <ul>
+                    <li><a href="http://walkerlala.github.io/code/4layerFNN.zip">downloads.zip</a> I have include some data in it.</li>
+                </ul>
+                <hr>
+                <p class="LastModified">Yubin Ruan, last modified in 2017-01-01</p>
                     </div>  <!-- end blog content -->
 
                     <!--  here should be some pictures for seperating -->
