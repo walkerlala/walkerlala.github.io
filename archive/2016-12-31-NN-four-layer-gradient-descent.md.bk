@@ -100,7 +100,7 @@ $$(14)
 
 where
 
-$$ {\partial y_k \over \partial y_o} = {\partial y_k \over \partial y_o} {\partial \bold X_k \over \partial y_o}
+$$ {\partial y_k \over \partial y_o} = {\partial y_k \over \partial \bold X_k} {\partial \bold X_k \over \partial y_o}
  = y_k(1-y_k)\cdot w_{ok} $$(15)
 
 thus,
@@ -238,4 +238,3 @@ Here is a naive implementation of 4 layers FNN in C++. It accept a *comma sepera
 
 
 [four-layer-img]: [http://somethingsss.com/aaa.png]
-
