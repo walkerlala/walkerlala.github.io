@@ -131,16 +131,22 @@ Ideally, RNN should predict both to be `"`John`"` . However, in practice, RNN ma
 
 #### Solutions to the Exploding & Vanishing Gradients problem
 
-Researcher have propose many solution to solve the Exploding & Vanishing problem. Below I would talk about some famous ones.
+Researcher have propose many solution to solve the Exploding & Vanishing problem. Below are some famous ones.
 
-(more to be added here)
+* [LSTM][thinking-LSTM]
 
-ReLU
+* [ReLU][thinking-ReLU]
 
-GRU
+* [GRU][thinking-GRU]
 
-LSTM
+## Difference between RNN and FNN
+Below are two gif that can be used to show the different between RNN and FNN. These two gif are from [Yjango's website](https://zhuanlan.zhihu.com/p/24720659):
 
+![alt text][rnn-unfolded]
+
+![alt text][fnn-unfolded]
+
+You may have noticed the core difference: there are connection between sibling nodes in RNN, while not in FNN.
 
 ## Implementation of RNN in python
 
@@ -406,3 +412,8 @@ Yubin Ruan, last modified in 2016-12-12
 [python-rnn-arch-unroll]:http://r2rt.com/static/images/NH_WordTimeStep.png
 [char-rnn]: http://karpathy.github.io/2015/05/21/rnn-effectiveness/
 [derivative-detail]: http://derivative-detail-todo
+[rnn-unfolded]: https://fake.com
+[fnn-unfolded]: https://fake.com
+[thinking-LSTM]: https://fake.com
+[thinking-ReLU]: https://fake.com
+[thinking-GRU]: https://fake.com

@@ -56,34 +56,29 @@
 
                     <!--  here should be some pictures for seperating -->
                     <div class="Comments" > <!-- start comments content -->
-                        <h2 class="CommentsTitle">Comments</h2>
-                                                                <!-- TODO -->
-                        <p class="visit-this-page">Visit this <a href="">issue page</a> on Github to post a comment </p>
+                        <p><span style="font-size: 1.5em; font-weight: bold;">Comments</span> <span style="font-size: 0.5em">powered by disqus</span></p>
 
-<script type="text/javascript">
-$issuenum = "1";   // TODO
-$.ajax({
-    url: "https://api.github.com/repos/walkerlala/walkerlala.github.io/issues/" + $issuenum + "/comments"
-  , method: "get"
-  , headers: { Accept: "application/vnd.github.full+json" }
-  , dataType: 'json'
-  , error: function(e){}
-  , success: function(resp){
-      var cuser, cuserlink, clink, cbody, cavatarlink, cdate;
-      for (var i=0; i<resp.length; i++) {
-        cuser = resp[i].user.login;
-        cuserlink = "https://github.com/" + resp[i].user.login;
-        clink = "https://github.com/walkerlala/walkerlala.github.io/issues/" + $issuenum + "#issuecomment-" + resp[i].url.substring(resp[i].url.lastIndexOf("/")+1);
-        cbody = resp[i].body_html;
-        cavatarlink = resp[i].user.avatar_url;
-        cdate = (new Date(resp[i].created_at)).toLocaleString();
+<div id="disqus_thread"></div>
+<script>
 
-        $(".Comments").append('<div class="comment"><div class="comment-header"><a class="comment-user" href="' + cuserlink + '"><img class="comment-gravatar" src="' + cavatarlink + '" alt="" width="20" height="20"> ' + cuser + '</a><a class="comment-date" href="' + clink + '">' + cdate + '</a></div><div class="comment-body">' + cbody + '</div></div>');
-      }
-    }
-});
+/* TODO */
+/**
+*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
+/*
+var disqus_config = function () {
+this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+*/
+(function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = '//walkerlala-github-io.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+})();
 </script>
-
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
                     </div> <!-- end comments content -->
                     <hr>
 
