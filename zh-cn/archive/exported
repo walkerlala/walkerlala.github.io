@@ -1,0 +1,31 @@
+# File listed here would be shown in
+#  * blog.html
+#  * archive.html
+#  * index.html 
+#  * download.html
+# NOTE path should be related to the `zh-cn' directory
+{"blog":
+    [{ "title": "C++11右值引用与移动语义",
+        "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
+        "time": "2017-01-28" 
+    }
+    ],
+
+"archive":
+    {"blog": 
+        [{ "title": "C++11右值引用与移动语义",
+            "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
+            "time": "2017-01-28" 
+        }
+        ]
+    },
+"index":
+    {"blog": 
+        [{ "title": "C++11右值引用与移动语义",
+            "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
+            "time": "2017-01-28" 
+        }
+        ]
+    }
+}
+ 

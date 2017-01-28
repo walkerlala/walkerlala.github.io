@@ -1,0 +1,52 @@
+# File listed here would be shown in
+#  * blog.html
+#  * archive.html
+#  * index.html 
+#  * download.html
+# NOTE path should be related to root directory, i.e. `walkerlala.github.io'
+{"blog":
+    [{ "title": "Thinking cross entropy",
+        "location": "./archive/2017-01-12-thinking-cross-entropy.html",
+        "time": "2016-12-30" 
+    },
+    {  "title": "Gradient descent of 4 Layers FNN",
+        "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
+        "time": "2016-12-30" 
+    },
+    {  "title": "A Recurrent Neural Network Tutorial",
+        "location": "./archive/2016-12-12-rnn-explain-impl.html",
+        "time": "2016-12-12" 
+    }],
+
+"archive":
+    {"blog": 
+        [{ "title": "Thinking cross entropy",
+            "location": "./archive/2017-01-12-thinking-cross-entropy.html",
+            "time": "2016-12-30" 
+        },
+        {  "title": "Gradient descent of 4 Layers FNN",
+            "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
+            "time": "2016-12-30" 
+        },
+        {  "title": "A Recurrent Neural Network Tutorial",
+            "location": "./archive/2016-12-12-rnn-explain-impl.html",
+            "time": "2016-12-12" 
+        }]
+    },
+"index":
+    {"blog": 
+        [{ "title": "Thinking cross entropy",
+            "location": "./archive/2017-01-12-thinking-cross-entropy.html",
+            "time": "2016-12-30" 
+        },
+        {  "title": "Gradient descent of 4 Layers FNN",
+            "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
+            "time": "2016-12-30" 
+        },
+        {  "title": "A Recurrent Neural Network Tutorial",
+            "location": "./archive/2016-12-12-rnn-explain-impl.html",
+            "time": "2016-12-12" 
+        }]
+    }
+}
+ 
