@@ -19,16 +19,19 @@
             <div id="wrap">
                 <div id="top">
                     <div class="top_nav">
-                        <span class="tab0"><a href="./index.html">Home</a></span>
-                        <span class="tab0"><a href="./blog.html">Blog</a></span>
-                        <span class="tab0 active"><a href="./archive.html">Archive</a></span>
-                        <span class="tab0"><a href="./about.html">About Me</a></span>
-                        <span class="tab0"><a href="./download.html">Download</a></span>
+                        <span class="tab0 active"><a href="./index.html">主页</a></span>
+                        <span class="tab0"><a href="./blog.html">博客</a></span>
+                        <span class="tab0"><a href="./archive.html">存档</a></span>
+                        <span class="tab0"><a href="./about.html">关于我</a></span>
+                        <span class="tab0"><a href="./download.html">下载</a></span>
                     </div>  <!--top_nav-->
                     <div class="logo">
                         <img align="left" class="logo_img" src="./img/lambda.png">
                         <span class="logo_text">
                             walkerlala
+                        </span>
+                        <span class="lang-block-en">
+                            <a class="lang-link-en" href="../index.html">English</a>
                         </span>
                     </div>
                 </div>     <!--top-->
@@ -36,9 +39,16 @@
                 <div id="main">
                     <br>
 
-                    <p>Archive of my stuff: </p>
+                    <p>阮羽彬的个人博客
+                    <br>
+                    偶尔会在这里写一些东西与大家分享(偶尔也会写写<a href="../blog.html">英文</a>练练手 :)
+                    <br><br>
+                    我的 <a href="https://github.com/walkerlala/">github</a>，可以<a href="mailto:yubinr{at}qq.com">邮件联系</a>我</p>
 
-                    <h3> Articles </h3>
+                    <hr>
+
+                    <h4>最近动态:</h4>
+
                     <blockquote id="placeholder">
                         <script>
 if(typeof(String.prototype.trim) === "undefined")
@@ -77,18 +87,21 @@ $.get("archive/exported", function(data, status){
                 + "Thanks!")
       }
 });
-
                         </script>
-
                     </blockquote>
 
-                    <!--
-                    <h3> Softwares </h3>
+                    <p>
+                    可以在<a href="./archive.html">这里</a>找到所有存档。
+                    </p>
+
+                    <hr> <!-- a line -->
+
+                    <h4>友链:</h4>
+
                     <blockquote>
-                        <li>
-                        </li>
+                        <li><a href="http://blog.diverse.space/">DZ' Home</a>, 度中大佬的博客</li>
+                        <li><a href="http://blog.diverse.space/">Geekaholic's Home</a>, 家兴宝宝的博客</li>
                     </blockquote>
-                    -->
 
                     <hr>
 
@@ -101,5 +114,7 @@ $.get("archive/exported", function(data, status){
                 <p>  &nbsp;   </p>
             </div> <!--wrap-->
         </div> <!--wrapper-->
+
+
     </body>
 </html>

@@ -1,0 +1,253 @@
+## C++11 的右值引用与移动语义
+
+打算渐渐将以前的博客园的东西整理一下移到github这里(以前的东西太粗制滥造了)。以这个为第一篇吧。
+
+唔...其实这个话题很广，之所以想写这个，是因为最近用C++写了很多东西，也用到了很多C++11的新特性，包括这个Rvalue Reference，觉得这个东西对理解C++11太重要了。以前我就跟别人说，C++11那一套，把`std::move()`和`std::forward()`这两个函数的实现弄懂了就差不多了，因为在弄懂这个的过程中，你会把C++11所引入的一系列新概念都给弄明白了。
+
+在这里，我想先讲Scott Meyers所说的 *Universal Reference*, 因为这个是基础。然后，再讲讲`std::move()`和`std::forward()`。
+
+### Universal Reference
+
+唔...其实在C++11的标准里面并没有 *Universal Reference* 这个概念，这个名词是 Scott Meyers 提出来的。这么叫是因为，一来找不到更好的名字，二来的确合情合理合法，更容易跟别人解释。Scott Meyers 在这篇 [excellent blog](https://isocpp.org/blog/2012/11/universal-references-in-c11-scott-meyers) 中很好地解释了什么叫 *Universal Reference* ，我算是做做解读和引申吧。 
+
+什么是 *Universal Reference* ?
+
+C++11加入了自动类型推导(`auto`关键字)，而且更新了它的模板元编程的规则。在推导 **auto** ， **T&&** ，**decltype** ，和 **typedef** 相关的类型的时候，会见到很多形如 `T&&` 的引用(reference)，咋一看这个东西最终应该是个 rvalue reference，但是其实它的推导结果并不都是 rvalue reference，有时候这个东西会被推导成左值引用(比如 `int&`)，有时候又会被推导成右值引用(比如`int&&`)，至于推导成什么，这要看里面的`T`是什么。所以，Scott Meyers 给形如`T&&`的东西起了个名字: Universal Reference。
+
+ Scott Meyers 的定义是：
+
+> If a variable or parameter is declared to have type **T&&** for some **deduced type** `T`, that variable or parameter is a *universal reference*
+
+几个 *Universal Reference* 相关的例子(部分代码引用了 scott meyers 博文里的代码):
+
+```c++
+Widget&& var1 = someWidget;  // var1 是个普通的右值引用
+```
+
+```c++
+auto&& var3 = var1;  //var3 是个universal reference，
+                     //但是由于 var1 是左值,所以推导结果是左值引用
+```
+
+```c++
+auto&& var2 = 10   //var2 是个universal reference, 
+                   //由于 10 是个右值，所以推导结果是右值引用
+```
+
+```c++
+template<typename T>
+void f(T&& param);    // “T&&” 意味着 universal reference
+
+f(10);   // 10 是右值，所以 T&& 最终变成右值引用，也就是 int&&
+```
+
+值得一提的是，模板类型推导(上面的`T&&`)和`auto`关键字的推导，规则是一模一样的。至于 **typedef** 和 **decltype** ，留给大家做研究。
+
+注意Scott Meyers的定义里面加粗的两点都很重要: 
+
+* 待推导的参数一定要是 **T&&** 这种形式的，其他的都不行:
+
+  * **const T&&**，加了 const 限定，不行
+
+  * ```c++
+    //待推导的是std::vector<T>&&，
+    //所以这里只是单纯的右值引用
+    template<typename T>
+    void f(std::vector<T>&& param);  
+    ```
+
+* 一定要是**待推导**(deduced type)的参数。比如
+
+  ```c++
+  template <class T, class Allocator = allocator<T> >
+  class vector {
+  public:
+      ...
+      // fully specified parameter type ⇒ no type deduction;
+      // && ≡ rvalue reference
+      void push_back(T&& x); 
+      ...
+  };
+  ```
+
+  在这里面，`push_back()`里面的 **T** 并不是待推导的参数，因为只有等到`std::vector<T>`的`T`被推导出来之后，才轮到`push_back()`，所以轮到编译器去定义`push_back()`的时候，**T** 已经被推导出来了。
+
+  ​
+
+为了理解这个 *Universal Reference*，我们先解决一些小目标，然后再从总体上把握。
+
+$$\blacksquare$$ **什么是左值，什么是右值**
+
+左值和右值的概念从远古时代的C语言就有了，相信大家都不会陌生。简单地来说，能对其取地址的是左值，临时对象、函数返回值等是右值。对于C++，概念也没差多少:
+
+- 如果能对一个表达式(expression)取地址，那么这个表达式就是一个左值
+- 如果一个表达式的类型是左值引用(`T&`，`const T&`等)，那么这个表达式是一个左值
+- 其他的都是右值。比如临时对象、函数返回值和隐式类型转换的产物。诸如 **10** 和 "Hello World" 等常量也是右值。
+
+不过嘛，除了左值右值之外，C++11还引入了一堆其他值：**rvalue**，**lvalue**，**xvalue**，**glvalue**，**prvalue**，而且正式地有了 [*value category*](http://en.cppreference.com/w/cpp/language/value_category) 这个概念(虽然定义得不是很正式)。这里先不挖坑，有兴趣可以看看这个 [SO](http://stackoverflow.com/questions/3601602/what-are-rvalues-lvalues-xvalues-glvalues-and-prvalues)。这篇博文里的东西只要求左值和右值的概念。
+
+$$\blacksquare$$ **Value-ness and type**
+
+这个不知道怎么翻译。意思是，一个东西(比如变量)到底是左值和右值(value-ness)，和它的类型(type)是无关的。
+
+比如:
+
+```c++
+Widget&& var1 = makeWidget();       //1
+...  = static_cast<Widget&&>(var1); //2
+```
+
+这里 *var1* 这个表达式是左值( lvalue )，但是它的 type 却是 rvalue reference (to widget)；`static_cast<Widget&&>(var1)` 这个表达式是 rvalue，但是它的 type 却是 rvalue reference (to widget)。
+
+这是一个比较晦涩的地方，但是懂了这个对理解 *universal reference* ，`std::move()`和 `std::forward()`都很重要。(唔...编程语言的一些话题的确比较晦涩...
+
+$$\blacksquare$$ **Value-ness in Universal Reference**
+
+具体来讲就是，在 Universal Reference 做类型推导的时候，如果类型为 **A** 的**左值**传进来，那么`T&&`里面的 **T** 将会被推导成 `A&`； 如果类型为 **A** 的**右值** 传进来，那么`T&&`里面的 **T** 将会被推导成 `A`，
+
+$$\blacksquare$$ **References Collasping**
+
+这是 *Universal Reference* 之所以 universal 的原因。
+
+具体来说，就是当c++编译器推导模板类型的时候，如果出现 "对引用的引用"(reference to reference)，就会将自动将那些 references "合并"起来。比如，假设待推导的模板参数是`T&&`，假如这时候`T`被推导成`int&`，那么`T&&`就会变成`int& &&`，这个时候就会发生 references collasping，使得
+
+```c++
+T&&  ⇒  int& &&  ⇒  int&
+```
+
+最终得到 `int&`
+
+References collasping 的规则是[2]：
+
+- `A& &`  ⇒ `A&`
+- `A& &&` ⇒ `A&`
+- `A&& &` ⇒ `A&`
+- `A&& &&` ⇒ `A&&`
+
+用 Scott Meyers 的话来说就是：
+
+- An rvalue reference to an rvalue reference becomes (“collapses into”) an rvalue reference.
+- All other references to references (i.e., all combinations involving an lvalue reference) collapse into an lvalue reference.
+
+只有 "对右值引用的引用" 才会推导出右值引用，其他的都会推导出左值引用。
+
+当然，只有编译器才能"自动地"做这种"reference collapsing"，如果你在你的代码里面写`int& &&`，是会产生编译时错误的。
+
+所以，当有模板:
+
+```c++
+template<typename T>
+void foo(T&&);
+```
+
+的时候，我们可以知道[2]:
+
+1. 当 *foo* 的参数是一个 **类型为A** 的 **左值**( lvalue )的时候，`T`会被推导成`A&`，然后，根据上面的 references collapsing 规则``A& && ⇒ A&`，参数的类型最终变成 `A&`
+2. 当 *foo* 的参数是一个 **类型为A** 的 **右值**( rvalue )的时候，`T`会被推导成`A`，所以参数的类型最终变成 `A&&`
+
+比如，
+
+```c++
+template<typename T>
+void foo(T&& param);
+ 
+...
+ 
+int x;
+ 
+...
+ 
+foo(x);   // invoke `foo` on lvalue of type `int`
+foo(10);  // invoke `foo` on rvalue of type `int`
+```
+
+这里 *foo* 的参数为 **x** (lvalue of type int) 的时候，就会有`T&&  ⇒  A& &&  ⇒  A&`；当参数为 **10** (rvalue of type int) 的时候，就会有 `T&&  ⇒  A &&  ⇒  A&&`
+
+如果上面的代码变成这样，结果会是如何?
+
+```c++
+template<typename T>
+void foo(T&& param);
+...
+int x;
+...
+int&& r1 = 10;  // r1 is lvalue of type `int&&`
+int& r2 = x;    // r2 is lvalue of type `int&`
+
+foo(r1);
+foo(r2);
+```
+
+即使 **r1** 和 **r2** 一个是右值引用，一个是左值引用，但是由于 **r1** 与 **r2** 都是**左值**，所以两者作为参数传进去的时候 **T** 都会推导出 `int&`，然后根据 reference collapsing 的规则，最终得到的类型是 `int&`。
+
+$$\blacksquare$$ **summary**
+
+关于 universal reference，就写这么多。
+
+唔... 所以在使用模板和`auto`的时候，大家要注意了，*T&& Doesn’t Always Mean “Rvalue Reference”*。或许有人会问，为什么要搞那么多复杂的规则，让`T&&`代表 rvalue-reference 不就得了? 这样 lvalue-reference 和 rvalue-reference 都可以分得清清楚楚。唔...其实我觉得这些规则更加自然，比如一个函数`int foo(T&& param)`，我们把它的参数声明成右值引用是因为我们想对传进来的右值做一些特殊的操作，我们可以假设这个右值以后不会被用到了(比如一些临时对象)，然后对它做各种各样的事情；但是对左值就不一样了，当我们把一个左值传进去的时候，却不希望它被当成右值，我们直观的感觉是，当调用 **foo(**leftValue**)** 的时候，这个 leftValue 被会当做一个左值来对待。
+
+### 移动语义
+
+唔...接下来是`std::move()`和 `std::forward()`相关了。
+
+$$\blacksquare$$ **Motivation**
+
+为什么要有 `std::move()`和`std::forward()`呢？来看个例子[1]:references-in-c11-scott-meyers
+
+```c++
+template<typename T>
+class Widget {
+    ...
+    Widget(Widget&& lhs);   // lhs’s type is rvalue reference,
+    ...                     // but lhs itself is an lvalue
+}
+
+template<typename T1>
+class Gadget {
+    ...
+    template <typename T2>
+    Gadget(T2&& rhs);        // rhs is a universal reference whose type will
+    ...                      // eventually become an rvalue reference or
+};                           // an lvalue reference, but rhs itself is an lvalue
+```
+
+在这个例子里面，*lhs* 是一个类型为 *rvalue reference* 的左值( lvalue of type rvalue reference )；*rhs 是一个类型为 universal reference* 的左值 (lvalue of type universal reference)。
+
+对于`Widget(Widget&& lhs)`这个函数，我们知道绑定的肯定是一个右值（肯定有一个右值被当做参数传了进来），我们本想着利用**传进来的东西是个右值** 这个特性干点什么，但是现在由于 *lhs* 有了一个名字（可以被取地址了），所以 *lhs* 是一个左值，我们不能直接利用它。因此这个时候我们用`std::move()`对这个 *lhs* 操作一下，返回*它后面隐藏的右值*。 
+
+对于`Gadget(T2&& rhs)`这个函数，我们知道`T2&&`在这里是一个 *Universal Reference*，他最后的类型可能左值引用，也可能是右值引用，具体看传进来的是什么东西。但是，由于现在 *rhs* 有了一个名字（可以被取地址了），所以 *rhs* 是一个左值，我们不能直接利用它。为了得到*它后面隐藏的左值或右值*，可以使用`std::forward()` 。这个时候不能用`std::move()`了，因为它返回的**都是**右值引用，而`std::forward()`返回的既可以是右值引用，又可以是左值引用。
+
+由此我们可以看到`std::move()`是 *unconditional cast to r-value*， 而`std::forward()`是 *conditional cast* 。 
+
+$$\blacksquare$$ **Implementation**
+
+给个伪代码:
+
+```c++
+//std::move()
+template <typename T>
+typename remove_reference<T>::type &&
+move(T&& param)
+{
+  using ReturnType=typename remove_reference<T>::type &&;
+  return static_cast<ReturnType>(param);
+}
+
+//std::forward()
+template <typename T>
+T&& forward(T&& param)
+{
+  if(is_lvalue_reference<T>::value){
+    return param; 
+  } else {
+    return move(param);
+  }
+}
+```
+
+ 具体实现可以看[2]。
+
+### References
+
+1. Scott Meyers, [Universal Reference in C++11](https://isocpp.org/blog/2012/11/universal-references-in-c11-scott-meyers)
+2.  Thomas Becker, [std::forward() and std::move()](http://thbecker.net/articles/rvalue_references/section_08.html)

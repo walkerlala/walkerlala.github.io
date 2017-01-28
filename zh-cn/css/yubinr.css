@@ -41,7 +41,7 @@ body{
     padding:0;
     height: 103px;
     background: #E0E1E2;
-    font-family: "Lucida Sans Unicode", sans-serif; 
+    font-family: "Lucida Sans Unicode", sans-serif;
     font-weight:normal;
 }
 
@@ -75,6 +75,32 @@ body{
     margin-top: 10px;
     margin-left: 9px;
     margin-right: 13px;
+}
+
+.created {
+    margin:0;
+    padding:0;
+    padding-top: 53px;
+    color:#808488;
+    font-size:13px;
+    font-family: Arial, sans-serif;
+    text-decoration: none;
+    float:right;
+    outline: none;
+    opacity: 0.9;
+}
+
+.winedt {
+    margin:0;
+    margin-top:0px;
+    padding:0;
+    padding-left: 5px;
+    padding-right: 12px;
+    color:#606468;
+    font-size:14px;
+    text-decoration: none;
+    float:right;
+    outline: none;
 }
 
 .top_nav{
@@ -184,6 +210,17 @@ a.faq:link
       { text-decoration: none; color: #0000A0; }
 a.faq:visited
       { text-decoration: none; color: #800000; }
+
+.hk  {color: #007788; font-weight: normal;}
+.opt {color: #006040;}
+.cmd {color: #003388;}
+.red {color: #FA0000;}
+.arg {color: #002080; font-family: "Courier New", monospaced;
+      font-size: 12.0pt;}
+.mcr {color: #202280; font-family: "Courier New", monospaced;
+      font-size: 12.0pt; font-weight: bold;}
+.sec {color: #7000DF; font-family: "Courier New", monospaced;
+      font-size: 12.0pt; font-weight: bold;}
 
 PRE {font-family: "Courier New", monospaced; color: rgb(0, 40, 100);
      font-size: 11pt; font-weight: normal; background-color: #F2F2F2;}
@@ -298,7 +335,7 @@ div.comment .comment-date {
 
 .lang-link-zh {
     color: #fff;
-    border: 1px solid #9c6b6b;
+    border: 1px solid #fff;
     padding: 1px 4px 2px;
     text-transform: uppercase;
     opacity: .9;

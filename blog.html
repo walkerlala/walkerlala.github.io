@@ -4,6 +4,7 @@
         <!--http://walkerlala.com/-->
         <link rev="made" href="mailto:yubinr{at}qq.com">
         <link rel="icon" type="image/png" href="./site-icon.png">
+        <script src="./js/jquery-3.1.1.min.js"></script>
         <link rel="stylesheet" type="text/css" href="./css/yubinr.css">
         <meta http-equiv="CACHE-CONTROL" content="NO-CACHE">
         <meta http-equiv="EXPIRES" content="0">
@@ -38,20 +39,47 @@
                     <p>Archive of my stuff: </p>
 
                     <h3> Articles </h3>
-                    <blockquote>
-                        <li>
-                        <a href="./archive/2017-01-12-thinking-cross-entropy.html">Thinking cross entropy</a>&nbsp;&nbsp;
-                        [2016-12-30]
-                        </li>
-                        <li>
-                        <a href="./archive/2016-12-31-NN-four-layer-gradient-descent.html">Gradient descent of 4 Layers FNN</a>&nbsp;&nbsp;
-                        [2016-12-30]
-                        </li>
-                        <li>
-                        <a href="./archive/2016-12-12-rnn-explain-impl.html">A Recurrent Neural Network Tutorial</a>&nbsp;&nbsp;
-                        [2016-12-12]
-                        </li>
-                        <li>
+                    <blockquote id="placeholder">
+                        <script>
+if(typeof(String.prototype.trim) === "undefined")
+{
+    String.prototype.trim = function() 
+    {
+        return String(this).replace(/^\s+|\s+$/g, '');
+    };
+}
+$.get("archive/exported", function(data, status){
+      if(status == "success"){
+          var lines = data.split("\n");
+          var newlines = [];
+          for(var i=0; i<lines.length;i++){
+              var line = lines[i];
+              if(!line.trim().startsWith("#")){
+                  newlines.push(line);
+              }
+          }
+          data = newlines.join(" ");
+          var j = JSON.parse(data);
+          var blog = j.blog;
+          for(var i=0;i<blog.length;i++){
+              var title = blog[i].title;
+              var link  = blog[i].location;
+              var time  = blog[i].time;
+              $("#placeholder").append('<li><a href="'
+                                       + link + '">' 
+                                       + title
+                                       + '</a>&nbsp;&nbsp;['
+                                       + time + ']</li>\n');
+          }
+      }else{
+          alert("Javascript fail to import data from github.\n"
+                + "Please report this problem to the author at `yubinr{at}.com'\n"
+                + "Thanks!")
+      }
+});
+
+                        </script>
+
                     </blockquote>
 
                     <hr>
