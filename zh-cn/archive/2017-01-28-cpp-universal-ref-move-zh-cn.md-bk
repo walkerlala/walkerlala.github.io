@@ -84,7 +84,7 @@ $$\blacksquare$$ **什么是左值，什么是右值**
 - 如果一个表达式的类型是左值引用(`T&`，`const T&`等)，那么这个表达式是一个左值
 - 其他的都是右值。比如临时对象、函数返回值和隐式类型转换的产物。诸如 **10** 和 "Hello World" 等常量也是右值。
 
-不过嘛，除了左值右值之外，C++11还引入了一堆其他值：**rvalue**，**lvalue**，**xvalue**，**glvalue**，**prvalue**，而且正式地有了 [*value category*](http://en.cppreference.com/w/cpp/language/value_category) 这个概念(虽然定义得不是很正式)。这里先不挖坑，有兴趣可以看看这个 [SO](http://stackoverflow.com/questions/3601602/what-are-rvalues-lvalues-xvalues-glvalues-and-prvalues)。这篇博文里的东西只要求左值和右值的概念。
+不过嘛，除了左值右值之外，C++11还引入了一堆其他值：**rvalue**，**lvalue**，**xvalue**，**glvalue**，**prvalue**，而且正式地有了 [*value category*](http://en.cppreference.com/w/cpp/language/value_category) 这个概念(虽然定义得不是很正式)。我在[另一篇文章](./2017-01-28-cpp-value-category-cn.html)里讨论了这个概念。这篇博文里的东西只要求左值和右值的概念。
 
 $$\blacksquare$$ **Value-ness and type**
 
@@ -250,4 +250,4 @@ T&& forward(T&& param)
 ### References
 
 1. Scott Meyers, [Universal Reference in C++11](https://isocpp.org/blog/2012/11/universal-references-in-c11-scott-meyers)
-2.  Thomas Becker, [std::forward() and std::move()](http://thbecker.net/articles/rvalue_references/section_08.html)
+2. Thomas Becker, [std::forward() and std::move()](http://thbecker.net/articles/rvalue_references/section_08.html)
