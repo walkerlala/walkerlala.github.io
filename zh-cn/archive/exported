@@ -8,6 +8,10 @@
     [{ "title": "C++11右值引用与移动语义",
         "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
         "time": "2017-01-28" 
+    },
+    { "title": "C++11 Value Category",
+        "location": "./archive/2017-01-28-cpp-value-category-zh-cn.html",
+        "time": "2017-01-28"
     }
     ],
 
@@ -16,6 +20,10 @@
         [{ "title": "C++11右值引用与移动语义",
             "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
             "time": "2017-01-28" 
+        },
+        { "title": "C++11 Value Category",
+            "location": "./archive/2017-01-28-cpp-value-category-zh-cn.html",
+            "time": "2017-01-28"
         }
         ]
     },
@@ -24,6 +32,10 @@
         [{ "title": "C++11右值引用与移动语义",
             "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
             "time": "2017-01-28" 
+        },
+        { "title": "C++11 Value Category",
+            "location": "./archive/2017-01-28-cpp-value-category-zh-cn.html",
+            "time": "2017-01-28"
         }
         ]
     }

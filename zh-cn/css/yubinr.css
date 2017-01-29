@@ -64,8 +64,9 @@ body{
 .logo_text{
     font-size:30.5px;
     font-weight:normal;
-    display: inline-block;
-    margin-top: 25px;
+    display: block;
+    margin-top: 18px;
+    margin-bottom: 0px;
     color:#606468;
     opacity: 0.95;
 }
@@ -170,31 +171,6 @@ body{
     margin:0;
     text-decoration: none;
     background:#48525B;
-    outline: none;
-}
-
-.tab2 {
-    margin:0;
-    padding:0;
-    text-decoration: none;
-    float:right;
-    outline: none;
-    line-height:28px;
-}
-
-.tab2 a{
-    margin:0;
-    padding:5.5px 12px 6px 12px;
-    color:#CCCFDD;
-    text-decoration: none;
-    outline: none;
-}
-
-.tab2 a:hover{
-    margin:0;
-    color:#EEEEEE;
-    text-decoration: none;
-    background:#303438;
     outline: none;
 }
 
@@ -328,8 +304,8 @@ div.comment .comment-date {
 
 .lang-block-zh {
     position: relative;
-    left: 600px;
-    top: -23px;
+    left: 813px;
+    top: -60px;
     margin: 0px 0px 0px 0px;
 }
 
@@ -347,8 +323,8 @@ div.comment .comment-date {
 
 .lang-block-en {
     position: relative;
-    left: 570px;
-    top: -23px;
+    left: 800px;
+    top: -60px;
     margin: 0px 0px 0px 0px;
 }
 
