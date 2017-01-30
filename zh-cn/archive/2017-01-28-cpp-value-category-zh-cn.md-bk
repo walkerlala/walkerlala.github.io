@@ -40,7 +40,7 @@ SomeType otherVal{val};
 
 一个解释是，我们可以说`otherVal`有了名字(named rvalue reference)，所以是个左值(lvalue)，虽然说这个左值的类型(type)是rvalue reference，但是我们左值是当然不能触发上面的 move constructor 的。
 
-这样一来，上面的 unnamed rvalue reference ( `Func()` 这个表达式 ) 是什么值呢？首先显然它不是左值。它是传统意义上的右值吗？不是。一个简单的原因是，它可以被放在一个赋值表达式的左边，所以它右值，至少不是传统意义上的右值。比如一个实例：
+这样一来，上面的 unnamed rvalue reference ( `Func()` 这个表达式 ) 是什么值呢？首先显然它不是左值。它是传统意义上的右值吗？不是。一个简单的原因是，它可以被放在一个赋值表达式的左边，所以它不是右值，至少不是传统意义上的右值。比如一个实例：
 
 ```c++
 #include <vector>
