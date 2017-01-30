@@ -30,7 +30,7 @@ body{
     padding:5px 0px 0px 0px;
     color: #000000;
     background:rgb(239, 239, 239);
-    font-family: "customConsolas", sans-serif;
+    font-family:'Courier New', "customConsolas", sans-serif;
     font-size: 12pt;
     font-weight:normal;
     text-align:justify;
@@ -57,7 +57,7 @@ body{
     padding:0;
     height: 103px;
     background: #E0E1E2;
-    font-family: "customTNR", serif;
+    font-family: 'Times New Roman', 'High Tower Text', customTNR, serif;
     font-weight:normal;
 }
 
@@ -98,7 +98,7 @@ body{
     margin:0;
     padding:0;
     padding-left:0px;
-    font-family: customTNR, serif;
+    font-family: 'Times New Roman', 'High Tower Text', customTNR, serif;
     font-size:13px;
     font-weight:bold;
     opacity: 0.75;
