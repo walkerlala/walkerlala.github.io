@@ -7,6 +7,22 @@
   http://walkerlala.github.io
 */
 
+/* Times News Roman */
+@font-face {
+    font-family: 'customTNR';
+    src: url('../../fonts/times.ttf');
+}
+@font-face {
+    font-family: 'customConsolas';
+    src: url('../../fonts/Consolas YaHei hybrid.ttf');
+}
+
+@font-face {
+    font-family: 'customAdobe';
+    font-style: 'normal';
+    font-weight: 'normal';
+    src: url('../../fonts/AGaramondPro-Regular.otf');
+}
 html{overflow-y: scroll;}
 
 body{
@@ -14,7 +30,7 @@ body{
     padding:5px 0px 0px 0px;
     color: #000000;
     background:rgb(239, 239, 239);
-    font-family: "Segoe UI", sans-serif;
+    font-family:'Courier New', "customConsolas", sans-serif;
     font-size: 12pt;
     font-weight:normal;
     text-align:justify;
@@ -41,7 +57,7 @@ body{
     padding:0;
     height: 103px;
     background: #E0E1E2;
-    font-family: "Lucida Sans Unicode", sans-serif;
+    font-family: 'Times New Roman', 'High Tower Text', customTNR, serif;
     font-weight:normal;
 }
 
@@ -78,37 +94,11 @@ body{
     margin-right: 13px;
 }
 
-.created {
-    margin:0;
-    padding:0;
-    padding-top: 53px;
-    color:#808488;
-    font-size:13px;
-    font-family: Arial, sans-serif;
-    text-decoration: none;
-    float:right;
-    outline: none;
-    opacity: 0.9;
-}
-
-.winedt {
-    margin:0;
-    margin-top:0px;
-    padding:0;
-    padding-left: 5px;
-    padding-right: 12px;
-    color:#606468;
-    font-size:14px;
-    text-decoration: none;
-    float:right;
-    outline: none;
-}
-
 .top_nav{
     margin:0;
     padding:0;
     padding-left:0px;
-    font-family: Arial, sans-serif;
+    font-family: 'Times New Roman', 'High Tower Text', customTNR, serif;
     font-size:13px;
     font-weight:bold;
     opacity: 0.75;
@@ -187,47 +177,12 @@ a.faq:link
 a.faq:visited
       { text-decoration: none; color: #800000; }
 
-.hk  {color: #007788; font-weight: normal;}
-.opt {color: #006040;}
-.cmd {color: #003388;}
-.red {color: #FA0000;}
-.arg {color: #002080; font-family: "Courier New", monospaced;
-      font-size: 12.0pt;}
-.mcr {color: #202280; font-family: "Courier New", monospaced;
-      font-size: 12.0pt; font-weight: bold;}
-.sec {color: #7000DF; font-family: "Courier New", monospaced;
-      font-size: 12.0pt; font-weight: bold;}
-
 PRE {font-family: "Courier New", monospaced; color: rgb(0, 40, 100);
      font-size: 11pt; font-weight: normal; background-color: #F2F2F2;}
 TT  {font-family: "Courier New", monospaced; color: rgb(0, 30, 120);
      font-size: 12.0pt; font-weight: normal;}
 CODE{font-family: "Courier New", monospaced; color: rgb(0, 60, 120);
      font-size: 12.0pt; font-weight: normal;}
-
-.new{
-    color: #8000FF;
-}
-
-.size{
-    text-align: right;
-    padding-right: 8px;
-}
-
-.dl{
-    text-align: center;
-    padding-right: 8px;
-}
-
-.date{
-    text-align: left;
-    padding-right: 8px;
-}
-.update{
-    text-align: left;
-    padding-right: 8px;
-    font-weight: bold;
-}
 
 table{
     border: 1px solid rgb(180, 180, 180);
@@ -270,60 +225,10 @@ th{
     font-weight: normal;
   /*block-size: 10px;*/
 }
-div.comment{
-    margin: 3px 0px 15px 0px;
-    /*padding:0px 32px 8px 32px;*/
-    /*float:left;*/
-    color: #000000;
-    background: #FFFFFF;
-    border: 2px solid rgb(204, 204, 204);
-    width:834px;
-}
-
-div.comment .comment-header {
-background:#f2f8fa;
-border-bottom:1px solid #E6E0CE;
-}
-
-div.comment .comment-body {
-    margin: 3px 0px 15px 0px;
-    padding:0px 32px 8px 32px;
-}
-
-div.comment .comment-date {
-    padding:0px 32px 8px 32px;
-}
-
-.comment-seperator{
-    margin: -10px 0px 0px 30px;
-    height:20px;
-    width:0px;
-    /*position:relative;*/
-    border-left:1px solid gray;
-}
-
-.lang-block-zh {
-    position: relative;
-    left: 813px;
-    top: -60px;
-    margin: 0px 0px 0px 0px;
-}
-
-.lang-link-zh {
-    color: #fff;
-    border: 1px solid #fff;
-    padding: 1px 4px 2px;
-    text-transform: uppercase;
-    opacity: .9;
-    size: 2em;
-    transition: opacity .3s ease-out;
-    font-size: 20px;
-    margin: 0px 0px 0px 0px;
-}
 
 .lang-block-en {
     position: relative;
-    left: 800px;
+    left: 710px;
     top: -60px;
     margin: 0px 0px 0px 0px;
 }

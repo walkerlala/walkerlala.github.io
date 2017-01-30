@@ -7,6 +7,23 @@
   http://walkerlala.github.io
 */
 
+/* Times News Roman */
+@font-face {
+    font-family: 'customTNR';
+    src: url('../fonts/times.ttf');
+}
+@font-face {
+    font-family: 'customConsolas';
+    src: url('../fonts/Consolas YaHei hybrid.ttf');
+}
+
+@font-face {
+    font-family: 'customAdobe';
+    font-style: 'normal';
+    font-weight: 'normal';
+    src: url('../fonts/AGaramondPro-Regular.otf');
+}
+
 html{overflow-y: scroll;}
 
 body{
@@ -14,7 +31,7 @@ body{
     padding:5px 0px 0px 0px;
     color: #000000;
     background:rgb(239, 239, 239);
-    font-family: "Segoe UI", sans-serif;
+    font-family:'Consolas', "customConsolas", sans-serif;
     font-size: 12pt;
     font-weight:normal;
     text-align:justify;
@@ -41,7 +58,7 @@ body{
     padding:0;
     height: 103px;
     background: #E0E1E2;
-    font-family: "Lucida Sans Unicode", sans-serif; 
+    font-family: 'Times New Roman', 'High Tower Text', customTNR, serif;
     font-weight:normal;
 }
 
@@ -77,12 +94,13 @@ body{
     margin-right: 13px;
 }
 
+/* navigator tabs */
 .top_nav{
     margin:0;
     padding:0;
     padding-left:0px;
-    font-family: Arial, sans-serif;
-    font-size:13px;
+    font-family: 'Times New Roman', 'High Tower Text', customTNR, serif;
+    font-size:15px;
     font-weight:bold;
     opacity: 0.75;
     margin-top: 0px;
@@ -167,30 +185,6 @@ TT  {font-family: "Courier New", monospaced; color: rgb(0, 30, 120);
 CODE{font-family: "Courier New", monospaced; color: rgb(0, 60, 120);
      font-size: 12.0pt; font-weight: normal;}
 
-.new{
-    color: #8000FF;
-}
-
-.size{
-    text-align: right;
-    padding-right: 8px;
-}
-
-.dl{
-    text-align: center;
-    padding-right: 8px;
-}
-
-.date{
-    text-align: left;
-    padding-right: 8px;
-}
-.update{
-    text-align: left;
-    padding-right: 8px;
-    font-weight: bold;
-}
-
 table{
     border: 1px solid rgb(180, 180, 180);
     !padding: 0px 0px 0px 0px;
@@ -228,45 +222,14 @@ th{
 
 .visit-this-page {
   /*background-color: grey;*/
-    font-size: 12pt;
+    font-size: 12px;
     font-weight: normal;
   /*block-size: 10px;*/
-}
-div.comment{
-    margin: 3px 0px 15px 0px;
-    /*padding:0px 32px 8px 32px;*/
-    /*float:left;*/
-    color: #000000;
-    background: #FFFFFF;
-    border: 2px solid rgb(204, 204, 204);
-    width:834px;
-}
-
-div.comment .comment-header {
-background:#f2f8fa;
-border-bottom:1px solid #E6E0CE;
-}
-
-div.comment .comment-body {
-    margin: 3px 0px 15px 0px;
-    padding:0px 32px 8px 32px;
-}
-
-div.comment .comment-date {
-    padding:0px 32px 8px 32px;
-}
-
-.comment-seperator{
-    margin: -10px 0px 0px 30px;
-    height:20px;
-    width:0px;
-    /*position:relative;*/
-    border-left:1px solid gray;
 }
 
 .lang-block-zh {
     position: relative;
-    left: 813px;
+    left: 750px;
     top: -60px;
     margin: 0px 0px 0px 0px;
 }
@@ -283,20 +246,3 @@ div.comment .comment-date {
     margin: 0px 0px 0px 0px;
 }
 
-.lang-block-en {
-    position: relative;
-    left: 813px;
-    top: -60px;
-    margin: 0px 0px 0px 0px;
-}
-
-.lang-link-en {
-    color: #fff;
-    border: 1px solid #9c6b6b;
-    padding: 1px 4px 2px;
-    text-transform: uppercase;
-    opacity: .9;
-    transition: opacity .3s ease-out;
-    font-size: 17px;
-    margin: 0px 0px 0px 0px;
-}
