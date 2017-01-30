@@ -12,17 +12,6 @@
     font-family: 'customTNR';
     src: url('../fonts/times.ttf');
 }
-@font-face {
-    font-family: 'customConsolas';
-    src: url('../fonts/Consolas YaHei hybrid.ttf');
-}
-
-@font-face {
-    font-family: 'customAdobe';
-    font-style: 'normal';
-    font-weight: 'normal';
-    src: url('../fonts/AGaramondPro-Regular.otf');
-}
 
 html{overflow-y: scroll;}
 
@@ -31,7 +20,7 @@ body{
     padding:5px 0px 0px 0px;
     color: #000000;
     background:rgb(239, 239, 239);
-    font-family:'Consolas', "customConsolas", sans-serif;
+    font-family: sans-serif;
     font-size: 12pt;
     font-weight:normal;
     text-align:justify;
