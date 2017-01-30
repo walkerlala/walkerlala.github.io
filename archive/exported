@@ -1,52 +1,62 @@
-# File listed here would be shown in
-#  * blog.html
-#  * archive.html
-#  * index.html 
-#  * download.html
+# A json-like format to export contents to some pages.
+# Contents listed here would be read by some pages(e.g, index.html), and then
+# some corresponding contents would be automatically displayed here.
+#
+# Lines starting with # would be ignored.
+#
 # NOTE path should be related to root directory, i.e. `walkerlala.github.io'
-{"blog":
-    [{ "title": "Thinking cross entropy",
-        "location": "./archive/2017-01-12-thinking-cross-entropy.html",
-        "time": "2016-12-30" 
-    },
-    {  "title": "Gradient descent of 4 Layers FNN",
-        "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
-        "time": "2016-12-30" 
-    },
-    {  "title": "A Recurrent Neural Network Tutorial",
-        "location": "./archive/2016-12-12-rnn-explain-impl.html",
-        "time": "2016-12-12" 
-    }],
+#
+{
+###
+# contents for `blog.html'
+###
+    "blog":
+        [
+        {  "title": "What If Two Processes Write to The Same File Simultaneously",
+            "location": "./archive/2017-02-17-what-if-write-to-the-same-file.html",
+            "time": "2017-02-17",
+            "summary": "What if your open the same file in several processes and you write to it simultaneously? What is the result? Do these process share the same file offset when they try to write? What about writing to the same file in the same process using different threads?(Take Linux for example.)"
+        },
+        { "title": "Thinking cross entropy",
+            "location": "./archive/2017-01-12-thinking-cross-entropy.html",
+            "time": "2016-12-30",
+            "summary": "I discover that the concept of cross entropy is used widely than many people think. In this essay, I want to talk about some of my thoughts about cross entropy."
+        },
+        {  "title": "Gradient descent of 4 Layers FNN",
+            "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
+            "time": "2016-12-30", 
+            "summary": "Derivation of gradient descent of a 4 layers FNN for my Machine Learning course"
+        },
+        {  "title": "A Recurrent Neural Network Tutorial",
+            "location": "./archive/2016-12-12-rnn-explain-impl.html",
+            "time": "2016-12-12",
+            "summary": "What exactly is Recurrent Neural Network(RNN) and how to use/implement is"
+        }
+    ],
 
-"archive":
+###
+# contents for `archive.html'
+###
+    "archive":
     {"blog": 
-        [{ "title": "Thinking cross entropy",
+        [
+        {  "title": "What If Two Processes Write to The Same File Simultaneously",
+            "location": "./archive/2017-02-17-what-if-write-to-the-same-file.html",
+            "time": "2017-02-17"
+        },
+        { "title": "Thinking cross entropy",
             "location": "./archive/2017-01-12-thinking-cross-entropy.html",
-            "time": "2016-12-30" 
+            "time": "2016-12-30"
         },
         {  "title": "Gradient descent of 4 Layers FNN",
             "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
-            "time": "2016-12-30" 
+            "time": "2016-12-30"
         },
         {  "title": "A Recurrent Neural Network Tutorial",
             "location": "./archive/2016-12-12-rnn-explain-impl.html",
-            "time": "2016-12-12" 
-        }]
-    },
-"index":
-    {"blog": 
-        [{ "title": "Thinking cross entropy",
-            "location": "./archive/2017-01-12-thinking-cross-entropy.html",
-            "time": "2016-12-30" 
-        },
-        {  "title": "Gradient descent of 4 Layers FNN",
-            "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
-            "time": "2016-12-30" 
-        },
-        {  "title": "A Recurrent Neural Network Tutorial",
-            "location": "./archive/2016-12-12-rnn-explain-impl.html",
-            "time": "2016-12-12" 
-        }]
+            "time": "2016-12-12"
+        }
+        ]
     }
 }
- 
+
