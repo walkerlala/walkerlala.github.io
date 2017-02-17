@@ -1,10 +1,16 @@
-# File listed here would be shown in
-#  * blog.html
-#  * archive.html
-#  * index.html 
-#  * download.html
+# A json-like format to export contents to some pages.
+# Contents listed here would be read by some pages(e.g, index.html), and then
+# some corresponding contents would be automatically displayed here.
+#
+# Lines starting with # would be ignored.
+#
 # NOTE path should be related to root directory, i.e. `walkerlala.github.io'
-{"blog":
+#
+{
+###
+# contents for `blog.html'
+###
+"blog":
     [{ "title": "Thinking cross entropy",
         "location": "./archive/2017-01-12-thinking-cross-entropy.html",
         "time": "2016-12-30" 
@@ -18,6 +24,9 @@
         "time": "2016-12-12" 
     }],
 
+###
+# contents for `archive.html'
+###
 "archive":
     {"blog": 
         [{ "title": "Thinking cross entropy",
@@ -33,6 +42,9 @@
             "time": "2016-12-12" 
         }]
     },
+###
+# contents for `index.html'
+###
 "index":
     {"blog": 
         [{ "title": "Thinking cross entropy",
