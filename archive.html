@@ -60,7 +60,7 @@ $.get("archive/exported", function(data, status){
           }
           data = newlines.join(" ");
           var j = JSON.parse(data);
-          var blog = j.blog;
+          var blog = j.archive.blog;
           for(var i=0;i<blog.length;i++){
               var title = blog[i].title;
               var link  = blog[i].location;

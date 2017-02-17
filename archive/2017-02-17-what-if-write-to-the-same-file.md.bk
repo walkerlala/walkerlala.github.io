@@ -1,0 +1,61 @@
+### What If Two Processes Write to The Same File Simultaneously
+
+What if your open the same file in several processes and you write to it simultaneously? What is the result? Do these process share the same file offset when they try to write? What about writing to the same file in the same process using different threads?(Take Linux for example.)
+
+To understand this, you have to know how the kernel handles file reading/writing internally.
+
+#### Three Data Structures inside The Kernel
+
+$$\blacksquare$$ **The per-process file description table**
+
+For each process, the kernel maintains a table of *open file descriptors*. Each entry in this table records information about a single file descriptor(the one returned by the `open()` system call), including:
+
+- a set of flags controlling the operation of the file descriptor (actually there is just one such flag, the *close-on-exec* flag)
+- a reference to the open file description
+
+$$\blacksquare$$ **The system-wide table of open file descriptions**
+
+An open file description stores all information relating an open file. It's also called *open file table* or *open file handles*. Information includes:
+
+- the current file offset (as updated by `read()` and `write()`, or explicitly modified using `lseek()`)
+- status flags specified when opening the file (*i.e*, the *flags* argument to `open()`)
+- the file access mode (read-only, write-only, or read-write, as specified in `open()`)
+- setting relating to signal-driven I/O
+- a reference to the *i-node* object for this file
+
+$$\blacksquare$$ **The file system i-node table**
+
+Each file system has a table of *i-nodes* for all files residing in the file system. Information includes:
+
+- file type (*e.g*, regular file, socket or FIFO) and permission
+- a pointer to a list of blocks held on this file
+- various properties of this file, including its size and time stamps, etc. (However, do distinguish between on-disk i-nodes and in-memory i-nodes)
+
+Here is a picture taken from the book [*The Linux Programming Interface*](http://man7.org/tlpi/), which clearly depicts the relationship between file descriptors, open file descriptions and i-nodes. In this situation, two processes have a number of open file descriptors.
+
+![linux-file-description][linux-file-description]
+
+#### What Is Going On
+
+Let us do a little analysis on this diagram and figure out what would happen when more than one processes write to the same simultaneously.
+
+In this diagram, descriptors 1 and 20 of process A both refer to the same open file description (labeled 23). This situation may arise as a result of a call the `dup()` , `dup2()` or `fcntl()`.
+
+Descriptor 2 of process A and descriptor 2 of process B refer to a single open file description(73). This scenario could occur after a call to `fork()`(*i.e*, process A is the parent of process B, or vice versa), or if one process passes an open file descriptor to another process using a UNIX domain socket.
+
+Finally, we see that descriptor 0 of process A and descriptor 3 of process B refer to different open file descriptions, but that these descriptions refer to the same i-node table entry (1976) -- in other words, to the same file. A similar situation could occur if a single process open the same file twice.
+
+So, what is the implication? What if two processes/threads write to the same file simultaneously? Well, we can draw some implications from the above analysis:
+
+- If two different file descriptors refer to the same open file description, then this two file descriptor share the same file offset. Therefore, if the file offset is changed via one file descriptor (as a consequence of call to `read()`, `write()`, or `lseek()`) then this change is visible through the other file descriptors. This applies both when two file descriptors belong to the same process and when they belong to different processes
+
+  Similar scope rules apply when retrieving and changing the open file status flags (*e.g*, **O_APPEND**, **O_NONBLOCK** and **O_ASYNC**) using the `fcntl()` **F_GETFL** and **F_SETFL** operations.
+
+- By contrast, the file descriptor flags (*i.e*, the *close-on-exec*) are private to the process and file descriptor. Modifying these flags does not affect other descriptors in the same process or a different process.
+
+#### References
+
+- [*The Linux Programming Interface*](http://man7.org/tlpi/), a book which I consider a necessity for all Linux programmer
+
+[linux-file-description]: ../img/linux-file-description.png
+

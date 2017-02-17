@@ -49,7 +49,7 @@
 
                     <hr>
 
-                    <h3>Something I wrote:</h3>
+                    <h3>Recent Posts</h3>
 
                     <p>Here are something I wrote recently. Hopefully you can find something interesting :)</p>
 
@@ -74,16 +74,22 @@ $.get("archive/exported", function(data, status){
           }
           data = newlines.join(" ");
           var j = JSON.parse(data);
-          var blog = j.blog;
+          var blog = j.blog;   //load blogs
           for(var i=0;i<blog.length;i++){
               var title = blog[i].title;
               var link  = blog[i].location;
               var time  = blog[i].time;
+              var summary = blog[i].summary;
+              // start title
               $("#placeholder").append('<li><a href="'
                                        + link + '">' 
                                        + title
                                        + '</a>&nbsp;&nbsp;['
                                        + time + ']</li>\n');
+              //start summary
+              $("#placeholder").append('<p style="margin: 5px 0px 15px 30px;">'
+                  + summary
+                  + '</p>');
           }
       }else{
           alert("Javascript fail to import data from github.\n"
