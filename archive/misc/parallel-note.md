@@ -185,8 +185,6 @@
 
   [3] : https://lwn.net/Articles/264090/
 
-- TODO: Linux file concurrent access
-
 - TODO: Try this simple program using parallel C/C++ (and compiler optimization) W/O `volatile` or *memory barrier* to see the difference 
 
 - TODO: smp_rmb ->  read : read
@@ -196,6 +194,8 @@
   ​             smp_mb   ->   r/w  :  r/w
 
    then  what could be    read  :  read /write ? and similarily write : read/write ?
+
+  Regarding to memory barriers, there are some confusions about **See by All the CPU** and **See by only the current CPU** , for `smp_mb()`, all CPUs will regard the ordering(maybe except Alpha). But with `smp_wmb()` and `smp_rmb()`, things are pretty different. See the discussion with me and Paul Mckenny
 
 - Memory barier transitivity
 
