@@ -101,3 +101,19 @@
   ```
 
   One caveat about this is that you can't use **shared_from_this()** in the constructor of the **Thing** class. The **weak_ptr** member variable has to be set to point to the manager object by the shared_ptr constructor, and this can't run until the Thing constructor has completed.
+
+  $$\blacksquare$$ About linkage
+
+- *Non-const* global variables have *external* linkage by default
+
+- *Const* global variables have *internal* linkage by default
+
+- Functions have *external* linkage by default
+
+
+
+数组在一般情况下会转换成首元素指针右值，除了：
+
+- sizeof 运算的时候
+- 取地址的时候（得到的是指向数组的指针而不是指向首元素的指针）
+- C11的_Alignof运算符
