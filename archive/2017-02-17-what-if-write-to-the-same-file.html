@@ -2,8 +2,8 @@
 <html>
     <head>
 
-<!-- modified GITHUB theme to suit my blog template -->
-<style type='text/css'>html, body {overflow-x: initial !important;}.CodeMirror { height: auto; }
+        <!-- modified GITHUB theme to suit my blog template -->
+        <style type='text/css'>html, body {overflow-x: initial !important;}.CodeMirror { height: auto; }
 .CodeMirror-scroll { overflow-y: hidden; overflow-x: auto; }
 .CodeMirror-lines { padding: 4px 0px; }
 .CodeMirror pre { }
@@ -100,7 +100,7 @@ div.CodeMirror span.CodeMirror-nonmatchingbracket { color: rgb(255, 34, 34); }
 .cm-searching { background: rgba(255, 255, 0, 0.4); }
 .CodeMirror span { }
 @media print { 
-  .CodeMirror div.CodeMirror-cursor { visibility: hidden; }
+    .CodeMirror div.CodeMirror-cursor { visibility: hidden; }
 }
 .CodeMirror-lint-markers { width: 16px; }
 .CodeMirror-lint-tooltip { background-color: infobackground; border: 1px solid black; border-radius: 4px; color: infotext; font-family: monospace; overflow: hidden; padding: 2px 5px; position: fixed; white-space: pre-wrap; z-index: 10000; max-width: 600px; opacity: 0; transition: opacity 0.4s; font-size: 0.8em; }
@@ -121,9 +121,9 @@ a:active, a:hover { outline: 0px; }
 .for-image #write { padding-left: 8px; padding-right: 8px; }
 body.typora-export { padding-left: 30px; padding-right: 30px; }
 @media screen and (max-width: 500px) { 
-  body.typora-export { padding-left: 0px; padding-right: 0px; }
-  .CodeMirror-sizer { margin-left: 0px !important; }
-  .CodeMirror-gutters { display: none !important; }
+    body.typora-export { padding-left: 0px; padding-right: 0px; }
+    .CodeMirror-sizer { margin-left: 0px !important; }
+    .CodeMirror-gutters { display: none !important; }
 }
 .typora-export #write { margin: 0px auto; }
 #write > p:first-child, #write > ul:first-child, #write > ol:first-child, #write > pre:first-child, #write > blockquote:first-child, #write > div:first-child, #write > table:first-child { margin-top: 30px; }
@@ -175,14 +175,14 @@ blockquote > :last-child { margin-bottom: 0px; }
 blockquote > :first-child { margin-top: 0px; }
 .footnotes-area { color: rgb(136, 136, 136); margin-top: 0.714rem; padding-bottom: 0.143rem; }
 @media print { 
-  html, body { height: 100%; }
-  .typora-export * { -webkit-print-color-adjust: exact; }
-  h1, h2, h3, h4, h5, h6 { break-after: avoid-page; orphans: 2; }
-  p { orphans: 4; }
-  html.blink-to-pdf { font-size: 13px; }
-  .typora-export #write { padding-left: 1cm; padding-right: 1cm; }
-  .typora-export #write::after { height: 0px; }
-  @page { margin: 20mm 0mm; }
+    html, body { height: 100%; }
+    .typora-export * { -webkit-print-color-adjust: exact; }
+    h1, h2, h3, h4, h5, h6 { break-after: avoid-page; orphans: 2; }
+    p { orphans: 4; }
+    html.blink-to-pdf { font-size: 13px; }
+    .typora-export #write { padding-left: 1cm; padding-right: 1cm; }
+    .typora-export #write::after { height: 0px; }
+    @page { margin: 20mm 0mm; }
 }
 .footnote-line { margin-top: 0.714em; font-size: 0.7em; }
 a img, img a { cursor: pointer; }
@@ -210,10 +210,10 @@ p + .mathjax-block { margin-top: -1.143rem; }
 .md-toc-h5 .md-toc-inner { margin-left: 8em; }
 .md-toc-h6 .md-toc-inner { margin-left: 10em; }
 @media screen and (max-width: 48em) { 
-  .md-toc-h3 .md-toc-inner { margin-left: 3.5em; }
-  .md-toc-h4 .md-toc-inner { margin-left: 5em; }
-  .md-toc-h5 .md-toc-inner { margin-left: 6.5em; }
-  .md-toc-h6 .md-toc-inner { margin-left: 8em; }
+    .md-toc-h3 .md-toc-inner { margin-left: 3.5em; }
+    .md-toc-h4 .md-toc-inner { margin-left: 5em; }
+    .md-toc-h5 .md-toc-inner { margin-left: 6.5em; }
+    .md-toc-h6 .md-toc-inner { margin-left: 8em; }
 }
 a.md-toc-inner { font-size: inherit; font-style: inherit; font-weight: inherit; line-height: inherit; }
 .footnote-line a:not(.reversefootnote) { color: inherit; }
@@ -289,28 +289,28 @@ table tr th:last-child, table tr td:last-child { margin-bottom: 0px; }
 .task-list-item input { top: 3px; left: 8px; }
 @media screen and (min-width: 914px) { 
 }
-@media print { 
-  html { font-size: 13px; }
-  table, pre { break-inside: avoid; }
-  pre { word-wrap: break-word; }
-}
-.md-fences { background-color: rgb(248, 248, 248); }
-#write pre.md-meta-block { padding: 1rem; font-size: 85%; line-height: 1.45; background-color: rgb(247, 247, 247); border: 0px; border-radius: 3px; color: rgb(119, 119, 119); margin-top: 0px !important; }
-.mathjax-block > .code-tooltip { bottom: 0.375rem; }
-#write > h3.md-focus::before { left: -1.5625rem; top: 0.375rem; }
-#write > h4.md-focus::before { left: -1.5625rem; top: 0.285714rem; }
-#write > h5.md-focus::before { left: -1.5625rem; top: 0.285714rem; }
-#write > h6.md-focus::before { left: -1.5625rem; top: 0.285714rem; }
-.md-image > .md-meta { border: 1px solid rgb(221, 221, 221); border-radius: 3px; font-family: Consolas, "Liberation Mono", Courier, monospace; padding: 2px 4px 0px; font-size: 0.9em; color: inherit; }
-.md-tag { color: inherit; }
-.md-toc { margin-top: 20px; padding-bottom: 20px; }
-#typora-quick-open { border: 1px solid rgb(221, 221, 221); background-color: rgb(248, 248, 248); }
-#typora-quick-open-item { background-color: rgb(250, 250, 250); border-color: rgb(254, 254, 254) rgb(229, 229, 229) rgb(229, 229, 229) rgb(238, 238, 238); border-style: solid; border-width: 1px; }
-#md-notification::before { top: 10px; }
-.on-focus-mode blockquote { border-left-color: rgba(85, 85, 85, 0.117647); }
-header, .context-menu, .megamenu-content, footer { font-family: "Segoe UI", Arial, sans-serif; }
+      @media print { 
+          html { font-size: 13px; }
+          table, pre { break-inside: avoid; }
+          pre { word-wrap: break-word; }
+      }
+      .md-fences { background-color: rgb(248, 248, 248); }
+      #write pre.md-meta-block { padding: 1rem; font-size: 85%; line-height: 1.45; background-color: rgb(247, 247, 247); border: 0px; border-radius: 3px; color: rgb(119, 119, 119); margin-top: 0px !important; }
+      .mathjax-block > .code-tooltip { bottom: 0.375rem; }
+      #write > h3.md-focus::before { left: -1.5625rem; top: 0.375rem; }
+      #write > h4.md-focus::before { left: -1.5625rem; top: 0.285714rem; }
+      #write > h5.md-focus::before { left: -1.5625rem; top: 0.285714rem; }
+      #write > h6.md-focus::before { left: -1.5625rem; top: 0.285714rem; }
+      .md-image > .md-meta { border: 1px solid rgb(221, 221, 221); border-radius: 3px; font-family: Consolas, "Liberation Mono", Courier, monospace; padding: 2px 4px 0px; font-size: 0.9em; color: inherit; }
+      .md-tag { color: inherit; }
+      .md-toc { margin-top: 20px; padding-bottom: 20px; }
+      #typora-quick-open { border: 1px solid rgb(221, 221, 221); background-color: rgb(248, 248, 248); }
+      #typora-quick-open-item { background-color: rgb(250, 250, 250); border-color: rgb(254, 254, 254) rgb(229, 229, 229) rgb(229, 229, 229) rgb(238, 238, 238); border-style: solid; border-width: 1px; }
+      #md-notification::before { top: 10px; }
+      .on-focus-mode blockquote { border-left-color: rgba(85, 85, 85, 0.117647); }
+      header, .context-menu, .megamenu-content, footer { font-family: "Segoe UI", Arial, sans-serif; }
 
-</style>
+        </style>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <!--http://walkerlala.com/-->
         <link rel="icon" type="image/png" href="../site-icon.png">
@@ -323,7 +323,7 @@ header, .context-menu, .megamenu-content, footer { font-family: "Segoe UI", Aria
         <meta http-equiv="CONTENT-LANGUAGE" content="en-US">
 
         <meta name="AUTHOR" content="walkerlala">
-        <title>What If Two Processes Write to The Same File Simultaneously</title>
+        <title>What If Two Processes Write to the Same File Simultaneously</title>
     </head>
 
     <body data-feedly-mini="yes" >
@@ -350,24 +350,21 @@ header, .context-menu, .megamenu-content, footer { font-family: "Segoe UI", Aria
                     <br>
                     <div class="typora-export"><!-- blog content start -->
 
-<div  id='write'  class = 'is-node'><h3><a name='header-c1' class='md-header-anchor '></a>What If Two Processes Write to The Same File Simultaneously</h3><p>What if your open the same file in several processes and you write to it simultaneously? What is the result? Do these process share the same file offset when they try to write? What about writing to the same file in the same process using different threads?(Take Linux for example.)</p><p>To understand this, you have to know how the kernel handles file reading/writing internally.</p><h4><a name='header-c10' class='md-header-anchor '></a>Three Data Structures inside The Kernel</h4><p><span class="MathJax_Preview"></span><span class="MathJax_SVG_Display" style="text-align: center;"><span class="MathJax_SVG" id="MathJax-Element-3-Frame" tabindex="-1" style="font-size: 100%; display: inline-block;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.808ex" height="1.994ex" viewBox="0 -755.9 778.5 858.4" role="img" focusable="false" style="vertical-align: -0.238ex;"><defs><path stroke-width="1" id="E3-MJAMS-25A0" d="M71 0Q59 4 55 16V346L56 676Q64 686 70 689H709Q719 681 722 674V15Q719 10 709 1L390 0H71Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#E3-MJAMS-25A0" x="0" y="0"></use></g></svg></span></span><script type="math/tex; mode=display" id="MathJax-Element-3">\blacksquare</script> <strong>The per-process file description table</strong></p><p>For each process, the kernel maintains a table of <em>open file descriptors</em>. Each entry in this table records information about a single file descriptor(the one returned by the <code>open()</code> system call), including:</p><ul><li>a set of flags controlling the operation of the file descriptor (actually there is just one such flag, the <em>close-on-exec</em> flag)</li><li>a reference to the open file description</li></ul><p><span class="MathJax_Preview"></span><span class="MathJax_SVG_Display" style="text-align: center;"><span class="MathJax_SVG" id="MathJax-Element-3-Frame" tabindex="-1" style="font-size: 100%; display: inline-block;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.808ex" height="1.994ex" viewBox="0 -755.9 778.5 858.4" role="img" focusable="false" style="vertical-align: -0.238ex;"><defs><path stroke-width="1" id="E3-MJAMS-25A0" d="M71 0Q59 4 55 16V346L56 676Q64 686 70 689H709Q719 681 722 674V15Q719 10 709 1L390 0H71Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#E3-MJAMS-25A0" x="0" y="0"></use></g></svg></span></span><script type="math/tex; mode=display" id="MathJax-Element-3">\blacksquare</script> <strong>The system-wide table of open file descriptions</strong></p><p>An open file description stores all information relating an open file. It&#39;s also called <em>open file table</em> or <em>open file handles</em>. Information includes:</p><ul><li>the current file offset (as updated by <code>read()</code> and <code>write()</code>, or explicitly modified using <code>lseek()</code>)</li><li>status flags specified when opening the file (<em>i.e</em>, the <em>flags</em> argument to <code>open()</code>)</li><li>the file access mode (read-only, write-only, or read-write, as specified in <code>open()</code>)</li><li>setting relating to signal-driven I/O</li><li>a reference to the <em>i-node</em> object for this file</li></ul><p><span class="MathJax_Preview"></span><span class="MathJax_SVG_Display" style="text-align: center;"><span class="MathJax_SVG" id="MathJax-Element-3-Frame" tabindex="-1" style="font-size: 100%; display: inline-block;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.808ex" height="1.994ex" viewBox="0 -755.9 778.5 858.4" role="img" focusable="false" style="vertical-align: -0.238ex;"><defs><path stroke-width="1" id="E3-MJAMS-25A0" d="M71 0Q59 4 55 16V346L56 676Q64 686 70 689H709Q719 681 722 674V15Q719 10 709 1L390 0H71Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#E3-MJAMS-25A0" x="0" y="0"></use></g></svg></span></span><script type="math/tex; mode=display" id="MathJax-Element-3">\blacksquare</script> <strong>The file system i-node table</strong></p><p>Each file system has a table of <em>i-nodes</em> for all files residing in the file system. Information includes:</p><ul><li>file type (<em>e.g</em>, regular file, socket or FIFO) and permission</li><li>a pointer to a list of blocks held on this file</li><li>various properties of this file, including its size and time stamps, etc. (However, do distinguish between on-disk i-nodes and in-memory i-nodes)</li></ul><p>Here is a picture taken from the book <a href='http://man7.org/tlpi/'><em>The Linux Programming Interface</em></a>, which clearly depicts the relationship between file descriptors, open file descriptions and i-nodes. In this situation, two processes have a number of open file descriptors.</p><p><span class='md-image'><img alt='linux-file-description' src='../img/linux-file-description.png'></img></span></p><h4><a name='header-c79' class='md-header-anchor '></a>What Is Going On</h4><p>Let us do a little analysis on this diagram and figure out what would happen when more than one processes write to the same simultaneously.</p><p>In this diagram, descriptors 1 and 20 of process A both refer to the same open file description (labeled 23). This situation may arise as a result of a call the <code>dup()</code> , <code>dup2()</code> or <code>fcntl()</code>.</p><p>Descriptor 2 of process A and descriptor 2 of process B refer to a single open file description(73). This scenario could occur after a call to <code>fork()</code>(<em>i.e</em>, process A is the parent of process B, or vice versa), or if one process passes an open file descriptor to another process using a UNIX domain socket.</p><p>Finally, we see that descriptor 0 of process A and descriptor 3 of process B refer to different open file descriptions, but that these descriptions refer to the same i-node table entry (1976) -- in other words, to the same file. A similar situation could occur if a single process open the same file twice.</p><p>So, what is the implication? What if two processes/threads write to the same file simultaneously? Well, we can draw some implications from the above analysis:</p><ul><li><p>If two different file descriptors refer to the same open file description, then this two file descriptor share the same file offset. Therefore, if the file offset is changed via one file descriptor (as a consequence of call to <code>read()</code>, <code>write()</code>, or <code>lseek()</code>) then this change is visible through the other file descriptors. This applies both when two file descriptors belong to the same process and when they belong to different processes</p><p>Similar scope rules apply when retrieving and changing the open file status flags (<em>e.g</em>, <strong>O_APPEND</strong>, <strong>O_NONBLOCK</strong> and <strong>O_ASYNC</strong>) using the <code>fcntl()</code> <strong>F_GETFL</strong> and <strong>F_SETFL</strong> operations.</p></li><li><p>By contrast, the file descriptor flags (<em>i.e</em>, the <em>close-on-exec</em>) are private to the process and file descriptor. Modifying these flags does not affect other descriptors in the same process or a different process.</p></li></ul><h4><a name='header-c144' class='md-header-anchor '></a>References</h4><ul><li><a href='http://man7.org/tlpi/'><em>The Linux Programming Interface</em></a>, a book which I consider a necessity for all Linux programmer</li></ul><p></p></div>
-                <hr>
-                <p class="LastModified">Yubin Ruan, last modified in 2017-02-17</p>
+                        <div  id='write'  class = 'is-node'><h3><a name='header-c1' class='md-header-anchor '></a>What If Two Processes Write to The Same File Simultaneously</h3><p>What if your open the same file in several processes and you write to it simultaneously? What is the result? Do these process share the same file offset when they try to write? What about writing to the same file in the same process using different threads?(Take Linux for example.)</p><p>To understand this, you have to know how the kernel handles file reading/writing internally.</p><h4><a name='header-c10' class='md-header-anchor '></a>Three Data Structures inside The Kernel</h4><p><span class="MathJax_Preview"></span><span class="MathJax_SVG_Display" style="text-align: center;"><span class="MathJax_SVG" id="MathJax-Element-3-Frame" tabindex="-1" style="font-size: 100%; display: inline-block;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.808ex" height="1.994ex" viewBox="0 -755.9 778.5 858.4" role="img" focusable="false" style="vertical-align: -0.238ex;"><defs><path stroke-width="1" id="E3-MJAMS-25A0" d="M71 0Q59 4 55 16V346L56 676Q64 686 70 689H709Q719 681 722 674V15Q719 10 709 1L390 0H71Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#E3-MJAMS-25A0" x="0" y="0"></use></g></svg></span></span><script type="math/tex; mode=display" id="MathJax-Element-3">\blacksquare</script> <strong>The per-process file description table</strong></p><p>For each process, the kernel maintains a table of <em>open file descriptors</em>. Each entry in this table records information about a single file descriptor(the one returned by the <code>open()</code> system call), including:</p><ul><li>a set of flags controlling the operation of the file descriptor (actually there is just one such flag, the <em>close-on-exec</em> flag)</li><li>a reference to the open file description</li></ul><p><span class="MathJax_Preview"></span><span class="MathJax_SVG_Display" style="text-align: center;"><span class="MathJax_SVG" id="MathJax-Element-3-Frame" tabindex="-1" style="font-size: 100%; display: inline-block;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.808ex" height="1.994ex" viewBox="0 -755.9 778.5 858.4" role="img" focusable="false" style="vertical-align: -0.238ex;"><defs><path stroke-width="1" id="E3-MJAMS-25A0" d="M71 0Q59 4 55 16V346L56 676Q64 686 70 689H709Q719 681 722 674V15Q719 10 709 1L390 0H71Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#E3-MJAMS-25A0" x="0" y="0"></use></g></svg></span></span><script type="math/tex; mode=display" id="MathJax-Element-3">\blacksquare</script> <strong>The system-wide table of open file descriptions</strong></p><p>An open file description stores all information relating an open file. It&#39;s also called <em>open file table</em> or <em>open file handles</em>. Information includes:</p><ul><li>the current file offset (as updated by <code>read()</code> and <code>write()</code>, or explicitly modified using <code>lseek()</code>)</li><li>status flags specified when opening the file (<em>i.e</em>, the <em>flags</em> argument to <code>open()</code>)</li><li>the file access mode (read-only, write-only, or read-write, as specified in <code>open()</code>)</li><li>setting relating to signal-driven I/O</li><li>a reference to the <em>i-node</em> object for this file</li></ul><p><span class="MathJax_Preview"></span><span class="MathJax_SVG_Display" style="text-align: center;"><span class="MathJax_SVG" id="MathJax-Element-3-Frame" tabindex="-1" style="font-size: 100%; display: inline-block;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.808ex" height="1.994ex" viewBox="0 -755.9 778.5 858.4" role="img" focusable="false" style="vertical-align: -0.238ex;"><defs><path stroke-width="1" id="E3-MJAMS-25A0" d="M71 0Q59 4 55 16V346L56 676Q64 686 70 689H709Q719 681 722 674V15Q719 10 709 1L390 0H71Z"></path></defs><g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#E3-MJAMS-25A0" x="0" y="0"></use></g></svg></span></span><script type="math/tex; mode=display" id="MathJax-Element-3">\blacksquare</script> <strong>The file system i-node table</strong></p><p>Each file system has a table of <em>i-nodes</em> for all files residing in the file system. Information includes:</p><ul><li>file type (<em>e.g</em>, regular file, socket or FIFO) and permission</li><li>a pointer to a list of blocks held on this file</li><li>various properties of this file, including its size and time stamps, etc. (However, do distinguish between on-disk i-nodes and in-memory i-nodes)</li></ul><p>Here is a picture taken from the book <a href='http://man7.org/tlpi/'><em>The Linux Programming Interface</em></a>, which clearly depicts the relationship between file descriptors, open file descriptions and i-nodes. In this situation, two processes have a number of open file descriptors.</p><p><span class='md-image'><img alt='linux-file-description' src='../img/linux-file-description.png'></img></span></p><h4><a name='header-c79' class='md-header-anchor '></a>What Is Going On</h4><p>Let us do a little analysis on this diagram and figure out what would happen when more than one processes write to the same simultaneously.</p><p>In this diagram, descriptors 1 and 20 of process A both refer to the same open file description (labeled 23). This situation may arise as a result of a call the <code>dup()</code> , <code>dup2()</code> or <code>fcntl()</code>.</p><p>Descriptor 2 of process A and descriptor 2 of process B refer to a single open file description(73). This scenario could occur after a call to <code>fork()</code>(<em>i.e</em>, process A is the parent of process B, or vice versa), or if one process passes an open file descriptor to another process using a UNIX domain socket.</p><p>Finally, we see that descriptor 0 of process A and descriptor 3 of process B refer to different open file descriptions, but that these descriptions refer to the same i-node table entry (1976) -- in other words, to the same file. A similar situation could occur if a single process open the same file twice.</p><p>So, what is the implication? What if two processes/threads write to the same file simultaneously? Well, we can draw some implications from the above analysis:</p><ul><li><p>If two different file descriptors refer to the same open file description, then this two file descriptor share the same file offset. Therefore, if the file offset is changed via one file descriptor (as a consequence of call to <code>read()</code>, <code>write()</code>, or <code>lseek()</code>) then this change is visible through the other file descriptors. This applies both when two file descriptors belong to the same process and when they belong to different processes</p><p>Similar scope rules apply when retrieving and changing the open file status flags (<em>e.g</em>, <strong>O_APPEND</strong>, <strong>O_NONBLOCK</strong> and <strong>O_ASYNC</strong>) using the <code>fcntl()</code> <strong>F_GETFL</strong> and <strong>F_SETFL</strong> operations.</p></li><li><p>By contrast, the file descriptor flags (<em>i.e</em>, the <em>close-on-exec</em>) are private to the process and file descriptor. Modifying these flags does not affect other descriptors in the same process or a different process.</p></li></ul><h4><a name='header-c144' class='md-header-anchor '></a>References</h4><ul><li><a href='http://man7.org/tlpi/'><em>The Linux Programming Interface</em></a>, a book which I consider a necessity for all Linux programmer</li></ul><p></p></div>
+                            <hr>
+                            <p class="LastModified">Yubin Ruan, last modified in 2017-02-17</p>
                     </div>  <!-- end blog content -->
 
                     <!--  here should be some pictures for seperating -->
                     <div class="Comments" > <!-- start comments content -->
                         <p><span style="font-size: 1.5em; font-weight: bold;">Comments</span> <span style="font-size: 0.5em">powered by disqus</span></p>
 
-<div id="disqus_thread"></div>
-<script>
+                        <div id="disqus_thread"></div>
+                        <script>
 
-/**
-*  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
-*  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables*/
 var disqus_config = function () {
-this.page.url = 'walkerlala.github.io/archive/2017-02-17-what-if-write-to-the-same-file.html';  // Replace PAGE_URL with your page's canonical URL variable
-this.page.identifier = '2017-02-17-what-if-write-to-the-same-file'; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+    this.page.url = 'http://walkerlala.github.io/archive/2017-02-17-what-if-write-to-the-same-file.html'; 
+    this.page.identifier = '2017-02-17-what-if-write-to-the-same-file';
 };
 (function() { // DON'T EDIT BELOW THIS LINE
     var d = document, s = d.createElement('script');
@@ -375,8 +372,8 @@ this.page.identifier = '2017-02-17-what-if-write-to-the-same-file'; // Replace P
     s.setAttribute('data-timestamp', +new Date());
     (d.head || d.body).appendChild(s);
 })();
-</script>
-<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+                        </script>
+                        <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
                     </div> <!-- end comments content -->
                     <hr>
 
