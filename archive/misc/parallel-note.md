@@ -185,7 +185,7 @@
 
   [3] : https://lwn.net/Articles/264090/
 
-- TODO: Linux file concurrent access
+  ​
 
 - TODO: Try this simple program using parallel C/C++ (and compiler optimization) W/O `volatile` or *memory barrier* to see the difference 
 
@@ -197,6 +197,8 @@
 
    then  what could be    read  :  read /write ? and similarily write : read/write ?
 
+  (there is no any formal memory model yet to define this precisely. See McKenny's note)
+
 - Memory barier transitivity
 
   - Although memory barier only guarantee to have effect on **current** CPU, all mainstream CPU provide a feature called **memory barier transitivity**: 
@@ -205,7 +207,28 @@
 
     All CPUs I am aware of claim to provide transitivity.
 
-- TODO: quick quiz B.13
-
 - A good elaboration of memory ordering on modern processors [by Paul McKenney](./mem-ordering-Paul-McKenney.pdf)
+
+- Memory barrier only enforce ordering among multiple memory references: They do absolutely nothing to expedite the propogation of data from one part of the system to another. This leads to **a quick rule of thumb**:  You do not need memory barriers unless you are using more than one variable to communicate between multiple threads.
+
+- The GCC extension`__sync_synchronize()` primitive issues a "memory barrier", which constrains **both the compiler's and the CPU's ability** to reorder operations. The `barrier()`in Linux kernel only constrain compiler's ability to reorder operation. `READ_ONCE()` prevents compilers from optimizing away a given memory read, and `WRITE_ONCE()` prevents them from optimizing away a given memory write:
+
+  ```c
+  /* turn it into a volatile and then read it */
+  #define ACCESS_ONCE(x)  (* (volatile typeof(x) *) &(x))
+
+  #define READ_ONCE(x)   ACCESS_ONCE(x)
+  #define WRITE_ONCE(x, val) ({ ACCESS_ONCE(x) = (val); })
+  #define barrier()    __asm__ __volatile__("": : :"memory")
+  ```
+
+  ​
+
+- In Linux kernel, normal **non-tearing reads** and **stores** are provided by `atomic_read()` and `atomic_write()`. **Acquire load** is provided by `smp_load_acquire()` and **release store** by `smp_store_release()`.  What is these *non-tearing* read/store and *acquire* load/store? TODO
+
+  Note\*, in Linux, many atomic operation would only preserve its atomic semantics as long as other accesses of the atomic variable are performed through atomic_xxx operations(e.g, the atomic operation interface). How can this be guaranteed ?
+
+- Quick Quiz 5.17
+
+- **Partial Partitioning**:  partitioning applied only to common code path (think *parallel fastpath*)
 
