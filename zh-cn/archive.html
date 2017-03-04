@@ -60,7 +60,7 @@ $.get("archive/exported", function(data, status){
           }
           data = newlines.join(" ");
           var j = JSON.parse(data);
-          var blog = j.blog;
+          var blog = j.archive.blog;
           for(var i=0;i<blog.length;i++){
               var title = blog[i].title;
               var link  = blog[i].location;
@@ -73,19 +73,20 @@ $.get("archive/exported", function(data, status){
           }
       }else{
           alert("Javascript fail to import data from github.\n"
-              + "Please report this problem to the author at `ablacktshirt{at}gmail.com'\n"
+                + "Please report this problem to the author at `ablacktshirt{at}gmail.com'\n"
                 + "Thanks!")
       }
 });
-</script>
+
+                        </script>
                     </blockquote>
 
                     <!--
-                    <h3> Softwares </h3>
-                    <blockquote>
+                        <h3> Softwares </h3>
+                        <blockquote>
                         <li>
                         </li>
-                    </blockquote>
+                        </blockquote>
                     -->
 
                     <hr>

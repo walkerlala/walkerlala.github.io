@@ -185,8 +185,6 @@
 
   [3] : https://lwn.net/Articles/264090/
 
-  ​
-
 - TODO: Try this simple program using parallel C/C++ (and compiler optimization) W/O `volatile` or *memory barrier* to see the difference 
 
 - TODO: smp_rmb ->  read : read
@@ -198,6 +196,8 @@
    then  what could be    read  :  read /write ? and similarily write : read/write ?
 
   (there is no any formal memory model yet to define this precisely. See McKenny's note)
+=======
+  Regarding to memory barriers, there are some confusions about **See by All the CPU** and **See by only the current CPU** , for `smp_mb()`, all CPUs will regard the ordering(maybe except Alpha). But with `smp_wmb()` and `smp_rmb()`, things are pretty different. See the discussion with me and Paul Mckenny
 
 - Memory barier transitivity
 
@@ -221,8 +221,6 @@
   #define WRITE_ONCE(x, val) ({ ACCESS_ONCE(x) = (val); })
   #define barrier()    __asm__ __volatile__("": : :"memory")
   ```
-
-  ​
 
 - In Linux kernel, normal **non-tearing reads** and **stores** are provided by `atomic_read()` and `atomic_write()`. **Acquire load** is provided by `smp_load_acquire()` and **release store** by `smp_store_release()`.  What is these *non-tearing* read/store and *acquire* load/store? TODO
 
