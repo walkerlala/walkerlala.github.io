@@ -12,7 +12,7 @@
 ###
     "blog":
         [
-        {  "title": "What If Two Processes Write to The Same File Simultaneously",
+        {  "title": "What If Two Processes Write to the Same File Simultaneously",
             "location": "./archive/2017-02-17-what-if-write-to-the-same-file.html",
             "time": "2017-02-17",
             "summary": "What if your open the same file in several processes and you write to it simultaneously? What is the result? Do these process share the same file offset when they try to write? What about writing to the same file in the same process using different threads?(Take Linux for example.)"
@@ -40,7 +40,7 @@
     "archive":
     {"blog": 
         [
-        {  "title": "What If Two Processes Write to The Same File Simultaneously",
+        {  "title": "What If Two Processes Write to the Same File Simultaneously",
             "location": "./archive/2017-02-17-what-if-write-to-the-same-file.html",
             "time": "2017-02-17"
         },
