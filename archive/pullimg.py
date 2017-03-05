@@ -3,6 +3,19 @@
 
 # pylint: disable=superfluous-parens,invalid-name,broad-except
 
+#################################################################
+# This file was originally used to pull those Latex img from the
+# urls specified in the generated html from `https://upmath.me'.
+# However, as I have adopted my blog system to a
+# Typora-based-system(also made by myself), we do not use the
+# upmath.me website anymore. So this script is useless right now.
+#
+# You may want to have a look at `importblog.py', which is now
+# currently used to automatically produced a entry in my special
+# blog system after I have finished an essay using Typora and
+# transformed it to html format.
+###############################################################
+
 import re
 import sys
 import os
