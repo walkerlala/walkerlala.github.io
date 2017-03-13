@@ -12,8 +12,8 @@
 ###
     "blog":
         [
-        {  "title": "C++ Class Member Function NOT Virtual",
-            "location": "./archive/cpp-class-member-function-not-virtual.html",
+        {  "title": "C++ Class Member Function Template NOT Virtual",
+            "location": "./archive/cpp-class-member-function-template-not-virtual.html",
             "time": "2017-03-12",
             "summary": "C++的类成员函数模板能否被声明为virtual的？\n\n 偶然在SO上看到这个问题。我想，需要对C++的一整套机制(对象模型、模板、链接模型)有深入了解才能回答这个问题吧。"
         },
@@ -40,8 +40,8 @@
         "archive":
         {"blog": 
             [
-            {  "title": "C++ Class Member Function NOT Virtual",
-                "location": "./archive/cpp-class-member-function-not-virtual.html",
+            {  "title": "C++ Class Member Function Template NOT Virtual",
+                "location": "./archive/cpp-class-member-function-template-not-virtual.html",
                 "time": "2017-03-12",
                 "summary": "C++的类成员函数模板能否被声明为virtual的？\n\n 偶然在SO上看到这个问题。我想，需要对C++的一整套机制(对象模型、模板、链接模型)有深入了解才能回答这个问题吧。"
             },
