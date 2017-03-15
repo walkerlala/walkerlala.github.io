@@ -117,3 +117,18 @@
 - sizeof 运算的时候
 - 取地址的时候（得到的是指向数组的指针而不是指向首元素的指针）
 - C11的_Alignof运算符
+
+
+
+In computer science and object oriented programming, a **passive data structure** (**PDS**, which is also termed a **plain old data structure**, or **POD**), is a term for a record, to contrast with objects. It is a data structure that is represented only as passive collections of field values (instance variables) without using object-oriented features.
+
+A PDS type in C++, or Plain Old C++ Object, is defined as either a scalar type or a PDS class. A PDS class has
+
+- no user-defined copy assignment operator
+- no user-define destructor
+- no non-static members that are not themselves PDS
+- an aggregate, which means that it has no user-declared constructors, no private nor protected non-static data, no virtual base class and no virtual functions
+
+(the `type_traits`library in the STL provides a function name `is_pod`that can be used to determined whether a given type is a POD)
+
+In [Java](https://en.wikipedia.org/wiki/Java_(programming_language)), some developers consider that the PDS concept corresponds to a class with public data members and no methods (Java Code Conventions 10.1),[[6\]](https://en.wikipedia.org/wiki/Passive_data_structure#cite_note-Oracle-7) i.e., a [data transfer object](https://en.wikipedia.org/wiki/Data_transfer_object).[[7\]](https://en.wikipedia.org/wiki/Passive_data_structure#cite_note-8) Others would also include [Plain Old Java Objects](https://en.wikipedia.org/wiki/Plain_Old_Java_Object) (POJOs), a class that has methods but only getters and setters, with no logic, and [Java Beans](https://en.wikipedia.org/wiki/Java_Beans) to fall under the PDS concept if they do not use event handling and do not implement added methods beyond getters and setters.[*citation needed*] However, POJOs and Java Beans have [encapsulation](https://en.wikipedia.org/wiki/Encapsulation_(computer_programming)), and so violate the fundamental definition of PDS.

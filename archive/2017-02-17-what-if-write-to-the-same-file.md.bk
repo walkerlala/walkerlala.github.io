@@ -37,7 +37,7 @@ Here is a picture taken from the book [*The Linux Programming Interface*](http:/
 
 #### What Is Going On
 
-Let us do a little analysis on this diagram and figure out what would happen when more than one processes write to the same simultaneously.
+Let us do a little analysis on this diagram and figure out what would happen when more than one processes write to the same file simultaneously.
 
 In this diagram, descriptors 1 and 20 of process A both refer to the same open file description (labeled 23). This situation may arise as a result of a call the `dup()` , `dup2()` or `fcntl()`.
 
