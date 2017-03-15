@@ -230,6 +230,10 @@ FIRST
 
 (引用自C++ Spec，重点部分已经加黑)
 
+### \# 4,
+
+C/C++这种分离编译的模型，会带来很多各种各样“细微”的影响，比如[有关他的类成员函数模板](./cpp-class-member-function-template-not-virtual.html)。To add more.
+
 ### Reference
 
 1. [The Static Keyword and its variour uses in C++](http://stackoverflow.com/questions/15235526/the-static-keyword-and-its-various-uses-in-c)
