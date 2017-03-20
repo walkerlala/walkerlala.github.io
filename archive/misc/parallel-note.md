@@ -196,7 +196,7 @@
    then  what could be    read  :  read /write ? and similarily write : read/write ?
 
   (there is no any formal memory model yet to define this precisely. See McKenny's note)
-=======
+
   Regarding to memory barriers, there are some confusions about **See by All the CPU** and **See by only the current CPU** , for `smp_mb()`, all CPUs will regard the ordering(maybe except Alpha). But with `smp_wmb()` and `smp_rmb()`, things are pretty different. See the discussion with me and Paul Mckenny
 
 - Memory barier transitivity
