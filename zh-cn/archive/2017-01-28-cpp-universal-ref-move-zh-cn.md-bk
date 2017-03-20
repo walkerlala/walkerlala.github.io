@@ -192,7 +192,7 @@ $$\blacksquare$$ **summary**
 
 $$\blacksquare$$ **Motivation**
 
-为什么要有 `std::move()`和`std::forward()`呢？来看个例子[1]:references-in-c11-scott-meyers
+为什么要有 `std::move()`和`std::forward()`呢？来看个例子[1]:
 
 ```c++
 template<typename T>
