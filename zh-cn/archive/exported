@@ -11,7 +11,12 @@
 # contents for `blog.html'
 ###
     "blog":
-        [
+       [
+        {  "title": "Oh My Pointer to Pointer",
+            "location": "./archive/oh-my-pointer-to-pointer.html",
+            "time": "2017-03-25",
+            "summary": "这是一篇关于C语言编程手法的博文。我们来讲讲指针，或者准确来说关于指针的一个奇技淫巧。"
+        },
         {  "title": "C++ Class Member Function Template NOT Virtual",
             "location": "./archive/cpp-class-member-function-template-not-virtual.html",
             "time": "2017-03-12",
@@ -40,6 +45,11 @@
         "archive":
         {"blog": 
             [
+            {  "title": "Oh My Pointer to Pointer",
+                "location": "./archive/oh-my-pointer-to-pointer.html",
+                "time": "2017-03-25",
+                "summary": "这是一篇关于C语言编程手法的博文。我们来讲讲指针，或者准确来说关于指针的一个奇技淫巧。"
+            },
             {  "title": "C++ Class Member Function Template NOT Virtual",
                 "location": "./archive/cpp-class-member-function-template-not-virtual.html",
                 "time": "2017-03-12",
