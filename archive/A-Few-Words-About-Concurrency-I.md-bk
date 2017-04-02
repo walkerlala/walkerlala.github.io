@@ -469,7 +469,7 @@ I think anyone can understand this by comparison. In this implementation, we use
 
 Actually, this pseudo-implementation mimic many real world *semaphore* implementation. You will see in the following parts.
 
-### \#5, Real World Locks
+### \#5, Real World Locks ![alt text](../img/icons/png/linux-penguin.png)![alt text](../img/icons/png/freebsd-boy.png)![alt text](../img/icons/png/haiku-leaf.png)
 
 Let's see how those operating systems (e.g. Linux, BSD) implement locks. Before we look into the codes, I would to want to talk about some concepts first to lay a foundation.
 
