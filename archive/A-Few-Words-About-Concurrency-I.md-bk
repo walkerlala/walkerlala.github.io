@@ -593,15 +593,15 @@ For more information, you can also refer to this [Github article](https://0xax.g
 
 Ticket spinlock is good. Simple and efficient. But, there can still be some improvement. Remember that Linux use a "public" ticket shared by all processes to ensure global ordering of lock acquisition. However, with different threads trying to check the ticket using the **test-and-set** instruction, there would definitely be lots of [cache invalidation](https://en.wikipedia.org/wiki/Cache_invalidation) because **test-and-set** will keep writing 1 to the variable. And since different processors use different cache, they have to invalidate their cache to ensure that all the processors see the same value of a variable (the ticket).
 
-To eliminate this problem, the Linux kernel by default adopt a spinloch mechanism called *queued spinlock*, which enable every process to spin on their own local(per-cpu) variable. The idea is simple, and it is based the [MCS](http://www.cs.rochester.edu/~scott/papers/1991_TOCS_synch.pdf) from the 1990s. 
+To eliminate this problem, the Linux kernel by default adopt a spinloch mechanism called *queued spinlock*, which enable every process to spin on their own local(per-cpu) variable. The idea is simple, and it is based on the [MCS](http://www.cs.rochester.edu/~scott/papers/1991_TOCS_synch.pdf) locking mechanism from the 1990s. 
 
-However, as I only want to illustrate the locking mechanism but not every detail, I would not analyze it here. Please do a research yourself I you are interested ![alt text](../img/icons/png/happy-4.png)
+However, as I only want to illustrate the locking mechanism but not every detail, I would not analyze it here. Please do a research yourself If you are interested ![alt text](../img/icons/png/happy-4.png)
 
 #### Semaphore in Linux
 
 Let's look into the semaphore implementation in the Linux  kernel. The source can be found in [include/linux/semaphore.h](http://lxr.free-electrons.com/source/include/linux/semaphore.h) and [kernel/locking/semaphore.c](http://lxr.free-electrons.com/source/kernel/locking/semaphore.c) in the Linux kernel source code.
 
-Unlike spinlock, semaphore is a more "general" locking mechanism that allow multiple processes to enter critical section. In most implementation, it does not adopt the "spinning/busy-waiting" routine, but instead put the processes that fail to "acquire" a semaphore into a wait queue and wake it up when the semaphore is ready. By this design, it avoid wasting CPU time by spinning. However, as using semaphore requires explicit task scheduling, it has more overhead than using spinlock$$^{[10]}$$.
+Unlike spinlock, semaphore is a more "general" locking mechanism that allow multiple processes to enter critical section. In most implementation, it does not adopt the "spinning/busy-waiting" routine, but instead put a process that fail to "acquire" a semaphore into a wait queue and wake it up when the semaphore is ready. By this design, it avoid wasting CPU time by spinning. However, as using semaphore requires explicit task scheduling, it has more overhead than using spinlock$$^{[10]}$$.
 
 The implementation of semaphore in Linux is quite simple, well-documented by comments and mimic that presented in the **A simple yield implementation** above. So I would copy-paste the whole implementation here directly.  If you are a programmer(or anything else) who want more insight into the mechanism of it, please take some time and look into the source code carefully. It is not that hard:
 
@@ -1023,6 +1023,8 @@ Let's look into FreeBSD and see how it do for spinlock ![alt text](../img/icons/
 
 -------------------------
 
+<div class="notes">
+
 1. Some concepts/terminologies stated here may or may not be strictly adhered to the theory (I sometimes mix concepts). And also note that is this essay I will use the term *thread* and *processe* interchangeably, as they behave similarly in this context.
 
 2. Please note that there are many different implementations of a particular kind of lock. For example, if you wish, you can implement `pthread_mutex_lock()` as a spinlock.
@@ -1055,7 +1057,7 @@ Let's look into FreeBSD and see how it do for spinlock ![alt text](../img/icons/
 10. Note also since using spinlock require disabling interrupt first and enabling it afterwards, there is also some overhead with spinlock
 
 
-
+</div>
 
 
 
