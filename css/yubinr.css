@@ -241,3 +241,23 @@ th{
     margin: 0px 0px 0px 0px;
 }
 
+.notes {
+    font-size: 0.8em;
+}
+
+p {
+    /*margin: 0px 0px 0px 0px;*/
+}
+
+.imgblk {
+    margin: 0 0 0 0;
+    padding: 0 0 0 10px;
+    background-color: rgb(230, 229, 229);
+    /*height: 50px;*/
+}
+
+/* code block background-color */
+.md-fences {
+    background-color: rgb(230, 229, 229);
+}
+

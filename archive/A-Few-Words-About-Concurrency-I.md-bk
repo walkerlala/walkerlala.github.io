@@ -2,9 +2,9 @@
 
 Let's talk about concurrency.
 
-Concurrency has always been a big topic ever since the 1960s. I learned about this topic from my Operating System courses one year ago but never feel confident to tell any other people that I really understand it$$^{[1]}$$. I do have some insights into this topic and have read a few books/articles related to it. However, the more I read and know about it, the more it seems to be left unknown. I suppose this is probably the reason for the old saying "*the consequence of knowing too much*".
+Concurrency has always been a big topic ever since the 1960s. I learned about this topic from my Operating System courses one year ago but never feel confident to tell any other people that I really understand it<sup>[1]</sup>. I do have some insights into this topic and have read a few books/articles related to it. However, the more I read and know about it, the more it seems to be left unknown. I suppose this is probably the reason for the old saying "*the consequence of knowing too much*".
 
-Nevertheless, I want to summarize and present some "cases" that I find really interesting these days as I read and think. I will try to show you how we can  get into the "dark" side of those techniques, with some necessary theories$$^{[1]}$$. 
+Nevertheless, I want to summarize and present some "cases" that I find really interesting these days as I read and think. I will try to show you how we can  get into the "dark" side of those techniques, with some necessary theories<sup>[1]</sup>. 
 
 Specifically, in this essay, I would try show you how to implement a lock in the kernel, and what techniques and theories are required.
 
@@ -47,9 +47,9 @@ sub $0x1, %eax         ;; 5
 mov %eax, 0x8049780    ;; 6
 ```
 
-In this occasion, if the sequence of execution is **1 -> 4 -> 2 -> 5 -> 3 -> 6**, then the effect of `add` would cancel that of `sub`.
+In this occasion, if the sequence of execution is **1 -> 4 -> 2 -> 5 -> 3 -> 6**, the effect of `add` would "cancel" that of `sub` (you can see **only** an `add` rather than an `add` with a `sub`)
 
-Now you get the point: **programs accessing the same resources simultaneously without synchronization or mutual exclusion techniques would produce wrong results inevitably**
+Now you get the point: **processes accessing the same resources simultaneously without synchronization or mutual exclusion techniques would produce wrong results inevitably**
 
 To make the program above correct, we can use *atomic* operation like this: 
 
@@ -73,13 +73,13 @@ What if we cannot use atomic operations? For example, imagine that we do not wan
 With locks, we can rewrite the program this way:
 
 ```c
-//global variable accessable by process 1 and 2
+//global variable accessable by thread 1 and 2
 int balance = 0;
 
-//initialize a global lock accessable by process 1 and 2
+//initialize a global lock accessable by thread 1 and 2
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-//process 1                              //process 2             
+//thread 1                               //thread 2             
 for(int i=0; i<100000; i++) {            for(int k=0; k<100000; k++){
   pthread_mutex_lock(&mutex);              pthread_mutex_lock(&mutex);
   ++balance;                               --balance;
@@ -94,7 +94,7 @@ In this example, we are using a lock, which is called *mutex* in the pthread wor
 For writing files, locks can also be used:
 
 ```c
-//process 1                              //process 2             
+//thread 1                               //thread 2             
 for(int i=0; i<100000; i++) {            for(int k=0; k<100000; k++){
   pthread_mutex_lock(&mutex);              pthread_mutex_lock(&mutex);
   writing_to_file();                       writing_to_file();
@@ -112,7 +112,7 @@ By definition, the part of program where shared memory is accessed is called **c
 
 #### Race Condition
 
-If more than one processes are allowed to stay in the critical section at the same time, then the program is subjected to **race condition**, where unexpected things would happen. So, usually when we write concurrent codes, we want to avoid race condition so that our programs can behave correctly. For example, in the above example, the variable `balance` will eventually become `0` if we use atomic operation or locks.
+If more than one processes/threads are allowed to stay in the critical section at the same time, the program is subjected to **race condition**, where unexpected things would happen. So, usually when we write concurrent code, we want to avoid race condition so that our programs can behave correctly. For example, in the above example, the variable `balance` will eventually become `0` if we use atomic operation or locks.
 
 ### \# 3, How to Avoid Race Condition
 
@@ -151,7 +151,7 @@ Besides those criteria, it would be better if the mechanisms used can have some 
 
 So, we now come to the main part of this essay: **implementing a lock to avoid critical section**
 
-I believe you have known or heard of many different kinds of locks: [spin_lock](https://en.wikipedia.org/wiki/Spinlock), [rw_lock](https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock), [seq_lock](https://en.wikipedia.org/wiki/Seqlock) ... many of you know many variants of it, with different names and different implementations$$^{[2]}$$. Basically locks are used in some situation like this:
+I believe you have known or heard of many different kinds of locks: [spin_lock](https://en.wikipedia.org/wiki/Spinlock), [rw_lock](https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock), [seq_lock](https://en.wikipedia.org/wiki/Seqlock) ... many of you know many variants of it, with different names and different implementations<sup>[2]</sup>. Basically locks are used in some situation like this:
 
 ```c
 //process 1                   //process 2
@@ -179,7 +179,7 @@ The disadvantages, however, are obvious: it doesn't work on multiprocessor. And,
 
 ##### $\blacksquare$ Implementing software-based lock
 
-By *software-based*, we mean that the lock can be implemented completely in software without help from hardware (e.g. interrupts). In this case, we can use *Peterson's algorithm*.
+By *software-based*, we mean that the lock can be implemented completely in software without help from hardware (e.g. disabling interrupts). In this case, we can use *Peterson's algorithm*.
 
 Let's go step by step.
 
@@ -299,7 +299,7 @@ unlock()
 
 By using both **test and set** and **strict alternation**, we can meet all the criteria for avoiding race condition: safety, liveness, bounded wait.
 
-But, for this algorithm to be correct, we do have to assume that every line of assignment operator is atomic, and the order of you code would not be re-ordered (which would cause problems on many modern out-of-order processors). And also, for N > 2 thread, you have to use another [Lamport's Bakery algorithm](https://en.wikipedia.org/wiki/Lamport%27s_bakery_algorithm). So, generally, this kind of lock is hard to implement and use.
+But, for this algorithm to be correct, we do have to assume that every line of assignment operator is atomic, and the order of you code would not be re-ordered (which would cause problems on many modern out-of-order processors). And also, for N > 2 threads, you have to use another [Lamport's Bakery algorithm](https://en.wikipedia.org/wiki/Lamport%27s_bakery_algorithm). So, generally, this kind of lock is hard to implement and use.
 
 ##### $\blacksquare$ Implementing lock using special hardware instructions
 
@@ -318,7 +318,7 @@ lock()                           unlock()
 
 The only thing we have to do is to use some special instructions to make this `test_and_set()` function atomic, *i.e.* when executed, it would not be stopped unless finished.
 
-In other word, `test_and_set()` should perform the following codes atomically:
+In other word, `test_and_set()` should perform the following code atomically:
 
 ```c
 int test_and_set(int *lock) {
@@ -328,7 +328,7 @@ int test_and_set(int *lock) {
 }
 ```
 
-Fortunately, many modern processors provide this kind of instructions. For example, on x86, there is a **xchg** instruction, which, as far as I know, is used to implement most *spin locks* on many systems. Our `test_and_set()` can be implemented like this:
+Fortunately, many modern processors provide this kind of instructions. For example, on x86, there is a **xchg** instruction, which, as far as I know, is used to implement most *spin locks* on many systems<sup>[11]</sup>. Our `test_and_set()` can be implemented like this:
 
 ```c
 long test_and_set(volatile long *lock)
@@ -342,19 +342,17 @@ long test_and_set(volatile long *lock)
 }
 ```
 
-(note: instruction `xchg reg, addr` can atomically swaps *\*addr* and *reg*.  Go read some document if you cannot understand the assembly code above)
+(note: instruction `xchg reg, addr` can atomically swaps *\*addr* and *reg*.  You may want to refer to [this](https://gcc.gnu.org/onlinedocs/gcc/Using-Assembly-Language-with-C.html#Using-Assembly-Language-with-C) official document or search "GCC inline assembly" to understand the assembly code above)
 
 ##### Summary
 
 So far, we have tried three methods for implementing a lock:
 
-​	1) Implement a lock by disabling interrupt
+1. Implement a lock by disabling interrupt (does not work on MP system)
+2. Implement a lock using completely software (*i.e.* peterson's algorithm, require atomic operations)
+3. Implement a lock using special hardware instructions (*e.g* `xchg` on X86)
 
-​	2) Implement a lock using completely software (*i.e.* peterson's algorithm)
-
-​	3) Implement a lock using special hardware instructions (*e.g* `xchg` on X86)
-
-Method 2) and 3) are quite successful to some extent. But, As you can see, they all adopt the same inefficient *busy waiting* routine: threads/processes "spins" around a lock until it is allowed to acquire it, which is not preferable in many context.
+Method 2) and 3) are quite successful to some extent. But, as you can see, they all adopt the same inefficient *busy waiting* routine: threads/processes "spins" around a lock until it is allowed to acquire it, which is not preferable in many context.
 
 But, anyway, we have a lock here ![alt text](../img/icons/png/happy-4.png)
 
@@ -364,7 +362,7 @@ Implementing a lock is easy, right?
 
 Well, implementing a spin lock is easy. But spin lock itself comes with many disadvantages. First, it often waste CPU cycle. For example, imagine a thread holding a spin lock gets preempted and other threads try to acquire the same lock. In this case, those threads can do nothing but spin, which is useless. Cases got even complicated when it comes to multiprocessor. What would happen if a thread holding a lock gets preempted under this circumstance? well, lots of switching...
 
-Of course spin locks [come with advantages](http://yarchive.net/comp/linux/semaphores.html)(search for *you need to grab a spinlock*). But generally speaking it would be better if we can have a locking mechanism that cause processes/threads to **yield CPU when locks are not available**. Put it another way, we would like the processes/threads to give up CPU *voluntarily* if lock are unavailable, rather than doing useless spinning.
+Of course spin locks [come with advantages](http://yarchive.net/comp/linux/semaphores.html)(search for "*you need to grab a spinlock*"). But generally speaking it would be better if we can have a locking mechanism that cause processes/threads to **yield CPU when locks are not available**. Put it another way, we would like the processes/threads to give up CPU *voluntarily* if lock are unavailable, rather than doing useless spinning.
 
 Let's try.
 
@@ -410,88 +408,143 @@ The idea here is to add thread to a queue when lock is unavailable; and in `unlo
 
 But, unfortunately there are two very severe problems:
 
-1. **Lost wakeup**
+1. **Wrong thread gets the lock**
+
+   Actually at line 3 the lock is released. So, at this moment, any other thread can get the lock. Therefore even if some thread in the wait queue got waked up, it would probably find out that the lock has been taken by someone else not in the wait queue.
+
+2. **Lost wakeup**
 
    Assume that thread A hold the lock and thread B want it.
 
    - thread B execute line 0
    - thread B execute line 1, preparing to add itself to the wait queue
-   - thread B got scheduled, and now thread A run
+   - thread B got de-scheduled, and now thread A run
    - thread A unlock, and finding that there is no thread in the wait queue, it do nothing
    - After unlock, thread A finish, and now thread B continue to run
    - thread B continue to put itself to the wait queue and yield
    - Oops...no one here to wake up thread B...so there is a **lost wakeup**
 
-2. **Wrong thread gets the lock**
+So here comes to the real problem: how can we avoid the **wrong thread getting the lock** and **lost wakeup** problems while at the same time save those context switches and starvation?
 
-   Actually at line 3 the lock is released. So, at this moment, any other thread can get the lock. Therefore even if some thread in the wait queue got waked up, it would probably find out that the lock has been taken by someone else.
-
-So here comes to the real problem: how can we avoid **lost wakeup** and **wrong thread getting the lock** while at the same time save those context switches and starvation?
-
-![alt text](../img/icons/svg/zap.svg) **3rd attempt, A decent yield implementation**$$^{[6]}$$
+![alt text](../img/icons/svg/zap.svg) **3rd attempt, A decent yield implementation**<sup>[6]</sup>
 
 ```c
-typedef struct __mutex_t {
-  int flag;     //0: mutex is available, 1: mutex is not available
-  int guard;    //guard lock to avoid losing wakeups
+typedef struct __lock_t {
+  int flag;     //0: lock is available, 1: lock is not available
+  int guard;    //guard lock to avoid wrong-threads-getting-the-lock
   queue_t *q;   //queue of waiting threads
-} mutex_t;
+} lock_t;
 
-void lock(mutex_t *m) {
+void lock_init(lock_t *m) {
+  m->flag=0;
+  m->guard=0;
+  queue_init(m->q);
+}
+
+void lock(lock_t *m) {
   while (test_and_set(m->guard))
     ;  //acquire guard lock by spinning
   if(0 == m->flag) {
-    m->flag = 1; //acquire mutex
+    m->flag = 1; //acquire lock
     m->guard = 0;
   } else {
-    //if the mutex has been taken, put itself into wait queue
-    enqueue(m->q, self);
+    //if the lock has been taken, put itself into wait queue
+    enqueue(m->q, self);  // `self' stands for something like `gettid()'...
     m->guard = 0;
     yield();
   }
 }
 
-void unlock(mutex_t *m) {
+void unlock(lock_t *m) {
   while(test_and_set(m->guard))
     ;
   if(queue_empty(m->q))
-      //release mutex; no one wants mutex
+      //release lock; no one wants lock
       m->flag = 0;
   else
-      //direct transfer mutex to next thread
+      //directly transfer lock to next thread
       wakeup(dequeue(m->q));
   
   m->guard = 0;
 }
 ```
 
-I think anyone can understand this by comparison. In this implementation, we use an extra lock (`guard` in `__mutex_t`) to protect our internal data structure manipulation so that we are free from the race conditions listed above. So finally we have locks that don't  do busy waiting when the locks cannot be acquired. Instead, the process is put into a wait queue and sleep until other process holding the lock wake it up. In many places, it is more efficient than a spinlock.
+In this implementation, we use an extra lock (`guard` in `__mutex_t`) to protect our internal data structure manipulation. With the `guard` lock, we prevent anyone else that is not in the wait queue to get the lock(i.e. the *mutex* ). So we solve the **wrong thread getting the lock** problem. You may have also noticed the interesting fact that `flag` does not get set back to 1 after `wakeup(dequeue(m->q))`. That is because when a thread get back from sleeping, it does not hold the `guard` lock and thus cannot even try to set the `flag` to 1. Therfore, we just directly transfer the lock from the thread releasing the lock from the thread acquiring it.
 
-Actually, this pseudo-implementation mimic many real world *semaphore* implementation. You will see in the following parts.
+We have achieved half-success here. Still, some problems:
+
+1. We still have *busy waiting* here, with the use of `test_and_set(m->guard)` to protect internal data structure manipulation.
+
+2. We do not fully solve the **lost wakeup** problem. You may have been convinced that with the use of `guard` we already achieve that. But the fact is, the execution of
+
+   ```c
+   ...
+     m->guard = 0;
+     yield();
+   ...
+   ```
+
+   is not atomic. So, after setting `m->guard` to 0, we have effectively releasing the `guard` lock. Therefore, if the thread get de-scheduled before it can call `yield()`, and another thread releases the lock but finds nobody in the wait queue to wake up, we have lost wakeup as in the *2nd attempt* above.
+
+Actually, the busy waiting issue is not that critical. Even though the thread might get interrupted while acquiring and releasing the lock and thus causes another thread to spin-wait, the time spent spining is quite limited. That is because there are only a few instructions between the lock and unlock code, instead of a real user-defined critical section with lots of code.  So, this approach is acceptable.
+
+For the **lost wakup** issue, there are many solutions. The Solaris operating system use a special `setpark()` function to indicate that the current thread is *going to yield*. If it then get interrupted and another thread call `wakeup(dequeue(m->queue))`, the subsequence `yield()` return immediately, without really sleeping<sup>12</sup>. Another solution, which is used in the Linux kernel, is to use a infinite loop, de-schedule for some time and check again, rather than completely giving up the CPU. So, we may finally end up with something like this:
+
+![alt text](../img/icons/svg/zap.svg) **4th attempt, A useable yield implementation**
+
+```c
+void lock(lock_t *m) {
+  while (test_and_set(m->guard))
+    ;  //acquire guard lock by spinning
+  if(0 == m->flag) {
+    m->flag = 1; //acquire lock
+    m->guard = 0;
+  } else {
+    
+    //a waiter(myself) waiting for the lock
+    struct waiter_t waiter = self;
+    enqueue(m->q, &waiter);  //pass-in a "pointer" of waiter
+    
+    //infinitely loop, until somebody wait me up
+    for(;;){
+      m->guard = 0; //release the lock
+      yield_for_a_while(); //giving up CPU for a while
+      if(waiter.up)  //if somebody wake me up
+         return 0;
+    }
+  }
+}
+```
+
+You may want to refer to the Linux source code in section 5.
+
+So, with some OS supports, we can  have a yield implementation which is free from the race conditions listed above. We successfully avoid *busy waiting* when the locks cannot be acquired. Instead, the process is put into a wait queue and sleep until other process holding the lock wakes it up. In many places, it is more efficient than a spinlock. And, as you will see in the following sectionis, this pseudo implementation mimics many real world *semaphore/mutex* implementations.
 
 ### \#5, Real World Locks ![alt text](../img/icons/png/linux-penguin.png)![alt text](../img/icons/png/freebsd-boy.png)![alt text](../img/icons/png/haiku-leaf.png)
 
-Let's see how those operating systems (e.g. Linux, BSD) implement locks. Before we look into the codes, I would to want to talk about some concepts first to lay a foundation.
+Let's see how those operating systems (e.g. Linux, BSD, Haiku) implement locks. Before we look into the code, I would like to talk about some concepts first to lay a foundation.
 
 #### Synchronization and Mutual Exclusion
 
-There are lots of methods for avoiding race condition. For example, for single variable, we can use atomic operation. For more complicated scenario, we can use **locks**, **semaphore**, **monitors** and other IPC$$ ^{[3]}$$ mechanisms that are suitable for implementing *synchronization* and *mutual exclusion* between processes.
+There are lots of methods for avoiding race condition. For example, for single variable, we can use atomic operation. For more complicated scenario, we can use **spinlocks**, **semaphore**, **monitors** and other IPC<sup>[3]</sup> mechanisms that are suitable for implementing *synchronization* and *mutual exclusion* between processes.
 
-The later one (lock, semaphore, etc.) is more general. In summary, they can be classified into two classes: *Synchronization* and *Mutual Exclusion*. However, note that these two terms are often mixed together because they have similar meanings in many contexts. Indeed, sometimes synchronization can be achieved using mutual exclusion techniques. If you really can't distinguish these two concepts, it is probably fine to ignore the differences and treat them as a whole.
+The later one (lock, semaphore, etc.) is more general. In summary, their purposes can be classified into two classes: *Synchronization* and *Mutual Exclusion*. However, note that these two terms are often mixed together because they have similar meanings in many contexts. Indeed, sometimes synchronization can be achieved using mutual exclusion techniques. If you really can't distinguish these two concepts, it is probably fine to ignore the differences and treat them as a whole.
 
 #### Lock, Spinlock, Semaphore, Mutex ... All The Same Things ?
 
-It is fairly common to get messed up by those things and think that they are all the same or all different things. Actually, *Lock* is a very general term. Spinlock is a kind of lock that adopt the *busy waiting* approach. Semaphore is a variable or abstract data type used to control access to a common resource by **multiple** processes in a concurrent system such as a multiprogramming operating system$$^{[4]}$$. It is a concurrency *primitive* that explicitly imply a *sleep/wakeup* behaviour$$^{[4]}$$.Mutex stands for *mutual exclusion* and is a special kind of semaphore (binary semaphore). A spinlock is **not** a semaphore$$^{[4]}$$ because they have very different semantics (*e.g.* whether or not to allow multiple processes to enter critical section) and usually are implement very differently (*e.g.* whether or not spin/busy waiting). 
+It is fairly common to get messed up by those things and think that they are all the same or all different things. Actually, *Lock* is a very general term. Spinlock is a kind of lock that adopt the *busy waiting* approach. Semaphore is a kind of lock that is used to control access to a common resource by **multiple** processes in a concurrent system such as a multiprogramming operating system<sup>[4]</sup>. It is a concurrency *primitive* that explicitly imply a *sleep/wakeup* behaviour. A spinlock is **not** a semaphore<sup>[4]</sup> because they have very different semantics (*e.g.* whether or not to allow multiple processes to enter critical section) and usually are implement very differently (*e.g.* whether or not spin/busy waiting). Mutex stands for *mutual exclusion* and is a special kind of semaphore (binary semaphore). There are also many different kinds of locks (*lock* is a general term): *seq_lock*, *read-writer-lock*, *rcu_lock* ... They are used in different situations to achieve some kind of mutual exclusion or synchronization.
 
-There are also many different kinds of locks (lock is a general term): *seq_lock*, *read-writer-lock*, *rcu_lock* ... They are all used (in different situations) to achieve some kind of mutual exclusion or synchronization.
+In the Linux kernel, the lock that adopts the *busy waiting* approach is called *spinlock*, and the lock that adopts the *yield* approach is *semaphore*<sup>[13]</sup>, which allow more than one processes to enter critical section.  In FreeBSD, the locks that adopts the *busy waiting* approach and *yield* approach are grouped together and called *mutex*. Specifically, the busy waiting one is called *spin mutex*, and the *yield* one is called *blocking mutex*. Besides, FreeBSD also have semaphore ... Actually, as far as I am concerned, the locking mechanism of FreeBSD is far more complicated than that of Linux . For example, FreeBSD's mutex is recursive by default, meaning that you can lock the same lock more than once inside the same process without causing deadlock. You may want to refer to FreeBSD's [locking(9)](https://www.freebsd.org/cgi/man.cgi?locking(9)) main page for more information.
 
 Also, note that for the purpose of mutual exclusion and synchronization, there are also many IPC mechanism out there. You can use [*message queue*](https://en.wikipedia.org/wiki/Message_queue), [*FIFO*](https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)), [*signals*](https://en.wikipedia.org/wiki/Unix_signal), etc. They are not locks, but they provides us with the same function if used properly.
 
-#### Spinlock in Linux$^{[7]}$
+#### $Linux$  ![alt text](../img/icons/png/linux-penguin.png)
 
-Basically the spinlock implementation in the Linux kernel is like the **test-and-set** busy waiting routine stated above. But, besides from the test-and-set part, Linux use a fairer implementation called *ticket spinlock*. You see, the problem with the previous naive test-and-set spinlock is that it may cause unfair longer waiting for some processes/threads even if they tried to acquire the lock earlier than other, because there is no explicit record of their arriving time in this mechanism and therefore we do not know which process get blocked first and should be granted the lock first. To solve this issue, Linux use a neat trick: every time a process want to acquire the lock, it will be assigned a *ordered ticket* , so every process would finally acquire the lock by the order they arrived previously, which in effect is like a FIFO.
+#### Spinlock in Linux<sup>[7]</sup>
 
-The two most important functions for us (now) would be `arch_spin_lock()` and `arch_spin_unlock()` in [spinlock.h](http://lxr.free-electrons.com/source/arch/x86/include/asm/spinlock.h?v=4.0#L142)$$^{[8]}$$:
+Basically the spinlock implementation in the Linux kernel is like the **test-and-set using special hardware instruction** busy waiting routine stated above. But, besides from the test-and-set part, Linux use a fairer implementation called *ticket spinlock*. You see, the problem with the previous naive test-and-set spinlock is that it may cause unfair longer waiting for some processes/threads even if they tried to acquire the lock earlier than others, because there is no explicit record of their arriving time. Therefore, we do not know which process get blocked first and should be granted the lock first. To solve this problem, Linux use a really neat trick: every time a process/thread wants to acquire a lock, it will be assigned a *ordered ticket* , so every process would finally acquire the lock by the order in the ordered-ticket they get previously. In effect, this mechanism is like a FIFO.
+
+The two most important functions for us (now) would be `arch_spin_lock()` and `arch_spin_unlock()`, which lock and unlock a spinlock respectively, in ![alt tex](../img/icons/svg/file-code.svg)[spinlock.h](http://lxr.free-electrons.com/source/arch/x86/include/asm/spinlock.h?v=4.0#L142)<sup>[8]</sup>:
 
 ```c
  89 /*
@@ -521,6 +574,7 @@ The two most important functions for us (now) would be `arch_spin_lock()` and `a
                     /* constantly check whether it is ok to acquire the lock */
 113                 do {
 114                         inc.head = READ_ONCE(lock->tickets.head);
+                    /* test-and-set with special hardware instructions like `xchg` */
 115                         if (__tickets_equal(inc.head, inc.tail))
 116                                 goto clear_slowpath;
 117                         cpu_relax();
@@ -556,11 +610,11 @@ The two most important functions for us (now) would be `arch_spin_lock()` and `a
 158 }
 ```
 
-You see, every time a process want to acquire a spinlock, it atomically check to see whether the *head* and *tail* part of a ticket is equal (line 114~116). If they are equal, then nobody is holding the lock and it is safe to acquire it, otherwise, someone else is holding the lock and it have to wait (by spinning). In effect, the execution sequence is something like this:
+You see, every time a process want to acquire a spinlock, it atomically check to see whether the *head* and *tail* part of a ticket is equal (line 114~116). If they are equal, then nobody is holding the lock and it is safe to acquire it. Otherwise, someone else is holding the lock and it have to wait (by spinning). In effect, the execution sequence is something like this:
 
 <div align="center">![alt text](../img/linux-ticket-spinlock-illustration.png)</div>
 
-In this case, process 2 will acquire the spinlock after process 1 release it, and process 3 after process 2, process 4 after process 3, etc. Please refer to the code if you don't understand this procedure. However, a few more things about the code: 
+In this case, process 2 will acquire the spinlock after process 1 release it, and process 3 after process 2, process 4 after process 3, ... , one by one. Please refer to the code if you don't understand this procedure. Here, a few more things about the code: 
 
 1. at line 106, the `xadd()` function **atomically** add *TICKET_LOCK_INC* (which is 1 in most cases) to the **tail** part of a ticket, meaning that "a ticket is assigned". But, note that `xadd()` returns the **previous** value!!! So, after the assignment
 
@@ -568,13 +622,13 @@ In this case, process 2 will acquire the spinlock after process 1 release it, an
    register struct __raw_tickets inc = { .tail = TICKET_LOCK_INC };
    ```
 
-    `inc.tail` holds the previous value, not the one updated by *TICKET_LOCK_INC*. This `inc.tail` will NOT be updated in the `arch_spin_lock()` function. The current process would only constantly update `inc.head` (line 114) to check whether previous process has released the lock.
+    `inc.tail` holds the previous value, **NOT** the one updated by *TICKET_LOCK_INC*. This `inc.tail` will **NOT** be updated in the `arch_spin_lock()` function afterwards. The current process would only constantly update `inc.head` (line 114) to check whether previous process has released the lock and thus increase the *head* part of the ticket.
 
-2. As an optimization, every process would spin for a *SPIN_THRESHOLD* time. After that, it will go into `__ticket_lock_spinning()` and be put into sleep ??(I guess)
+2. As an optimization, every process would spin for a *SPIN_THRESHOLD* time. After that, it will go into `__ticket_lock_spinning()` and be put into sleep ???(I guess)
 
 That is the core of spinlock in Linux ![alt text](../img/icons/png/happy-4.png)
 
-Actually, these two functions are only used internally and will not be exposed to the outside world. What Linux export are `spin_lock_init()`, `spin_lock()`, `spin_unlock()`, `spin_unlock_wait()`, `spin_is_locked()`, `spin_trylock()`, which are all macros$$^{[9]}$$. Here is some description:
+Actually, these two functions are only used internally and will not be exposed to the outside world. What Linux export are `spin_lock_init()`, `spin_lock()`, `spin_unlock()`, `spin_unlock_wait()`, `spin_is_locked()`, `spin_trylock()`, which are all macros<sup>[9]</sup>. Here is some description:
 
 | Macro            | Actual Internal Implementation Function | Description                              |
 | ---------------- | --------------------------------------- | ---------------------------------------- |
@@ -585,27 +639,31 @@ Actually, these two functions are only used internally and will not be exposed t
 | spin_is_locked   | __raw_spin_is_locked                    | Test whether the lock has been acquired  |
 | spin_trylock     | __raw_spin_trylock                      | Acquire the lock if possible, else return with error |
 
+Anyone who tries to acquire a spinlock should use the `spin_lock()` function, which expands to a`arch_spin_lock()` according to the current CPU architecture. Anyone who wants to release a spinlock should the `spin_unlock()` function, which expands to a `arch_spin_unlock()` according to the current CPU architecture. A spinlock can be initialized dynamically using the `spin_lock_init()` function, or statically using the `DEFINE_SPINLOCK(x)` macro.
+
 As the spinlock implementation in Linux is quite huge and involve lots of architecture-specified issues, I would not analyze the complete implementation here. If you are interested in it, you can start by the `spin_lock()` [function/macro](http://lxr.free-electrons.com/source/include/linux/spinlock.h?v=4.0#L310) and `spin_lock_init()` [function/macro](http://lxr.free-electrons.com/source/include/linux/spinlock.h?v=4.0#L304) and take a travel yourself. Enjoy~![alt text](../img/icons/png/happy-4.png)
 
-For more information, you can also refer to this [Github article](https://0xax.gitbooks.io/linux-insides/content/SyncPrim/sync-1.html), or this [LWN article](https://lwn.net/Articles/267968/), or do a Google search of "ticket spinlock linux" youself !
+For more information, you can also refer to this [Github article](https://0xax.gitbooks.io/linux-insides/content/SyncPrim/sync-1.html), or do a Google search of "ticket spinlock linux" youself !
 
 #### Queued Spinlock in Linux
 
-Ticket spinlock is good. Simple and efficient. But, there can still be some improvement. Remember that Linux use a "public" ticket shared by all processes to ensure global ordering of lock acquisition. However, with different threads trying to check the ticket using the **test-and-set** instruction, there would definitely be lots of [cache invalidation](https://en.wikipedia.org/wiki/Cache_invalidation) because **test-and-set** will keep writing 1 to the variable. And since different processors use different cache, they have to invalidate their cache to ensure that all the processors see the same value of a variable (the ticket).
+Ticket spinlock is good. Simple and efficient. But, there can still be some improvement. Remember that Linux use a "public" ticket shared by all processes to ensure global ordering of lock acquisition. However, with different threads trying to check the ticket using the **test-and-set** instruction, there would definitely be lots of [cache invalidation](https://en.wikipedia.org/wiki/Cache_invalidation) because **test-and-set** will keep writing 1 to the variable and see if there would a 0 returned. Since different processors use different cache, they have to invalidate their cache to ensure that all the processors see the same value of a variable (the ticket).
 
-To eliminate this problem, the Linux kernel by default adopt a spinloch mechanism called *queued spinlock*, which enable every process to spin on their own local(per-cpu) variable. The idea is simple, and it is based the [MCS](http://www.cs.rochester.edu/~scott/papers/1991_TOCS_synch.pdf) from the 1990s. 
+To eliminate this problem, modern Linux kernels by default adopt a spinlock mechanism called *queued spinlock*, which enables every process to spin on their own local(per-cpu) variable. The idea, which is based on the [MCS](http://www.cs.rochester.edu/~scott/papers/1991_TOCS_synch.pdf) locking mechanism from the 1990s, is quite simple: Any process that fail to acquire the spinlock put the address of their local lock in a shared queue and continue to spin on that local lock. Once the process release lock, it pick one local lock from the shared queue and update its state to *released* such that the corresponding process get notified. By spinning on a local lock, we avoid the cache invalidation problem.
 
-However, as I only want to illustrate the locking mechanism but not every detail, I would not analyze it here. Please do a research yourself I you are interested ![alt text](../img/icons/png/happy-4.png)
+However, as I only want to illustrate the locking mechanism in general but not every detail, I would not analyze it here. Please do a research yourself If you are interested ![alt text](../img/icons/png/happy-4.png)
 
 #### Semaphore in Linux
 
 Let's look into the semaphore implementation in the Linux  kernel. The source can be found in [include/linux/semaphore.h](http://lxr.free-electrons.com/source/include/linux/semaphore.h) and [kernel/locking/semaphore.c](http://lxr.free-electrons.com/source/kernel/locking/semaphore.c) in the Linux kernel source code.
 
-Unlike spinlock, semaphore is a more "general" locking mechanism that allow multiple processes to enter critical section. In most implementation, it does not adopt the "spinning/busy-waiting" routine, but instead put the processes that fail to "acquire" a semaphore into a wait queue and wake it up when the semaphore is ready. By this design, it avoid wasting CPU time by spinning. However, as using semaphore requires explicit task scheduling, it has more overhead than using spinlock$$^{[10]}$$.
+Unlike spinlock, semaphore is a more "general" locking mechanism that allows multiple processes to enter the critical section. In most implementation, it does not adopt the "spinning/busy-waiting" routine, but instead put a process that fails to "acquire" a semaphore into a wait queue and wake it up when the semaphore is ready. By this design, it avoid wasting CPU time by spinning. However, as using semaphore requires explicit task scheduling, it has more overhead than using spinlock<sup>[10]</sup>.
 
-The implementation of semaphore in Linux is quite simple, well-documented by comments and mimic that presented in the **A simple yield implementation** above. So I would copy-paste the whole implementation here directly.  If you are a programmer(or anything else) who want more insight into the mechanism of it, please take some time and look into the source code carefully. It is not that hard:
+The implementation of semaphore in Linux is quite simple, well-documented by comments and mimic that presented in the **yield implementation** above. So I would copy-paste the whole implementation here directly.  If you are a programmer(or anything else) who want more insight into the mechanism of it, please take some time and look into the source code carefully. It is not that hard:
 
-**semaphore.h**
+![alt tex](../img/icons/svg/file-code.svg)**semaphore.h**
+
+<div class="codeblks"	>
 
 ```c
 /*
@@ -656,9 +714,13 @@ extern void up(struct semaphore *sem);
 #endif /* __LINUX_SEMAPHORE_H */
 ```
 
+</div>
+
 This header file is for semaphore initialization and exporting function. The main logic is implemented in another file, as follow:
 
-**semaphore.c**
+![alt tex](../img/icons/svg/file-code.svg)**semaphore.c**
+
+<div class="codeblks">
 
 ```c
 /*
@@ -926,7 +988,9 @@ static noinline void __sched __up(struct semaphore *sem)
 }
 ```
 
-Hmm...lots of functions here. Let's take `down_interruptable()` for example and analyze it a little bit:
+</div>
+
+Hmm...lots of functions here. Actually they all provides similar functionalities(*e.g.* interruptable or non-interruptable). Let's take `down_interruptable()` for example and analyze it a little bit:
 
 ```c
 /*
@@ -938,7 +1002,8 @@ int down_interruptible(struct semaphore *sem)
 	unsigned long flags;
 	int result = 0;
 
-    /* use a lock to protect internal data structure manipulation,
+    /*
+     * use a lock to protect internal data structure manipulation,
      * like the `guard' variable in "A simple yield implementation" above
 	 * Also see footnote [5] for the "irq" issue
      */
@@ -979,7 +1044,7 @@ static inline int __sched __down_common(struct semaphore *sem, long state,
    *   3) someone wait it up (indicated by `waiter.up`)
    */
 	for (;;) {
-		if (signal_pending_state(state, current))
+		if (signal_pending_state(state, current)) /* interrupted */
 			goto interrupted;  /* "Dijkstra must hate me" --Linus */
 		if (unlikely(timeout <= 0))
 			goto timed_out;
@@ -1001,15 +1066,76 @@ static inline int __sched __down_common(struct semaphore *sem, long state,
 }
 ```
 
-Actually this implementation mimics that in **A decent yield implementation** above (except that semaphore allow multiple processes to enter critical section). For example, in `down_interruptible()`, the `raw_spin_lock_irqsave(&sem->lock, flags);` is used for the same purpose as `while (test_and_set(m->guard));` in **A decent yield implementation**: to protect the internal data structure of a semaphore/lock; and the usage of `semaphore.wait_list` is pretty much the same as `__mutex_t.queue_t`.
+This implementation mimics that in the **yield implementation** above (except that semaphore allows multiple processes to enter critical section). For example, in `down_interruptible()`, the `raw_spin_lock_irqsave(&sem->lock, flags);` is used for the same purpose as `while (test_and_set(m->guard));` in **yield implementation**: to protect the internal data structure of a lock; and the usage of `semaphore.wait_list` is pretty much the same as `__lock_t.queue_t`. 
 
-Hopefully you can understand this (read the source code carefully please). If you want a more direct implementation(lots of assembly), you can check the implementation in Linux 2.4 [here](https://www.kernel.org/pub/linux/kernel/people/marcelo/linux-2.4/include/asm-i386/semaphore.h) and [here](https://www.kernel.org/pub/linux/kernel/people/marcelo/linux-2.4/arch/i386/kernel/semaphore.c), in which you can find codes without so many jumps.
+Just a few more things to note:
 
-#### Locking in FreeBSD
+1. The code above uses `raw_spin_lock_irqsave(&sem->lock, flags)` , which will disable **local** interrupt when called.(note that a *raw_spin_lock* is pretty much the same as a *spin_lock* ). This interrupt issue requires some explanation, but I feel it not appropriate to fully state that here because it would mess things up. If you cannot think of why we have to disable **local** interrupt, it is probably OK to ignore it. Otherwise, you can refer to my [another essay](http://walkerlala.github.io/archive/locking-interrupt-issues.html).
+2. Instead of the normal `__down()` function, we choose the special `__down_interruptible()` for this essay, because use of `__down()` requires much more caution (deprecated, as stated in the doc) Actually, this is also because of the [interrupt issue](http://walkerlala.github.io/archive/locking-interrupt-issues.html).
 
-Let's look into FreeBSD and see how it do for spinlock ![alt text](../img/icons/png/happy-4.png)
+Hopefully you can understand this (read the source code carefully please). If you want a more direct implementation (with lots of assembly), you can check the implementation in Linux 2.4 [here](https://www.kernel.org/pub/linux/kernel/people/marcelo/linux-2.4/include/asm-i386/semaphore.h) and [here](https://www.kernel.org/pub/linux/kernel/people/marcelo/linux-2.4/arch/i386/kernel/semaphore.c), in which you can find code without so many jumps.
 
-(I am still investigating on the FreeBSD implementation. But since the semantic of locking in FreeBSD is pretty different from that of Linux (e.g. FreeBSD allow *recursive locking* ), and I not so familiar with the codebase, it will take sometime. Thanks for your reading so far :)
+#### $FreeBSD$ ![alt text](../img/icons/jpg/freebsd-round.jpg)
+
+Let's look into FreeBSD and see how it do for locking ![alt text](../img/icons/png/happy-4.png)
+
+From my perspective, FreeBSD's locking mechanism is far more complicated than that of Linux (maybe for historical reasons). For example, many lock in FreeBSD allow *recursive locking* by default. By *recursive*, it means one thread can obtain the same lock even if it has already hold it. And FreeBSD has very different process/thread scheduling schema (*i.e* ithread *vs* thread-filter) which might blow you head up if you ...
+
+Note that the FreeBSD people use different terminology for locks than that of Linux. In FreeBSD, the *spinlock* we introduced above is called **spin mutex**, and the lock that sleep/block is call **blocking mutex**, which is used by default in many cases. In a world, they group them and call all of them *mutex* :  *(blocking) mutex*, *spin-mutex*, *mutex pools*, *Reader/Writer mutex* ... and they also have semaphore ... for a full list and full semantic of them, refer to the [main page](https://www.freebsd.org/cgi/man.cgi?locking(9)). But in Linux, choice for locking is pretty limited, although Linux do has something really nice things such as RCU lock. 
+
+Let's see how far we can go in the FreeBSD world.
+
+#### Spinlock in FreeBSD
+
+In FreeBSD, spinlock is called *spin mutex*. It does pretty much the same thing and has pretty much the same behaviors as that of Linux: try to obtain a spinlock, if failed, spin on the CPU. The key difference between the spinlock (spin mutex) in FreeBSD and that in Linux is that spinlock in FreeBSD **by default will disable interrupt**. That say, if a thread fail to obtain a spinlock, it would spin on that CPU and nobody can interrupt/preempt him (so that it cannot migrate from one CPU to another either). That is because in FreeBSD spinlock is often used to synchronize with an interrupt handler and thus need to disable interrrupt<sup>[14]</sup> (see [5] for why).  In Linux, however, they provide two kinds of spinlock: `spin_lock(...)` and `spin_lock_irqsave(...)`, which allow and disallow interrupt respectively.
+
+The spin lock is implemented as a macro in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L303)
+
+```c
+#define mtx_lock_spin(m)        mtx_lock_spin_flags((m), 0)
+```
+
+and that expands to
+
+```c
+#define mtx_lock_spin_flags(m, opts)                                    \
+        mtx_lock_spin_flags_((m), (opts), LOCK_FILE, LOCK_LINE)
+```
+
+and along all the expansion of macro, we finally get to the core of it in 
+
+```C
+254 void
+255 __mtx_lock_spin_flags(volatile uintptr_t *c, int opts, const char *file,
+256     int line)
+257 {
+258         struct mtx *m;
+259 
+260         if (SCHEDULER_STOPPED())
+261                 return;
+262 
+263         m = mtxlock2mtx(c);
+264 
+265         KASSERT(m->mtx_lock != MTX_DESTROYED,
+266             ("mtx_lock_spin() of destroyed mutex @ %s:%d", file, line));
+267         KASSERT(LOCK_CLASS(&m->lock_object) == &lock_class_mtx_spin,
+268             ("mtx_lock_spin() of sleep mutex %s @ %s:%d",
+269             m->lock_object.lo_name, file, line));
+270         if (mtx_owned(m))
+271                 KASSERT((m->lock_object.lo_flags & LO_RECURSABLE) != 0 ||
+272                     (opts & MTX_RECURSE) != 0,
+273             ("mtx_lock_spin: recursed on non-recursive mutex %s @ %s:%d\n",
+274                     m->lock_object.lo_name, file, line));
+275         opts &= ~MTX_RECURSE;
+276         WITNESS_CHECKORDER(&m->lock_object, opts | LOP_NEWORDER | LOP_EXCLUSIVE,
+277             file, line, NULL);
+278         __mtx_lock_spin(m, curthread, opts, file, line);
+279         LOCK_LOG_LOCK("LOCK", &m->lock_object, opts, m->mtx_recurse, file,
+280             line);
+281         WITNESS_LOCK(&m->lock_object, opts | LOP_EXCLUSIVE, file, line);
+282 }
+          
+```
 
 
 
@@ -1022,6 +1148,8 @@ Let's look into FreeBSD and see how it do for spinlock ![alt text](../img/icons/
 ###### ![alt text](../img/icons/svg/search.svg) Notes
 
 -------------------------
+
+<div class="notes">
 
 1. Some concepts/terminologies stated here may or may not be strictly adhered to the theory (I sometimes mix concepts). And also note that is this essay I will use the term *thread* and *processe* interchangeably, as they behave similarly in this context.
 
@@ -1042,7 +1170,7 @@ Let's look into FreeBSD and see how it do for spinlock ![alt text](../img/icons/
 
     If the interrupt handler is waken up on a different CPU, it ok. But it is **not** ok if it happen on the same CPU that holds the lock, because the lock will obviously never be released (the interrupt is waiting for the lock, and the lock-holder is interrupted by the interrupt and will not continue until the interrupt has been processed). For this reason, the Linux kernel provides some other safer lock primitives that disable **local** interrupt (*e.g.* `spin_lock_irqsave()`, `read_lock_irqsave()`, `write_lock_irqsave()`).
 
-   Note also that context switch in effect require interrupt ![alt text](../img/icons/png/happy-7.png)
+   Note also that context switch in effect requires interrupt ![alt text](../img/icons/png/happy-7.png)
 
 6. Many thanks to one [course outline](http://www.cs.columbia.edu/~junfeng/11sp-w4118/lectures/l09-lock.pdf) by *Junfeng Yang* at Columbia University, with the help of which I start to understand the internal mechanism used by many modern operating system.
 
@@ -1054,8 +1182,16 @@ Let's look into FreeBSD and see how it do for spinlock ![alt text](../img/icons/
 
 10. Note also since using spinlock require disabling interrupt first and enabling it afterwards, there is also some overhead with spinlock
 
+11. On x86, you can also use someother special hardware instructions, such as `CAS` and `fetch-and-add` . On the MIPS architecture, you can use the **load-linked** and **store-conditional**. Nearly every architecture provides simliar instructions.
+
+12. I read this from the OS book [Operating Systems: Three Easy Pieces](http://pages.cs.wisc.edu/~remzi/OSTEP/) by *Remzi H. Arpaci-Dusseau and Andrea C. Arpaci-Dusseau*. I haven't really read the Solaris source code(yet).
+
+13. Note that the semaphore use in the kernel is not the same as that used in libc (*i.e.* user space)
+
+14. I have had [a long discussion](https://docs.freebsd.org/cgi/getmsg.cgi?fetch=102272+0+archive/2017/freebsd-hackers/20170409.freebsd-hackers) with some FreeBSD guys in the freebsd-hacker mailing list, where I was told this fact. From them I also know how the threading model in FreeBSD work.
 
 
+</div>
 
 
 
