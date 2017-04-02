@@ -47,9 +47,9 @@ sub $0x1, %eax         ;; 5
 mov %eax, 0x8049780    ;; 6
 ```
 
-In this occasion, if the sequence of execution is **1 -> 4 -> 2 -> 5 -> 3 -> 6**, then the effect of `add` would cancel that of `sub`.
+In this occasion, if the sequence of execution is **1 -> 4 -> 2 -> 5 -> 3 -> 6**, the effect of `add` would "cancel" that of `sub` (you can see **only** an `add` rather than an `add` with a `sub`)
 
-Now you get the point: **programs accessing the same resources simultaneously without synchronization or mutual exclusion techniques would produce wrong results inevitably**
+Now you get the point: **processes accessing the same resources simultaneously without synchronization or mutual exclusion techniques would produce wrong results inevitably**
 
 To make the program above correct, we can use *atomic* operation like this: 
 
@@ -112,7 +112,7 @@ By definition, the part of program where shared memory is accessed is called **c
 
 #### Race Condition
 
-If more than one processes are allowed to stay in the critical section at the same time, then the program is subjected to **race condition**, where unexpected things would happen. So, usually when we write concurrent codes, we want to avoid race condition so that our programs can behave correctly. For example, in the above example, the variable `balance` will eventually become `0` if we use atomic operation or locks.
+If more than one processes are allowed to stay in the critical section at the same time, the program is subjected to **race condition**, where unexpected things would happen. So, usually when we write concurrent codes, we want to avoid race condition so that our programs can behave correctly. For example, in the above example, the variable `balance` will eventually become `0` if we use atomic operation or locks.
 
 ### \# 3, How to Avoid Race Condition
 
