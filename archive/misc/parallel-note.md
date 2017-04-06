@@ -24,7 +24,7 @@
 
   * Random boosting
 
-    ready task holding lock are randomly boosted in priority until they exit the critical region
+    ready task holding lock are randomly boosted in priority until they exit the critical region　（used by **Microsoft Windows**$$^{TM}$$)
 
   * Avoid blocking by using **Non-blocking synchronization** or **Read-copy-update** 
 
