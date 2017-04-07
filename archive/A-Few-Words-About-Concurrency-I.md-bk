@@ -605,7 +605,7 @@ The implementation of semaphore in Linux is quite simple, well-documented by com
 
 ![alt tex](../img/icons/svg/file-code.svg)**semaphore.h**
 
-<div id="code_block_1" class="codeblks"	>
+<div class="codeblks"	>
 
 ```c
 /*
