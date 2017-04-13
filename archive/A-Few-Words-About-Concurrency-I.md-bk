@@ -484,7 +484,7 @@ We have achieved half-success here. Still, some problems:
    ...
    ```
 
-   is not atomic. So, after setting `m->guard` to 0, we have effectively releasing the `guard` lock. Therefore, if the thread get de-scheduled before it can call `yield()`, and another thread releases the lock but finds nobody in the wait queue to wake up, we have lost wakeup as in the *2nd attempt* above.
+   is not atomic. So, after setting `m->guard` to 0, we have **effectively** released the `guard` lock. Therefore, if the thread get de-scheduled before it can call `yield()`, and another thread releases the lock but finds nobody in the wait queue to wake up, we have lost wakeup as in the *2nd attempt* above.
 
 Actually, the busy waiting issue is not that critical. Even though the thread might get interrupted while acquiring and releasing the lock and thus causes another thread to spin-wait, the time spent spining is quite limited. That is because there are only a few instructions between the lock and unlock code, instead of a real user-defined critical section with lots of code.  So, this approach is acceptable.
 
@@ -503,14 +503,18 @@ void lock(lock_t *m) {
     
     //a waiter(myself) waiting for the lock
     struct waiter_t waiter = self;
-    enqueue(m->q, &waiter);  //pass-in a "pointer" of waiter
+    enqueue(m->q, &waiter);  //pass-in a pointer, so that other can notify me
     
     //infinitely loop, until somebody wait me up
     for(;;){
       m->guard = 0; //release the lock
       yield_for_a_while(); //giving up CPU for a while
-      if(waiter.up)  //if somebody wake me up
-         return 0;
+      while(test_and_set(m->guard))
+        ; //take the guard lock again
+      if(waiter.up) { //if somebody wake me up
+        m->guard = 0; 
+        return 0;
+      }
     }
   }
 }
@@ -1047,10 +1051,10 @@ static inline int __sched __down_common(struct semaphore *sem, long state,
 		if (signal_pending_state(state, current)) /* interrupted */
 			goto interrupted;  /* "Dijkstra must hate me" --Linus */
 		if (unlikely(timeout <= 0))
-			goto timed_out;
+			goto timed_out;   /* cannot obtain the lock within fixed amount of time */
 		__set_current_state(state);
 		raw_spin_unlock_irq(&sem->lock);
-		timeout = schedule_timeout(timeout);
+		timeout = schedule_timeout(timeout); /* give up CPU for a while */
 		raw_spin_lock_irq(&sem->lock);
 		if (waiter.up)
 			return 0;
@@ -1083,11 +1087,11 @@ From my perspective, FreeBSD's locking mechanism is far more complicated than th
 
 Note that the FreeBSD people use different terminology for locks than that of Linux. In FreeBSD, the *spinlock* we introduced above is called **spin mutex**, and the lock that sleep/block is call **blocking mutex**, which is used by default in many cases. In a world, they group them and call all of them *mutex* :  *(blocking) mutex*, *spin-mutex*, *mutex pools*, *Reader/Writer mutex* ... and they also have semaphore ... for a full list and full semantic of them, refer to the [main page](https://www.freebsd.org/cgi/man.cgi?locking(9)). But in Linux, choice for locking is pretty limited, although Linux do has something really nice things such as RCU lock. 
 
-Let's see how far we can go in the FreeBSD world.
+Let's see how far we can go in the FreeBSD world ![alt text](../img/icons/svg/flame.svg)
 
 #### Spinlock in FreeBSD
 
-In FreeBSD, spinlock is called *spin mutex*. It does pretty much the same thing and has pretty much the same behaviors as that of Linux: try to obtain a spinlock, if failed, spin on the CPU. The key difference between the spinlock (spin mutex) in FreeBSD and that in Linux is that spinlock in FreeBSD **by default will disable interrupt**. That say, if a thread fail to obtain a spinlock, it would spin on that CPU and nobody can interrupt/preempt him (so that it cannot migrate from one CPU to another either). That is because in FreeBSD spinlock is often used to synchronize with an interrupt handler and thus need to disable interrrupt<sup>[14]</sup> (see [5] for why).  In Linux, however, they provide two kinds of spinlock: `spin_lock(...)` and `spin_lock_irqsave(...)`, which allow and disallow interrupt respectively.
+In FreeBSD, spinlock is called *spin mutex*. It does pretty much the same thing and has pretty much the same behaviors as that of Linux: try to obtain a spinlock, if failed, spin on the CPU. The key difference between the spinlock (spin mutex) in FreeBSD and that in Linux is that spinlock in FreeBSD **by default will disable interrupt**. That says, if a thread fails to obtain a spinlock, it would spin on that CPU and nobody can interrupt/preempt him (so that it cannot migrate from one CPU to another either). That is because in FreeBSD spinlock is often used to synchronize with an interrupt handler and thus need to disable interrrupt<sup>[14]</sup> (see [5] for why).  In Linux, however, they provide two kinds of spinlock: `spin_lock(...)` and `spin_lock_irqsave(...)`, which enables and disables interrupt respectively.
 
 The spin lock is implemented as a macro in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L303)
 
@@ -1102,7 +1106,7 @@ and that expands to
         mtx_lock_spin_flags_((m), (opts), LOCK_FILE, LOCK_LINE)
 ```
 
-and along all the expansion of macro, we finally get to the core of it in 
+and along all the expansion of that macro ... we finally get to the core of it in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c#L255), line 255:
 
 ```C
 254 void
@@ -1114,13 +1118,16 @@ and along all the expansion of macro, we finally get to the core of it in
 260         if (SCHEDULER_STOPPED())
 261                 return;
 262 
-263         m = mtxlock2mtx(c);
+263         m = mtxlock2mtx(c); /* obtain the mutex address from a pointer */
 264 
 265         KASSERT(m->mtx_lock != MTX_DESTROYED,
 266             ("mtx_lock_spin() of destroyed mutex @ %s:%d", file, line));
 267         KASSERT(LOCK_CLASS(&m->lock_object) == &lock_class_mtx_spin,
 268             ("mtx_lock_spin() of sleep mutex %s @ %s:%d",
 269             m->lock_object.lo_name, file, line));
+     /* 
+      * if one tries to recursively lock a non-recursive lock, the kernel would panic
+      */
 270         if (mtx_owned(m))
 271                 KASSERT((m->lock_object.lo_flags & LO_RECURSABLE) != 0 ||
 272                     (opts & MTX_RECURSE) != 0,
@@ -1129,7 +1136,9 @@ and along all the expansion of macro, we finally get to the core of it in
 275         opts &= ~MTX_RECURSE;
 276         WITNESS_CHECKORDER(&m->lock_object, opts | LOP_NEWORDER | LOP_EXCLUSIVE,
 277             file, line, NULL);
+     /* after all the debugging and asserting, we get to the main spinlock func */
 278         __mtx_lock_spin(m, curthread, opts, file, line);
+  
 279         LOCK_LOG_LOCK("LOCK", &m->lock_object, opts, m->mtx_recurse, file,
 280             line);
 281         WITNESS_LOCK(&m->lock_object, opts | LOP_EXCLUSIVE, file, line);
@@ -1137,7 +1146,158 @@ and along all the expansion of macro, we finally get to the core of it in
           
 ```
 
+For SMP kernel (let's not focus on UP kernel, it's similar), the `__mtx_lock_spin(...)` is defined as a macro<sup>[15]</sup> in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L202,216), line 202:
 
+```C
+  195 /*
+  196  * Lock a spin mutex.  For spinlocks, we handle recursion inline (it
+  197  * turns out that function calls can be significantly expensive on
+  198  * some architectures).  Since spin locks are not _too_ common,
+  199  * inlining this code is not too big a deal.
+  200  */
+  201 #ifdef SMP
+  202 #define __mtx_lock_spin(mp, tid, opts, file, line) do {                 \
+  203         uintptr_t _tid = (uintptr_t)(tid);                              \
+  204                                                                         \
+       /* call spinlock_enter() to disable interrupts */
+  205         spinlock_enter();                                               \
+       /*
+        * if the spinlock has already been taken, or, if it isn't
+        * but we fail to take it
+        */
+  206         if (((mp)->mtx_lock != MTX_UNOWNED || !_mtx_obtain_lock((mp), _tid))) {\
+  207                 if ((mp)->mtx_lock == _tid)                             \
+                          /* recursive locking recording */
+  208                         (mp)->mtx_recurse++;                            \
+  209                 else                                                    \
+                          /* keep spinning around ... */
+  210                         _mtx_lock_spin((mp), _tid, (opts), (file), (line)); \
+  211         } else                                                          \
+  212                 LOCKSTAT_PROFILE_OBTAIN_LOCK_SUCCESS(spin__acquire,     \
+  213                     mp, 0, 0, file, line);                              \
+  214 } while (0)
+  215 #else /* SMP */
+```
+
+The `_mtx_obtain_lock(...)` is basically a **compare-and-set** atomic instruction, in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L167), line 167:
+
+```C
+  166 /* Try to obtain mtx_lock once. */
+  167 #define _mtx_obtain_lock(mp, tid)                                       \
+  168         atomic_cmpset_acq_ptr(&(mp)->mtx_lock, MTX_UNOWNED, (tid))
+```
+
+Different hardwares has different instructions for this `atomic_cmpset_acq_ptr`. For AMD64 (i.e x86\_64), it expands to a `atomic_cmpset_acq_long` and for i386 it expands to `atomic_cmpset_acq_int`. You can look at line 172 ~ 217 in [i386/include/atomic.h](http://fxr.watson.org/fxr/source/i386/include/atomic.h#L108,175,200) for an example, in which they use a `cmpxchg` atomic instruction<sup>[16]</sup> ![alt text](../img/icons/png/happy-4.png)
+
+<div class="codeblks">
+
+```C
+  199 static __inline int
+  200 atomic_cmpset_int(volatile u_int *dst, u_int expect, u_int src)
+  201 {
+  202         u_char res;
+  203 
+  204         __asm __volatile(
+  205         "       " MPLOCKED "            "
+  206         "       cmpxchgl %3,%1 ;        "
+  207         "       sete    %0 ;            "
+  208         "# atomic_cmpset_int"
+  209         : "=q" (res),                   /* 0 */
+  210           "+m" (*dst),                  /* 1 */
+  211           "+a" (expect)                 /* 2 */
+  212         : "r" (src)                     /* 3 */
+  213         : "memory", "cc");
+  214         return (res);
+  215 }
+  216 
+  217 #endif 
+```
+
+</div>
+
+The `_mtx_lock_spin(...)`, which keeps the current thread spinning, is defined in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L146), line 146 and expands to another function `_mtx_lock_spin_cookie(...)` in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c#L577), line 577:
+
+<div class="codeblks">
+
+```C
+  569 #ifdef SMP
+  570 /*
+  571  * _mtx_lock_spin_cookie: the tougher part of acquiring an MTX_SPIN lock.
+  572  *
+  573  * This is only called if we need to actually spin for the lock. Recursion
+  574  * is handled inline.
+  575  */
+  576 void
+  577 _mtx_lock_spin_cookie(volatile uintptr_t *c, uintptr_t tid, int opts,
+  578     const char *file, int line)
+  579 {
+  580         struct mtx *m;
+  581         int i = 0;
+
+  ...   /* I remove some profiling code here */  
+    
+  589 
+  590         if (SCHEDULER_STOPPED())
+  591                 return;
+  592 
+  593         m = mtxlock2mtx(c);
+  594 
+  595         if (LOCK_LOG_TEST(&m->lock_object, opts))
+  596                 CTR1(KTR_LOCK, "_mtx_lock_spin: %p spinning", m);
+  597         KTR_STATE1(KTR_SCHED, "thread", sched_tdname((struct thread *)tid),
+  598             "spinning", "lockname:\"%s\"", m->lock_object.lo_name);
+  599 
+
+  ...  /* I remove some profiling code here */
+    
+  607         for (;;) {
+  608                 if (m->mtx_lock == MTX_UNOWNED && _mtx_obtain_lock(m, tid))
+  609                         break;
+  610                 /* Give interrupts a chance while we spin. */
+  611                 spinlock_exit();
+  612                 while (m->mtx_lock != MTX_UNOWNED) {
+  613                         if (i++ < 10000000) {
+                                    /* pause the CPU (one instruction only) */
+  614                                 cpu_spinwait();
+  615                                 continue;
+  616                         }
+  617                         if (i < 60000000 || kdb_active || panicstr != NULL)
+  618                                 DELAY(1);
+  619                         else
+                     /* make some record if the spinlock is held for too long */
+  620                                 _mtx_lock_spin_failed(m);
+    
+  621                         cpu_spinwait();
+  622                 }
+  623                 spinlock_enter(); /* enable interrupt again */
+  624         }
+
+  ...  /* I remove some profiling code here */
+    
+  628 
+  629         if (LOCK_LOG_TEST(&m->lock_object, opts))
+  630                 CTR1(KTR_LOCK, "_mtx_lock_spin: %p spin done", m);
+  631         KTR_STATE0(KTR_SCHED, "thread", sched_tdname((struct thread *)tid),
+  632             "running");
+  633 
+
+  ...  /* I remove some profiling code here */ 
+    
+  640 }
+  641 #endif /* SMP */
+```
+
+</div>
+
+This finishes our discussion for FreeBSD's spinlock ~ ![alt text](../img/icons/png/happy-4.png)
+
+#### Blocking Mutex in FreeBSD
+
+(to be finished...)
+
+
+
+#### $Haiku$ ![alt text](../img/icons/png/rsz_haiku-three-leaves.png)
 
 #### Locking in Haiku
 
@@ -1189,6 +1349,10 @@ and along all the expansion of macro, we finally get to the core of it in
 13. Note that the semaphore use in the kernel is not the same as that used in libc (*i.e.* user space)
 
 14. I have had [a long discussion](https://docs.freebsd.org/cgi/getmsg.cgi?fetch=102272+0+archive/2017/freebsd-hackers/20170409.freebsd-hackers) with some FreeBSD guys in the freebsd-hacker mailing list, where I was told this fact. From them I also know how the threading model in FreeBSD work.
+
+15. Turning a function into a macro would automatically make it inline, which improves performance on many hardware. However, it increase executable size.
+
+16. You would also see how FreeBSD dealing with atomic instruction without `cmpxchg`. Interesting.
 
 
 </div>
