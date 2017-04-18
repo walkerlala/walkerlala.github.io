@@ -1,0 +1,99 @@
+    /*
+    Flaticon icon font: Flaticon
+    Creation date: 22/06/2016 15:36
+    */
+
+    @font-face {
+  font-family: "Flaticon";
+  src: url("./Flaticon.eot");
+  src: url("./Flaticon.eot?#iefix") format("embedded-opentype"),
+       url("./Flaticon.woff") format("woff"),
+       url("./Flaticon.ttf") format("truetype"),
+       url("./Flaticon.svg#Flaticon") format("svg");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  @font-face {
+    font-family: "Flaticon";
+    src: url("./Flaticon.svg#Flaticon") format("svg");
+  }
+}
+
+    .fi:before{
+        display: inline-block;
+  font-family: "Flaticon";
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-decoration: inherit;
+  text-rendering: optimizeLegibility;
+  text-transform: none;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-smoothing: antialiased;
+    }
+
+    .flaticon-clouds:before { content: "\f100"; }
+.flaticon-cloudy:before { content: "\f101"; }
+.flaticon-hail:before { content: "\f102"; }
+.flaticon-hail-1:before { content: "\f103"; }
+.flaticon-hail-2:before { content: "\f104"; }
+.flaticon-moon:before { content: "\f105"; }
+.flaticon-rain:before { content: "\f106"; }
+.flaticon-rain-1:before { content: "\f107"; }
+.flaticon-rain-2:before { content: "\f108"; }
+.flaticon-storm:before { content: "\f109"; }
+.flaticon-storm-1:before { content: "\f10a"; }
+.flaticon-storm-2:before { content: "\f10b"; }
+.flaticon-sun:before { content: "\f10c"; }
+.flaticon-thermometer:before { content: "\f10d"; }
+.flaticon-thermometer-1:before { content: "\f10e"; }
+.flaticon-thermometer-2:before { content: "\f10f"; }
+.flaticon-thermometer-3:before { content: "\f110"; }
+.flaticon-thermometer-4:before { content: "\f111"; }
+.flaticon-thermometer-5:before { content: "\f112"; }
+.flaticon-umbrella:before { content: "\f113"; }
+.flaticon-windy:before { content: "\f114"; }
+.flaticon-windy-1:before { content: "\f115"; }
+.flaticon-windy-2:before { content: "\f116"; }
+.flaticon-windy-3:before { content: "\f117"; }
+.flaticon-windy-4:before { content: "\f118"; }
+.flaticon-windy-5:before { content: "\f119"; }
+.flaticon-windy-6:before { content: "\f11a"; }
+.flaticon-windy-7:before { content: "\f11b"; }
+.flaticon-windy-8:before { content: "\f11c"; }
+.flaticon-windy-9:before { content: "\f11d"; }
+    
+    $font-Flaticon-clouds: "\f100";
+    $font-Flaticon-cloudy: "\f101";
+    $font-Flaticon-hail: "\f102";
+    $font-Flaticon-hail-1: "\f103";
+    $font-Flaticon-hail-2: "\f104";
+    $font-Flaticon-moon: "\f105";
+    $font-Flaticon-rain: "\f106";
+    $font-Flaticon-rain-1: "\f107";
+    $font-Flaticon-rain-2: "\f108";
+    $font-Flaticon-storm: "\f109";
+    $font-Flaticon-storm-1: "\f10a";
+    $font-Flaticon-storm-2: "\f10b";
+    $font-Flaticon-sun: "\f10c";
+    $font-Flaticon-thermometer: "\f10d";
+    $font-Flaticon-thermometer-1: "\f10e";
+    $font-Flaticon-thermometer-2: "\f10f";
+    $font-Flaticon-thermometer-3: "\f110";
+    $font-Flaticon-thermometer-4: "\f111";
+    $font-Flaticon-thermometer-5: "\f112";
+    $font-Flaticon-umbrella: "\f113";
+    $font-Flaticon-windy: "\f114";
+    $font-Flaticon-windy-1: "\f115";
+    $font-Flaticon-windy-2: "\f116";
+    $font-Flaticon-windy-3: "\f117";
+    $font-Flaticon-windy-4: "\f118";
+    $font-Flaticon-windy-5: "\f119";
+    $font-Flaticon-windy-6: "\f11a";
+    $font-Flaticon-windy-7: "\f11b";
+    $font-Flaticon-windy-8: "\f11c";
+    $font-Flaticon-windy-9: "\f11d";

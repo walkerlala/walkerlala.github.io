@@ -1,0 +1,61 @@
+	/*
+  	Flaticon icon font: Flaticon
+  	Creation date: 22/06/2016 15:36
+  	*/
+
+@font-face {
+  font-family: "Flaticon";
+  src: url("./Flaticon.eot");
+  src: url("./Flaticon.eot?#iefix") format("embedded-opentype"),
+       url("./Flaticon.woff") format("woff"),
+       url("./Flaticon.ttf") format("truetype"),
+       url("./Flaticon.svg#Flaticon") format("svg");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  @font-face {
+    font-family: "Flaticon";
+    src: url("./Flaticon.svg#Flaticon") format("svg");
+  }
+}
+
+[class^="flaticon-"]:before, [class*=" flaticon-"]:before,
+[class^="flaticon-"]:after, [class*=" flaticon-"]:after {   
+  font-family: Flaticon;
+        font-size: 20px;
+font-style: normal;
+margin-left: 20px;
+}
+
+.flaticon-film-reel:before { content: "\f100"; }
+.flaticon-game-console:before { content: "\f101"; }
+.flaticon-headphones:before { content: "\f102"; }
+.flaticon-laptop:before { content: "\f103"; }
+.flaticon-memory-card:before { content: "\f104"; }
+.flaticon-microphone:before { content: "\f105"; }
+.flaticon-microphone-1:before { content: "\f106"; }
+.flaticon-microphone-2:before { content: "\f107"; }
+.flaticon-microphone-3:before { content: "\f108"; }
+.flaticon-microphone-4:before { content: "\f109"; }
+.flaticon-microphone-5:before { content: "\f10a"; }
+.flaticon-monitor:before { content: "\f10b"; }
+.flaticon-monitor-1:before { content: "\f10c"; }
+.flaticon-monitor-2:before { content: "\f10d"; }
+.flaticon-monitor-3:before { content: "\f10e"; }
+.flaticon-photo-camera:before { content: "\f10f"; }
+.flaticon-photo-camera-1:before { content: "\f110"; }
+.flaticon-smartphone:before { content: "\f111"; }
+.flaticon-smartphone-1:before { content: "\f112"; }
+.flaticon-smartphone-2:before { content: "\f113"; }
+.flaticon-smartphone-3:before { content: "\f114"; }
+.flaticon-smartphone-4:before { content: "\f115"; }
+.flaticon-smartphone-5:before { content: "\f116"; }
+.flaticon-smartphone-6:before { content: "\f117"; }
+.flaticon-tablet:before { content: "\f118"; }
+.flaticon-tablet-1:before { content: "\f119"; }
+.flaticon-telephone:before { content: "\f11a"; }
+.flaticon-usb:before { content: "\f11b"; }
+.flaticon-usb-1:before { content: "\f11c"; }
+.flaticon-video-camera:before { content: "\f11d"; }

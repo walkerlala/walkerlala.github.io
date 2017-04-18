@@ -1,0 +1,139 @@
+    /*
+    Flaticon icon font: Flaticon
+    Creation date: 22/06/2016 15:36
+    */
+
+    @font-face {
+  font-family: "Flaticon";
+  src: url("./Flaticon.eot");
+  src: url("./Flaticon.eot?#iefix") format("embedded-opentype"),
+       url("./Flaticon.woff") format("woff"),
+       url("./Flaticon.ttf") format("truetype"),
+       url("./Flaticon.svg#Flaticon") format("svg");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  @font-face {
+    font-family: "Flaticon";
+    src: url("./Flaticon.svg#Flaticon") format("svg");
+  }
+}
+
+    .fi:before{
+        display: inline-block;
+  font-family: "Flaticon";
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-decoration: inherit;
+  text-rendering: optimizeLegibility;
+  text-transform: none;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  font-smoothing: antialiased;
+    }
+
+    .flaticon-calm:before { content: "\f100"; }
+.flaticon-confused:before { content: "\f101"; }
+.flaticon-cool:before { content: "\f102"; }
+.flaticon-cool-1:before { content: "\f103"; }
+.flaticon-crying:before { content: "\f104"; }
+.flaticon-crying-1:before { content: "\f105"; }
+.flaticon-devil:before { content: "\f106"; }
+.flaticon-girl:before { content: "\f107"; }
+.flaticon-happy:before { content: "\f108"; }
+.flaticon-happy-1:before { content: "\f109"; }
+.flaticon-happy-10:before { content: "\f10a"; }
+.flaticon-happy-11:before { content: "\f10b"; }
+.flaticon-happy-12:before { content: "\f10c"; }
+.flaticon-happy-2:before { content: "\f10d"; }
+.flaticon-happy-3:before { content: "\f10e"; }
+.flaticon-happy-4:before { content: "\f10f"; }
+.flaticon-happy-5:before { content: "\f110"; }
+.flaticon-happy-6:before { content: "\f111"; }
+.flaticon-happy-7:before { content: "\f112"; }
+.flaticon-happy-8:before { content: "\f113"; }
+.flaticon-happy-9:before { content: "\f114"; }
+.flaticon-kiss:before { content: "\f115"; }
+.flaticon-kiss-1:before { content: "\f116"; }
+.flaticon-laughing:before { content: "\f117"; }
+.flaticon-moustache:before { content: "\f118"; }
+.flaticon-muted:before { content: "\f119"; }
+.flaticon-muted-1:before { content: "\f11a"; }
+.flaticon-muted-2:before { content: "\f11b"; }
+.flaticon-nervous:before { content: "\f11c"; }
+.flaticon-nervous-1:before { content: "\f11d"; }
+.flaticon-sad:before { content: "\f11e"; }
+.flaticon-sad-1:before { content: "\f11f"; }
+.flaticon-sad-2:before { content: "\f120"; }
+.flaticon-sad-3:before { content: "\f121"; }
+.flaticon-sad-4:before { content: "\f122"; }
+.flaticon-sad-5:before { content: "\f123"; }
+.flaticon-sad-6:before { content: "\f124"; }
+.flaticon-sad-7:before { content: "\f125"; }
+.flaticon-sad-8:before { content: "\f126"; }
+.flaticon-shouting:before { content: "\f127"; }
+.flaticon-sick:before { content: "\f128"; }
+.flaticon-surprised:before { content: "\f129"; }
+.flaticon-surprised-1:before { content: "\f12a"; }
+.flaticon-surprised-2:before { content: "\f12b"; }
+.flaticon-surprised-3:before { content: "\f12c"; }
+.flaticon-surprised-4:before { content: "\f12d"; }
+.flaticon-tongue:before { content: "\f12e"; }
+.flaticon-tongue-1:before { content: "\f12f"; }
+.flaticon-tongue-2:before { content: "\f130"; }
+.flaticon-wink:before { content: "\f131"; }
+    
+    $font-Flaticon-calm: "\f100";
+    $font-Flaticon-confused: "\f101";
+    $font-Flaticon-cool: "\f102";
+    $font-Flaticon-cool-1: "\f103";
+    $font-Flaticon-crying: "\f104";
+    $font-Flaticon-crying-1: "\f105";
+    $font-Flaticon-devil: "\f106";
+    $font-Flaticon-girl: "\f107";
+    $font-Flaticon-happy: "\f108";
+    $font-Flaticon-happy-1: "\f109";
+    $font-Flaticon-happy-10: "\f10a";
+    $font-Flaticon-happy-11: "\f10b";
+    $font-Flaticon-happy-12: "\f10c";
+    $font-Flaticon-happy-2: "\f10d";
+    $font-Flaticon-happy-3: "\f10e";
+    $font-Flaticon-happy-4: "\f10f";
+    $font-Flaticon-happy-5: "\f110";
+    $font-Flaticon-happy-6: "\f111";
+    $font-Flaticon-happy-7: "\f112";
+    $font-Flaticon-happy-8: "\f113";
+    $font-Flaticon-happy-9: "\f114";
+    $font-Flaticon-kiss: "\f115";
+    $font-Flaticon-kiss-1: "\f116";
+    $font-Flaticon-laughing: "\f117";
+    $font-Flaticon-moustache: "\f118";
+    $font-Flaticon-muted: "\f119";
+    $font-Flaticon-muted-1: "\f11a";
+    $font-Flaticon-muted-2: "\f11b";
+    $font-Flaticon-nervous: "\f11c";
+    $font-Flaticon-nervous-1: "\f11d";
+    $font-Flaticon-sad: "\f11e";
+    $font-Flaticon-sad-1: "\f11f";
+    $font-Flaticon-sad-2: "\f120";
+    $font-Flaticon-sad-3: "\f121";
+    $font-Flaticon-sad-4: "\f122";
+    $font-Flaticon-sad-5: "\f123";
+    $font-Flaticon-sad-6: "\f124";
+    $font-Flaticon-sad-7: "\f125";
+    $font-Flaticon-sad-8: "\f126";
+    $font-Flaticon-shouting: "\f127";
+    $font-Flaticon-sick: "\f128";
+    $font-Flaticon-surprised: "\f129";
+    $font-Flaticon-surprised-1: "\f12a";
+    $font-Flaticon-surprised-2: "\f12b";
+    $font-Flaticon-surprised-3: "\f12c";
+    $font-Flaticon-surprised-4: "\f12d";
+    $font-Flaticon-tongue: "\f12e";
+    $font-Flaticon-tongue-1: "\f12f";
+    $font-Flaticon-tongue-2: "\f130";
+    $font-Flaticon-wink: "\f131";
