@@ -24,7 +24,7 @@
 
   * Random boosting
 
-    ready task holding lock are randomly boosted in priority until they exit the critical region
+    ready task holding lock are randomly boosted in priority until they exit the critical region　（used by **Microsoft Windows**$$^{TM}$$)
 
   * Avoid blocking by using **Non-blocking synchronization** or **Read-copy-update** 
 
@@ -185,18 +185,7 @@
 
   [3] : https://lwn.net/Articles/264090/
 
-- TODO: Try this simple program using parallel C/C++ (and compiler optimization) W/O `volatile` or *memory barrier* to see the difference 
-
-- TODO: smp_rmb ->  read : read
-
-  ​             smp_wmb -> write : write
-
-  ​             smp_mb   ->   r/w  :  r/w
-
-   then  what could be    read  :  read /write ? and similarily write : read/write ?
-
   (there is no any formal memory model yet to define this precisely. See McKenny's note)
-
   Regarding to memory barriers, there are some confusions about **See by All the CPU** and **See by only the current CPU** , for `smp_mb()`, all CPUs will regard the ordering(maybe except Alpha). But with `smp_wmb()` and `smp_rmb()`, things are pretty different. See the discussion with me and Paul Mckenny
 
 - Memory barier transitivity

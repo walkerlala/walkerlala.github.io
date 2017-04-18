@@ -12,9 +12,9 @@
 ###
     "blog":
         [
-        {  "title": "A Few Words About Concurrency(Part I)",
+        {  "title": "A Few Words About Concurrency (Part I)",
             "location": "./archive/A-Few-Words-About-Concurrency-I.html",
-            "time": "2017-04-02",
+            "time": "2017-04-18",
             "summary": "Concurrency has always been a big topic ever since the 1960s. I learned about this topic from my Operating System courses one year ago but never feel confident to tell any other people that I really understand it. I do have some insights into this topic and have read a few books/articles related to it. However, the more I read and know about it, the more it seems to be left unknown. I suppose this is probably the reason for the old saying \"the consequence of knowing too much\".  Nevertheless, I want to summarize and present some \"cases\" that I find really interesting these days as I read and think. I will try to show you how we can  get into the \"dark\" side of those techniques, with some necessary theories. Specifically, in this essay, I would try show you how to implement a lock in the kernel, and what techniques and theories are required."
         },
         {  "title": "What If Two Processes Write to the Same File Simultaneously",

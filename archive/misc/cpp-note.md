@@ -7,28 +7,28 @@
   ```cpp
   class Thing {
   public:
-  void foo();
-  void defrangulate();
+  	void foo();
+  	void defrangulate();
   };
   void transmogrify(Thing *);
   int main()
   {
-  Thing * t1 = new Thing;
-  t1->foo();
-  ...
-  delete t1; // done with the object
+  	Thing * t1 = new Thing;
+  	t1->foo();
+  	...
+  	delete t1; // done with the object
   }
   ...
   void Thing::foo()
   {
-  // we need to transmogrify this object
-  transmogrify(this);
+  	// we need to transmogrify this object
+  	transmogrify(this);
   }
   ...
   void transmogrify(Thing * ptr)
   {
-  ptr->defrangulate();
-  /* etc. */
+  	ptr->defrangulate();
+  	/* etc. */
   }
   ```
 
@@ -39,23 +39,23 @@
   ```cpp
   class Thing {
   public:
-  void foo();
-  void defrangulate();
+  	void foo();
+  	void defrangulate();
   };
   void transmogrify(shared_ptr<Thing>);
   int main()
   {
-  shared_ptr<Thing> t1(new Thing); // start a manager object for the Thing
-  t1->foo();
-  ...
-  // Thing is supposed to get deleted when t1 goes out of scope
+  	shared_ptr<Thing> t1(new Thing); // start a manager object for the Thing
+  	t1->foo();
+  	...
+  	// Thing is supposed to get deleted when t1 goes out of scope
   }
   ...
   void Thing::foo()
   {
-  // we need to transmogrify this object
-  shared_ptr<Thing> sp_for_this(this); // danger! a second manager object!
-  transmogrify(sp_for_this);
+  	// we need to transmogrify this object
+  	shared_ptr<Thing> sp_for_this(this); // danger! a second manager object!
+  	transmogrify(sp_for_this);
   }
   ```
 
@@ -73,30 +73,30 @@
   ```cpp
   class Thing : public enable_shared_from_this<Thing> {
   public:
-  void foo();
-  void defrangulate();
+  	void foo();
+  	void defrangulate();
   };
   int main()
   {
-  // The following starts a manager object for the Thing and also
-  // initializes the weak_ptr member that is now part of the Thing.
-  shared_ptr<Thing> t1(new Thing);
-  t1->foo();
-  ...
+  	// The following starts a manager object for the Thing and also
+  	// initializes the weak_ptr member that is now part of the Thing.
+  	shared_ptr<Thing> t1(new Thing);
+  	t1->foo();
+  	...
   }
   ...
   void Thing::foo()
   {
-  // we need to transmogrify this object
-  // get a shared_ptr from the weak_ptr in this object
-  shared_ptr<Thing> sp_this = shared_from_this();
-  transmogrify(sp_this);
+  	// we need to transmogrify this object
+  	// get a shared_ptr from the weak_ptr in this object
+  	shared_ptr<Thing> sp_this = shared_from_this();
+  	transmogrify(sp_this);
   }
   ...
   void transmogrify(shared_ptr<Thing> ptr)
   {
-  ptr->defrangulate();
-  /* etc. */
+  	ptr->defrangulate();
+  	/* etc. */
   }
   ```
 
