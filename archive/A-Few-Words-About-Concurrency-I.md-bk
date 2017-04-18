@@ -47,7 +47,7 @@ sub $0x1, %eax         ;; 5
 mov %eax, 0x8049780    ;; 6
 ```
 
-In this occasion, if the sequence of execution is **1 -> 4 -> 2 -> 5 -> 3 -> 6**, the effect of `add` would "cancel" that of `sub` (you can see **only** an `add` rather than an `add` with a `sub`)
+In this occasion, if the sequence of execution is **1 -> 4 -> 2 -> 5 -> 3 -> 6**, the effect of `add` would "cancel" that of `sub` (you can see **only** the effect of an `add` rather than an `add` with a `sub`)
 
 Now you get the point: **processes accessing the same resources simultaneously without synchronization or mutual exclusion techniques would produce wrong results inevitably**
 
@@ -66,11 +66,9 @@ for(int i=0;i<100000;i++) {                  for(int k=0; k<100000; k++) {
 
 You can test it using the program I wrote before: ![alt tex](../img/icons/svg/file-code.svg) [atomic-increment-balance.c](../code/atomic-increment-balance.c).
 
-Note that the `__sync_fetch_and_add()` and `__sync_fetch_and_sub()` are primitive atomic operations built into the GCC compiler. You can use some other standard functions specified by C99 or C++11, such as `atomic_fetch_add()` and `atomic_fetch_sub()`. In Java, there are atomic integer types like `AtomicInteger` that have these atomic operations built in already.
+Note that the `__sync_fetch_and_add()` and `__sync_fetch_and_sub()` are primitive atomic operations built into the GCC compiler. You can use some other standard functions specified by C99 or C++11, such as `atomic_fetch_add()` and `atomic_fetch_sub()`. In Java, there are atomic integer types such as `AtomicInteger` that have these atomic operations built in already.
 
-What if we cannot use atomic operations? For example, imagine that we do not want to do `++balance` or `--balance`, instead we are writing to a file using two threads. We want the two threads write to the file piece by piece, that is, thread 1 have to wait for thread 0 to complete its write before it can continue and vice versa, otherwise contents from two threads would mix together. Obviously you don't have atomic operations for writing files. In this situation, we have to use some other mechanism, like a *lock* .
-
-With locks, we can rewrite the program this way:
+What if we cannot use atomic operations? For example, imagine that we do not want to do `++balance` or `--balance`. Instead we are writing to a file using two threads. We want the two threads write to the file piece by piece, that is, thread 1 has to wait for thread 0 to complete its write before it can continue and vice versa, otherwise contents from two threads would mix together. Obviously you don't have atomic operations for writing files. In this situation, we have to use some other mechanism, like a *lock* . With locks, we can rewrite the program this way:
 
 ```c
 //global variable accessable by thread 1 and 2
@@ -160,7 +158,7 @@ do_critical_section();        do_critical_region();
 unlock();                     unlock();
 ```
 
-What we are interested in is how can we implement a lock for this purpose. We have lots of choice, as long as our implementation meets all the criteria listed above. 
+What we are interested in is how we can implement a lock for this purpose. We have lots of choice, as long as our implementation meets all the criteria listed above. 
 
 ##### $\blacksquare$ Implementing lock by disabling interrupt
 
@@ -362,7 +360,7 @@ Implementing a lock is easy, right?
 
 Well, implementing a spin lock is easy. But spin lock itself comes with many disadvantages. First, it often waste CPU cycle. For example, imagine a thread holding a spin lock gets preempted and other threads try to acquire the same lock. In this case, those threads can do nothing but spin, which is useless. Cases got even complicated when it comes to multiprocessor. What would happen if a thread holding a lock gets preempted under this circumstance? well, lots of switching...
 
-Of course spin locks [come with advantages](http://yarchive.net/comp/linux/semaphores.html)(search for "*you need to grab a spinlock*"). But generally speaking it would be better if we can have a locking mechanism that cause processes/threads to **yield CPU when locks are not available**. Put it another way, we would like the processes/threads to give up CPU *voluntarily* if lock are unavailable, rather than doing useless spinning.
+Of course spin locks [come with advantages](http://yarchive.net/comp/linux/semaphores.html) (search for "*you need to grab a spinlock*"). But generally speaking it would be better if we can have a locking mechanism that cause processes/threads to **yield CPU when locks are not available**. Put it another way, we would like the processes/threads to give up CPU *voluntarily* if lock are unavailable, rather than doing useless spinning.
 
 Let's try.
 
@@ -484,9 +482,23 @@ We have achieved half-success here. Still, some problems:
    ...
    ```
 
-   is not atomic. So, after setting `m->guard` to 0, we have **effectively** released the `guard` lock. Therefore, if the thread get de-scheduled before it can call `yield()`, and another thread releases the lock but finds nobody in the wait queue to wake up, we have lost wakeup as in the *2nd attempt* above.
+   is not atomic. So, after setting `m->guard` to 0, we have **effectively** released the `guard` lock. At this moment, if the thread A gets de-scheduled before it can call `yield()`, and another thread releases the lock, waiting A up, A will continue to call `yield()`, but nobody will wake it up afterwards. In other words, we have a lost wakeup here:
 
-Actually, the busy waiting issue is not that critical. Even though the thread might get interrupted while acquiring and releasing the lock and thus causes another thread to spin-wait, the time spent spining is quite limited. That is because there are only a few instructions between the lock and unlock code, instead of a real user-defined critical section with lots of code.  So, this approach is acceptable.
+   ```
+   thread B currently holding the lock
+   thread A puts itself to the wait queue
+   thread A sets "m->guard = 0", effectively releasing the lock
+   thread A gets preempted and de-scheduled
+   thread B runs, and will release the lock
+   thread B wakeups thread A and return
+   thread A continues to run and call `yield()`
+
+   ...
+
+   A thoudsand years pass...thread A is still sleeping
+   ```
+
+Actually, the busy waiting issue is not that critical. Even though the thread might gets interrupted while acquiring and releasing the lock and thus causes another thread to spin-wait, the time spent spining is quite limited. That is because there are only a few instructions between the lock and unlock code, instead of a real user-defined critical section with lots of code.  So, this approach is acceptable.
 
 For the **lost wakup** issue, there are many solutions. The Solaris operating system use a special `setpark()` function to indicate that the current thread is *going to yield*. If it then get interrupted and another thread call `wakeup(dequeue(m->queue))`, the subsequence `yield()` return immediately, without really sleeping<sup>12</sup>. Another solution, which is used in the Linux kernel, is to use a infinite loop, de-schedule for some time and check again, rather than completely giving up the CPU. So, we may finally end up with something like this:
 
@@ -503,7 +515,7 @@ void lock(lock_t *m) {
     
     //a waiter(myself) waiting for the lock
     struct waiter_t waiter = self;
-    enqueue(m->q, &waiter);  //pass-in a pointer, so that other can notify me
+    enqueue(m->q, &waiter);  //pass in a pointer, so that other can notify me
     
     //infinitely loop, until somebody wait me up
     for(;;){
@@ -520,9 +532,13 @@ void lock(lock_t *m) {
 }
 ```
 
-You may want to refer to the Linux source code in section 5.
+You see, a thread would never lose a wakeup because if another thread had previously waken it up it would know by the `waiter.up` bit. You may want to refer to the Linux source code in section 5.
 
-So, with some OS supports, we can  have a yield implementation which is free from the race conditions listed above. We successfully avoid *busy waiting* when the locks cannot be acquired. Instead, the process is put into a wait queue and sleep until other process holding the lock wakes it up. In many places, it is more efficient than a spinlock. And, as you will see in the following sectionis, this pseudo implementation mimics many real world *semaphore/mutex* implementations.
+<hr>
+
+Now you get the idea: **to yield successfully, use locks to protect the internal lock data structure (*e.g* the wait queue) manipulation**.  
+
+So, with some OS supports, we can  have a yield implementation that is free from the race conditions listed above. We successfully avoid *busy waiting* when the locks cannot be acquired. Instead, the process is put into a wait queue and sleep until other process holding the lock wakes it up. In many situations, that is more efficient than a spinlock. And, as you will see in the following sectionis, this pseudo implementation mimics many real world *semaphore/mutex* implementations.
 
 ### \#5, Real World Locks ![alt text](../img/icons/png/linux-penguin.png)![alt text](../img/icons/png/freebsd-boy.png)![alt text](../img/icons/png/haiku-leaf.png)
 
@@ -536,17 +552,17 @@ The later one (lock, semaphore, etc.) is more general. In summary, their purpose
 
 #### Lock, Spinlock, Semaphore, Mutex ... All The Same Things ?
 
-It is fairly common to get messed up by those things and think that they are all the same or all different things. Actually, *Lock* is a very general term. Spinlock is a kind of lock that adopt the *busy waiting* approach. Semaphore is a kind of lock that is used to control access to a common resource by **multiple** processes in a concurrent system such as a multiprogramming operating system<sup>[4]</sup>. It is a concurrency *primitive* that explicitly imply a *sleep/wakeup* behaviour. A spinlock is **not** a semaphore<sup>[4]</sup> because they have very different semantics (*e.g.* whether or not to allow multiple processes to enter critical section) and usually are implement very differently (*e.g.* whether or not spin/busy waiting). Mutex stands for *mutual exclusion* and is a special kind of semaphore (binary semaphore). There are also many different kinds of locks (*lock* is a general term): *seq_lock*, *read-writer-lock*, *rcu_lock* ... They are used in different situations to achieve some kind of mutual exclusion or synchronization.
+It is fairly common to get messed up by those things and think that they are all the same or all different things. Actually, *Lock* is a very general term. Spinlock is a kind of lock that adopt the *busy waiting* approach. Semaphore is a kind of lock that is used to control access to a common resource by **multiple** processes in a concurrent system such as a multiprogramming operating system<sup>[4]</sup>. It is a concurrency *primitive* that explicitly imply a *sleep/wakeup* behaviour. A spinlock is **not** a semaphore because they have very different semantics (*e.g.* whether or not to allow multiple processes to enter critical section) and usually are implement very differently (*e.g.* whether or not spin/busy waiting). Mutex stands for *mutual exclusion* and is a special kind of semaphore (binary semaphore). There are also many different kinds of locks (*lock* is a general term): *seq_lock*, *read-writer-lock*, *rcu_lock* ... They are used in different situations to achieve some kind of mutual exclusion or synchronization.
 
-In the Linux kernel, the lock that adopts the *busy waiting* approach is called *spinlock*, and the lock that adopts the *yield* approach is *semaphore*<sup>[13]</sup>, which allow more than one processes to enter critical section.  In FreeBSD, the locks that adopts the *busy waiting* approach and *yield* approach are grouped together and called *mutex*. Specifically, the busy waiting one is called *spin mutex*, and the *yield* one is called *blocking mutex*. Besides, FreeBSD also have semaphore ... Actually, as far as I am concerned, the locking mechanism of FreeBSD is far more complicated than that of Linux . For example, FreeBSD's mutex is recursive by default, meaning that you can lock the same lock more than once inside the same process without causing deadlock. You may want to refer to FreeBSD's [locking(9)](https://www.freebsd.org/cgi/man.cgi?locking(9)) main page for more information.
+In the Linux kernel, the lock that adopts the *busy waiting* approach is called *spinlock*, and the lock that adopts the *yield* approach is called *semaphore*<sup>[13]</sup>, which allows more than one processes to enter critical section.  In FreeBSD, the locks that adopts the *busy waiting* approach and *yield* approach are grouped together and called *mutex*. Specifically, the busy waiting one is called *spin mutex*, and the *yield* one is called *blocking mutex*. Besides, FreeBSD also have semaphore ... 
 
-Also, note that for the purpose of mutual exclusion and synchronization, there are also many IPC mechanism out there. You can use [*message queue*](https://en.wikipedia.org/wiki/Message_queue), [*FIFO*](https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)), [*signals*](https://en.wikipedia.org/wiki/Unix_signal), etc. They are not locks, but they provides us with the same function if used properly.
+Note that for the purpose of synchronization, you have lots of choice. You can implement parallel algorithms with lock<sup>[20]</sup> (which is called *lock-free*). Also, there are also many IPC mechanism out there, such as [*message queue*](https://en.wikipedia.org/wiki/Message_queue), [*FIFO*](https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)), [*signals*](https://en.wikipedia.org/wiki/Unix_signal), etc. They are not locks, but they provides us with the same function if used properly. 
 
 #### $Linux$  ![alt text](../img/icons/png/linux-penguin.png)
 
 #### Spinlock in Linux<sup>[7]</sup>
 
-Basically the spinlock implementation in the Linux kernel is like the **test-and-set using special hardware instruction** busy waiting routine stated above. But, besides from the test-and-set part, Linux use a fairer implementation called *ticket spinlock*. You see, the problem with the previous naive test-and-set spinlock is that it may cause unfair longer waiting for some processes/threads even if they tried to acquire the lock earlier than others, because there is no explicit record of their arriving time. Therefore, we do not know which process get blocked first and should be granted the lock first. To solve this problem, Linux use a really neat trick: every time a process/thread wants to acquire a lock, it will be assigned a *ordered ticket* , so every process would finally acquire the lock by the order in the ordered-ticket they get previously. In effect, this mechanism is like a FIFO.
+Basically the spinlock implementation in the Linux kernel is like the **test-and-set using special hardware instruction** busy waiting routine stated above. But, besides from the test-and-set part, Linux use a fairer implementation called *ticket spinlock*. You see, the problem with the previous naive test-and-set spinlock is that it may cause unfair longer waiting for some processes/threads even if they tried to acquire the lock earlier than others, because there is no explicit record of their arriving time. In other words, we do not know which process get blocked first and should be granted the lock first. To solve this problem, Linux uses a really neat trick: every time a process/thread wants to acquire a lock, it will be assigned a *ordered ticket* , so every process would finally acquire the lock by the order in the ordered-ticket they get previously. In effect, this mechanism is like a FIFO.
 
 The two most important functions for us (now) would be `arch_spin_lock()` and `arch_spin_unlock()`, which lock and unlock a spinlock respectively, in ![alt tex](../img/icons/svg/file-code.svg)[spinlock.h](http://lxr.free-electrons.com/source/arch/x86/include/asm/spinlock.h?v=4.0#L142)<sup>[8]</sup>:
 
@@ -1070,7 +1086,7 @@ static inline int __sched __down_common(struct semaphore *sem, long state,
 }
 ```
 
-This implementation mimics that in the **yield implementation** above (except that semaphore allows multiple processes to enter critical section). For example, in `down_interruptible()`, the `raw_spin_lock_irqsave(&sem->lock, flags);` is used for the same purpose as `while (test_and_set(m->guard));` in **yield implementation**: to protect the internal data structure of a lock; and the usage of `semaphore.wait_list` is pretty much the same as `__lock_t.queue_t`. 
+This implementation mimics that in the **yield implementation** above (except that semaphore allows multiple processes to enter critical section). For example, in `down_interruptible()`, the `raw_spin_lock_irqsave(&sem->lock, flags);` is used for the same purpose as `while (test_and_set(m->guard));` in the **yield implementation** above: to protect the internal data structure of a lock; and the usage of `semaphore.wait_list` is pretty much the same as `__lock_t.queue_t`. 
 
 Just a few more things to note:
 
@@ -1083,17 +1099,17 @@ Hopefully you can understand this (read the source code carefully please). If yo
 
 Let's look into FreeBSD and see how it do for locking ![alt text](../img/icons/png/happy-4.png)
 
-From my perspective, FreeBSD's locking mechanism is far more complicated than that of Linux (maybe for historical reasons). For example, many lock in FreeBSD allow *recursive locking* by default. By *recursive*, it means one thread can obtain the same lock even if it has already hold it. And FreeBSD has very different process/thread scheduling schema (*i.e* ithread *vs* thread-filter) which might blow you head up if you ...
+From my perspective, FreeBSD's locking mechanism is far more complicated than that of Linux (maybe for historical reasons). For example, many locks in FreeBSD allow *recursive locking* by default. By *recursive*, it means one thread can acquire the same lock even if it has already hold it. And FreeBSD has very different process/thread scheduling schema (*i.e* ithread *vs* thread-filter) which might blow you head up if you ...
 
-Note that the FreeBSD people use different terminology for locks than that of Linux. In FreeBSD, the *spinlock* we introduced above is called **spin mutex**, and the lock that sleep/block is call **blocking mutex**, which is used by default in many cases. In a world, they group them and call all of them *mutex* :  *(blocking) mutex*, *spin-mutex*, *mutex pools*, *Reader/Writer mutex* ... and they also have semaphore ... for a full list and full semantic of them, refer to the [main page](https://www.freebsd.org/cgi/man.cgi?locking(9)). But in Linux, choice for locking is pretty limited, although Linux do has something really nice things such as RCU lock. 
+Note that the FreeBSD people use different terminology for locks than that of Linux. In FreeBSD, the *spinlock* we introduced above is called **spin mutex**, and the lock that sleep/block is call **blocking mutex**, which is used by default in many cases. In a word, they group them and call all of them *mutex* :  *(blocking) mutex*, *spin-mutex*, *mutex pools*, *Reader/Writer mutex* ... Surprisingly, they also have semaphore (for a full list and full semantic of them, refer to the [main page](https://www.freebsd.org/cgi/man.cgi?locking(9))) But in Linux, choices for locking are pretty limited, although Linux do has something really nice things such as RCU lock. 
 
 Let's see how far we can go in the FreeBSD world ![alt text](../img/icons/svg/flame.svg)
 
 #### Spinlock in FreeBSD
 
-In FreeBSD, spinlock is called *spin mutex*. It does pretty much the same thing and has pretty much the same behaviors as that of Linux: try to obtain a spinlock, if failed, spin on the CPU. The key difference between the spinlock (spin mutex) in FreeBSD and that in Linux is that spinlock in FreeBSD **by default will disable interrupt**. That says, if a thread fails to obtain a spinlock, it would spin on that CPU and nobody can interrupt/preempt him (so that it cannot migrate from one CPU to another either). That is because in FreeBSD spinlock is often used to synchronize with an interrupt handler and thus need to disable interrrupt<sup>[14]</sup> (see [5] for why).  In Linux, however, they provide two kinds of spinlock: `spin_lock(...)` and `spin_lock_irqsave(...)`, which enables and disables interrupt respectively.
+In FreeBSD, spinlock is called *spin mutex*. It does pretty much the same thing and has pretty much the same behaviors as that of Linux: try to obtain a spinlock, if failed, spin on the CPU. The key difference between the spinlock (*i.e* spin mutex) in FreeBSD and that in Linux is that spinlock in FreeBSD **by default will disable (local) interrupt**. That says, if a thread fails to obtain a spinlock, it would spin on that CPU and nobody can interrupt/preempt him (so that it cannot migrate from one CPU to another either). That is because in FreeBSD spinlock is often used to synchronize with an interrupt handler<sup>[14]</sup> and thus need to disable interrrupt (see [5] for why).  Linux, however, provides two kinds of spinlock: `spin_lock(...)` and `spin_lock_irqsave(...)`, which enables and disables interrupt respectively.
 
-The spin lock is implemented as a macro in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L303)
+The lock part of spinlocks is defined as a macro in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L303)
 
 ```c
 #define mtx_lock_spin(m)        mtx_lock_spin_flags((m), 0)
@@ -1106,47 +1122,7 @@ and that expands to
         mtx_lock_spin_flags_((m), (opts), LOCK_FILE, LOCK_LINE)
 ```
 
-and along all the expansion of that macro ... we finally get to the core of it in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c#L255), line 255:
-
-```C
-254 void
-255 __mtx_lock_spin_flags(volatile uintptr_t *c, int opts, const char *file,
-256     int line)
-257 {
-258         struct mtx *m;
-259 
-260         if (SCHEDULER_STOPPED())
-261                 return;
-262 
-263         m = mtxlock2mtx(c); /* obtain the mutex address from a pointer */
-264 
-265         KASSERT(m->mtx_lock != MTX_DESTROYED,
-266             ("mtx_lock_spin() of destroyed mutex @ %s:%d", file, line));
-267         KASSERT(LOCK_CLASS(&m->lock_object) == &lock_class_mtx_spin,
-268             ("mtx_lock_spin() of sleep mutex %s @ %s:%d",
-269             m->lock_object.lo_name, file, line));
-     /* 
-      * if one tries to recursively lock a non-recursive lock, the kernel would panic
-      */
-270         if (mtx_owned(m))
-271                 KASSERT((m->lock_object.lo_flags & LO_RECURSABLE) != 0 ||
-272                     (opts & MTX_RECURSE) != 0,
-273             ("mtx_lock_spin: recursed on non-recursive mutex %s @ %s:%d\n",
-274                     m->lock_object.lo_name, file, line));
-275         opts &= ~MTX_RECURSE;
-276         WITNESS_CHECKORDER(&m->lock_object, opts | LOP_NEWORDER | LOP_EXCLUSIVE,
-277             file, line, NULL);
-     /* after all the debugging and asserting, we get to the main spinlock func */
-278         __mtx_lock_spin(m, curthread, opts, file, line);
-  
-279         LOCK_LOG_LOCK("LOCK", &m->lock_object, opts, m->mtx_recurse, file,
-280             line);
-281         WITNESS_LOCK(&m->lock_object, opts | LOP_EXCLUSIVE, file, line);
-282 }
-          
-```
-
-For SMP kernel (let's not focus on UP kernel, it's similar), the `__mtx_lock_spin(...)` is defined as a macro<sup>[15]</sup> in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L202,216), line 202:
+and along all the macro expansions ... it finally gets to the core in `__mtx_lock_spin(...)`, which is defined as a macro <sup>[15]</sup> in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L202,216):
 
 ```C
   195 /*
@@ -1162,8 +1138,8 @@ For SMP kernel (let's not focus on UP kernel, it's similar), the `__mtx_lock_spi
        /* call spinlock_enter() to disable interrupts */
   205         spinlock_enter();                                               \
        /*
-        * if the spinlock has already been taken, or, if it isn't
-        * but we fail to take it
+        * If the spinlock has already been taken, or, if it isn't
+        * but we fail to take it, let the thread spin
         */
   206         if (((mp)->mtx_lock != MTX_UNOWNED || !_mtx_obtain_lock((mp), _tid))) {\
   207                 if ((mp)->mtx_lock == _tid)                             \
@@ -1177,6 +1153,23 @@ For SMP kernel (let's not focus on UP kernel, it's similar), the `__mtx_lock_spi
   213                     mp, 0, 0, file, line);                              \
   214 } while (0)
   215 #else /* SMP */
+  216 #define __mtx_lock_spin(mp, tid, opts, file, line) do {                 \
+  217         uintptr_t _tid = (uintptr_t)(tid);                              \
+  218                                                                         \
+  219         spinlock_enter();                                               \
+  220         if ((mp)->mtx_lock == _tid)                                     \
+  221                 (mp)->mtx_recurse++;                                    \
+  222         else {                                                          \
+       /* 
+        * After disable interrupt, only one thread can reach here.
+        * So if the lock is already set to MTX_OWNED,  there must be
+        * some bugs in the kernel. See [17]
+        */
+  223                 KASSERT((mp)->mtx_lock == MTX_UNOWNED, ("corrupt spinlock")); \
+  224                 (mp)->mtx_lock = _tid;                                  \
+  225         }                                                               \
+  226 } while (0)
+  227 #endif /* SMP */
 ```
 
 The `_mtx_obtain_lock(...)` is basically a **compare-and-set** atomic instruction, in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L167), line 167:
@@ -1215,7 +1208,7 @@ Different hardwares has different instructions for this `atomic_cmpset_acq_ptr`.
 
 </div>
 
-The `_mtx_lock_spin(...)`, which keeps the current thread spinning, is defined in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L146), line 146 and expands to another function `_mtx_lock_spin_cookie(...)` in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c#L577), line 577:
+The `_mtx_lock_spin(...)`, which keeps the current thread spinning, is defined in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L146), line 146 and expands to another function `_mtx_lock_spin_cookie(...)` in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c#L577), line 577 for SMP kernel<sup>[17]</sup>:
 
 <div class="codeblks">
 
@@ -1253,6 +1246,10 @@ The `_mtx_lock_spin(...)`, which keeps the current thread spinning, is defined i
   607         for (;;) {
   608                 if (m->mtx_lock == MTX_UNOWNED && _mtx_obtain_lock(m, tid))
   609                         break;
+            /*
+             * since we are not holding a spinlock now , we should allow
+             * interrupt on this CPU
+             */
   610                 /* Give interrupts a chance while we spin. */
   611                 spinlock_exit();
   612                 while (m->mtx_lock != MTX_UNOWNED) {
@@ -1289,21 +1286,298 @@ The `_mtx_lock_spin(...)`, which keeps the current thread spinning, is defined i
 
 </div>
 
-This finishes our discussion for FreeBSD's spinlock ~ ![alt text](../img/icons/png/happy-4.png)
+You may wonder why it enables interrupt again at line 611 (by `spin_exit()`). Shouldn't FreeBSD's spinlock disable interrupt until the lock get released? The answer is, it should only disable **local** interrupt. And, since it is **trying** to acquire a spinlock that is already hold, the thread must be running on a different CPU than the lock holder. Therefore, there is no need to keep interrupt disabled all the time<sup>[18]</sup>. 
+
+The unlock part is fairly easy. It is achieved in `mtx_unlock_spin()`, which is defined as a macro in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L306) that, after some expansions, expands to `__mtx_unlock_spin()` in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L250,260):
+
+```C
+  239 /*
+  240  * Unlock a spin mutex.  For spinlocks, we can handle everything
+  241  * inline, as it's pretty simple and a function call would be too
+  242  * expensive (at least on some architectures).  Since spin locks are
+  243  * not _too_ common, inlining this code is not too big a deal.
+  244  *
+  245  * Since we always perform a spinlock_enter() when attempting to acquire a
+  246  * spin lock, we need to always perform a matching spinlock_exit() when
+  247  * releasing a spin lock.  This includes the recursion cases.
+  248  */
+  249 #ifdef SMP
+  250 #define __mtx_unlock_spin(mp) do {                                      \
+  251         if (mtx_recursed((mp)))                                         \
+  252                 (mp)->mtx_recurse--;                                    \
+  253         else {                                                          \
+  254                 LOCKSTAT_PROFILE_RELEASE_LOCK(spin__release, mp);       \
+             /* for SMP system, use atomic operation to release the lock */
+  255                 _mtx_release_lock_quick((mp));                          \
+  256         }                                                               \
+  257         spinlock_exit();                                                \
+  258 } while (0)
+  259 #else /* SMP */
+  260 #define __mtx_unlock_spin(mp) do {                                      \
+  261         if (mtx_recursed((mp)))                                         \
+  262                 (mp)->mtx_recurse--;                                    \
+  263         else {                                                          \
+  264                 LOCKSTAT_PROFILE_RELEASE_LOCK(spin__release, mp);       \
+             /* for UP system, a simple -- suffices */
+  265                 (mp)->mtx_lock = MTX_UNOWNED;                           \
+  266         }                                                               \
+  267         spinlock_exit();                                                \
+  268 } while (0)
+  269 #endif /* SMP */
+```
+
+This finishes our discussion of FreeBSD's spinlock ~ ![alt text](../img/icons/png/happy-4.png)
 
 #### Blocking Mutex in FreeBSD
 
-(to be finished...)
+As with spinlock, FreeBSD is defined as a macro (`mtx_lock()`) in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L302), which, after some macro expansions, expand to `__mtx_lock(...)` in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L185):
 
+```C
+  178 /*
+  179  * Full lock operations that are suitable to be inlined in non-debug
+  180  * kernels.  If the lock cannot be acquired or released trivially then
+  181  * the work is deferred to another function.
+  182  */
+  183 
+  184 /* Lock a normal mutex. */
+  185 #define __mtx_lock(mp, tid, opts, file, line) do {                      \
+  186         uintptr_t _tid = (uintptr_t)(tid);                              \
+  187                                                                         \
+       /*
+        * If the lock has already been taken, or, if it isn't
+        * but we fail to take it, put the thread into sleep
+        */
+  188         if (((mp)->mtx_lock != MTX_UNOWNED || !_mtx_obtain_lock((mp), _tid)))\
+  189                 _mtx_lock_sleep((mp), _tid, (opts), (file), (line));    \
+  190         else                                                            \
+  191                 LOCKSTAT_PROFILE_OBTAIN_LOCK_SUCCESS(adaptive__acquire, \
+  192                     mp, 0, 0, file, line);                              \
+  193 } while (0)
+```
 
+Easy, right? If the normal lock cannot be acquired, it call `_mtx_lock_sleep()` in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L141), which expands to `__mtx_lock_sleep()` that puts the current thread into sleep:
+
+<div class="codeblks">
+
+```C
+ 360 /*
+  361  * __mtx_lock_sleep: the tougher part of acquiring an MTX_DEF lock.
+  362  *
+  363  * We call this if the lock is either contested (i.e. we need to go to
+  364  * sleep waiting for it), or if we need to recurse on it.
+  365  */
+  366 void
+  367 __mtx_lock_sleep(volatile uintptr_t *c, uintptr_t tid, int opts,
+  368     const char *file, int line)
+  369 {
+  370         struct mtx *m;
+  371         struct turnstile *ts;
+  372         uintptr_t v;
+  373 #ifdef ADAPTIVE_MUTEXES
+  374         volatile struct thread *owner;
+  375 #endif
+ 
+  ...     /* I remove some profiling and debugging code here */
+    
+  389 
+  390         if (SCHEDULER_STOPPED())
+  391                 return;
+  392 
+  393         m = mtxlock2mtx(c);
+  394 
+       /* if the current thread has already owned this lock */
+  395         if (mtx_owned(m)) {
+       /* see whether we are recursly-locking a non-recursive lock */
+  396                 KASSERT((m->lock_object.lo_flags & LO_RECURSABLE) != 0 ||
+  397                     (opts & MTX_RECURSE) != 0,
+  398             ("_mtx_lock_sleep: recursed on non-recursive mutex %s @ %s:%d\n",
+  399                     m->lock_object.lo_name, file, line));
+  400                 opts &= ~MTX_RECURSE;
+  401                 m->mtx_recurse++;
+  402                 atomic_set_ptr(&m->mtx_lock, MTX_RECURSED);
+  403                 if (LOCK_LOG_TEST(&m->lock_object, opts))
+  404                         CTR1(KTR_LOCK, "_mtx_lock_sleep: %p recursing", m);
+  405                 return;
+  406         }
+  407         opts &= ~MTX_RECURSE;
+  408
+    
+  ...    /* I remove some profiling and debugging code here */
+    
+  421 
+  422         for (;;) {
+             /* if we can acquire the lock, then do it ! */
+  423                 if (m->mtx_lock == MTX_UNOWNED && _mtx_obtain_lock(m, tid))
+  424                         break;
+  
+  ...
+  
+  428 #ifdef ADAPTIVE_MUTEXES
+  429                 /*
+  430                  * If the owner is running on another CPU, spin until the
+  431                  * owner stops running or the state of the lock changes.
+  432                  */
+  433                 v = m->mtx_lock;
+  434                 if (v != MTX_UNOWNED) {
+  435                         owner = (struct thread *)(v & ~MTX_FLAGMASK);
+  436                         if (TD_IS_RUNNING(owner)) {
+  ...   
+  445                                 while (mtx_owner(m) == owner &&
+  446                                     TD_IS_RUNNING(owner)) {
+  447                                         cpu_spinwait();
+  ...                                     }
+  
+  451                                 }
+  ...                             continue;  /* continue the for loop: spin */
+  456                         }
+  457                 }
+  458 #endif
+  459 
+  460                 ts = turnstile_trywait(&m->lock_object);
+  461                 v = m->mtx_lock;
+  462 
+  463                 /*
+  464                  * Check if the lock has been released while spinning for
+  465                  * the turnstile chain lock.
+  466                  */
+  467                 if (v == MTX_UNOWNED) {
+  468                         turnstile_cancel(ts);
+  469                         continue;
+  470                 }
+  471 
+  472 #ifdef ADAPTIVE_MUTEXES
+  473                 /*
+  474                  * The current lock owner might have started executing
+  475                  * on another CPU (or the lock could have changed
+  476                  * owners) while we were waiting on the turnstile
+  477                  * chain lock.  If so, drop the turnstile lock and try
+  478                  * again.
+  479                  */
+  480                 owner = (struct thread *)(v & ~MTX_FLAGMASK);
+  481                 if (TD_IS_RUNNING(owner)) {
+  482                         turnstile_cancel(ts);
+  483                         continue;
+  484                 }
+  485 #endif
+  486 
+  487                 /*
+  488                  * If the mutex isn't already contested and a failure occurs
+  489                  * setting the contested bit, the mutex was either released
+  490                  * or the state of the MTX_RECURSED bit changed.
+  491                  */
+  492                 if ((v & MTX_CONTESTED) == 0 &&
+  493                     !atomic_cmpset_ptr(&m->mtx_lock, v, v | MTX_CONTESTED)) {
+  494                         turnstile_cancel(ts);
+  495                         continue;
+  496                 }
+  ... 
+  513 
+  514                 /*
+  515                  * Block on the turnstile.
+  516                  */
+  ...    
+  520                 turnstile_wait(ts, mtx_owner(m), TS_EXCLUSIVE_QUEUE);
+  ...    
+  525         }
+
+  ...    /* I remove some profiling and debugging code here */
+    
+  548 }
+```
+
+</div>
+
+Hmm ... Lots of code. Actually, lots of the code in this function is related to profiling and the "adaptive spinning"<sup>[19]</sup> optimization in FreeBSD's blocking mutex. The code that will do the necessary locking for internal lock data structure manipulation and put the thread into sleeping are `turnstile_trywait()`  and `turnstile_wait()` respectively, which are defined as functions in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c). Basically the main execution flow can be represented as following (the name *turnstile* is just FreeBSD's terminology for the wait queue):
+
+```C
+void FreeBSD_abstract_mtx_lock_sleep (...) //pseudo implementation schema
+{
+      for(;;) {
+            if (m->mtx_lock == MTX_UNOWNED && _mtx_obtain_lock(m, tid))
+            	break
+            /* lock up to protect internal data structure manipulation */
+            ts = turnstile_trywait(&m->lock_object);
+            /*
+             * If the lock is released before the lock-up, undo the lock-up
+             * in `turnstile_trywait()` and continue the for loop to acquire
+             * the lock
+             */
+            if (v == MTX_UNOWNED) {
+            	turnstile_cancel(ts);
+            	continue;
+            }
+            /* put the current thread into the waitqueue and yield */
+        	turnstile_wait(ts, mtx_owner(m), TS_EXCLUSIVE_QUEUE);
+      }
+}
+```
+
+As you may have noticed, this kind of implementation is different from that in **A usable yield implementation** above. But, nevertheless, the basic idea is the same: **to yield successfully, use locks to protect the internal lock data structure (*e.g* the wait queue) manipulation**.
+
+The corresponding unlock part is defined as a macro in [sys/mutex.h](http://fxr.watson.org/fxr/source/sys/mutex.h#L305), and after all the expansions will expand to `__mtx_unlock_sleep()` in [kern/kern_mutex.c](http://fxr.watson.org/fxr/source/kern/kern_mutex.c#L775):
+
+<div class="codeblks">
+
+```C
+  768 /*
+  769  * __mtx_unlock_sleep: the tougher part of releasing an MTX_DEF lock.
+  770  *
+  771  * We are only called here if the lock is recursed or contested (i.e. we
+  772  * need to wake up a blocked thread).
+  773  */
+  774 void
+  775 __mtx_unlock_sleep(volatile uintptr_t *c, int opts, const char *file, int line)
+  776 {
+  777         struct mtx *m;
+  778         struct turnstile *ts;
+  779 
+  780         if (SCHEDULER_STOPPED())
+  781                 return;
+  782 
+  783         m = mtxlock2mtx(c);
+  784 
+  785         if (mtx_recursed(m)) {
+  786                 if (--(m->mtx_recurse) == 0)
+  787                         atomic_clear_ptr(&m->mtx_lock, MTX_RECURSED);
+  788                 if (LOCK_LOG_TEST(&m->lock_object, opts))
+  789                         CTR1(KTR_LOCK, "_mtx_unlock_sleep: %p unrecurse", m);
+  790                 return;
+  791         }
+  792 
+  793         /*
+  794          * We have to lock the chain before the turnstile so this turnstile
+  795          * can be removed from the hash list if it is empty.
+  796          */
+  797         turnstile_chain_lock(&m->lock_object);
+  798         ts = turnstile_lookup(&m->lock_object);
+  799         if (LOCK_LOG_TEST(&m->lock_object, opts))
+  800                 CTR1(KTR_LOCK, "_mtx_unlock_sleep: %p contested", m);
+  801         MPASS(ts != NULL);
+  802         turnstile_broadcast(ts, TS_EXCLUSIVE_QUEUE);
+  803         _mtx_release_lock_quick(m);
+  804 
+  805         /*
+  806          * This turnstile is now no longer associated with the mutex.  We can
+  807          * unlock the chain lock so a new turnstile may take it's place.
+  808          */
+  809         turnstile_unpend(ts, TS_EXCLUSIVE_LOCK);
+  810         turnstile_chain_unlock(&m->lock_object);
+  811 }
+```
+
+</div>
+
+Locking for internal data structure manipulation is achieved by `turnstile_chain_lock()` and `turnstile_chain_unlock()` respectively. The wakeup is achieved by `turnstile_broadcase()`.
+
+These finish our discussino of FreeBSD's spinlock and block lock. Feel free to leave comments below ![alt text](../img/icons/png/happy-4.png)
 
 #### $Haiku$ ![alt text](../img/icons/png/rsz_haiku-three-leaves.png)
 
-#### Locking in Haiku
-
 [Haiku](https://www.haiku-os.org/) is an open source operating system with a nice design and a user friendly interface. It stems from the BeOS in the 2000s. I currently involved in a [GSoC](https://developers.google.com/open-source/gsoc/) project for Haiku. So, let's see what Haiku-related contents I can add here.
 
+#### Locking in Haiku
 
+(to be finished...)
 
 ###### ![alt text](../img/icons/svg/search.svg) Notes
 
@@ -1353,6 +1627,14 @@ This finishes our discussion for FreeBSD's spinlock ~ ![alt text](../img/icons/p
 15. Turning a function into a macro would automatically make it inline, which improves performance on many hardware. However, it increase executable size.
 
 16. You would also see how FreeBSD dealing with atomic instruction without `cmpxchg`. Interesting.
+
+17. On an UP system,code for that is super easy: you only have to check whether it is OK to acquire the lock. If not, then the kernel must be doing something wrong, as FreeBSD's spinlock disable interrupts and any other thread won't even have chance to run before the lock holder release the lock.
+
+18. Actually, as an optimization, threads whic is trying to acquiring a lock already held would not disable interrrupt. Instead, it just keep a record of it. That is OK because they are not holding a spinlock and thus doesn't need to disable interrrupt. See [here](https://lists.freebsd.org/pipermail/freebsd-hackers/2017-April/050903.html) for more info.
+
+19. By "adaptive spinning", it means that the MTX_DEF mutex (the blocking mutex) will spin wating for the lock if the owner is running, but will block if the owner is descheduled(i.e preempted). This 1) prevents expensive trips through the scheduler for the common case where the mutext is only help for short periods, 2) without wasting CPU cycles spinning in cases where the owner thread is descheduled and therefor will not be completing soon. Put it all together, it combinds the virtue of a spinlock and a blocking lock.
+
+20. see [here](http://wiki.c2.com/?LockFreeSynchronization) for some info on lock-free algorithms. You may want to do a quick search yourself.
 
 
 </div>
