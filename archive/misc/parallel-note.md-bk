@@ -130,8 +130,6 @@
     }
     ```
 
-    ​
-
 - Reader-writer problem
 
   - The first readers-writers problem:  The writer may starve (*reader preference*)
@@ -219,3 +217,38 @@
 
 - **Partial Partitioning**:  partitioning applied only to common code path (think *parallel fastpath*)
 
+
+--------
+
+A pragmatic definition of the word "contention":
+
+> A key issue with the performance of concurrent data structures is the level of memory **contention**: **the overhead in traffic to and from memory** as a result of **multiple threads concurrently attempting to access the same locations in memory**. This issue is most acute with blocking implementations in which locks control access to memory. In order to acquire a lock, a thread must repeatedly attempt to modify that location. On a [cache-coherent](https://en.wikipedia.org/wiki/Cache_coherence) multiprocessor (one in which processors have local caches that are updated by hardware in order to keep them consistent with the latest values stored) this results in long waiting times for each attempt to modify the location, and is exacerbated by the additional memory traffic associated with unsuccessful attempts to acquire the lock.
+
+From wikipedia, [concurrent data structure](https://en.wikipedia.org/wiki/Concurrent_data_structure#Basic_principles)
+
+-----
+
+- **Sequential consistency** requires that the operations should appear to take effect in the order they are specified **in each program**. Basically it enforces **program order** within each individual process but NOT the whole system $$\blacksquare$$
+
+- **Quiescent consistency**: An execution of a concurrent program is *quiescently consistent* if the method calls can be correctly arranged retaining the mutual order of calls separated by *quiescence*, **a period of time where no method is being called in any thread**. It requires **non-overlapping** operations to appear to take effect in their **real-time order**, but **overlapping operations might be reordered** $$\blacksquare$$
+
+  Let's use a example to illustrate the differences between sequential consistency and quiescent consistency:
+
+  ```
+  P1 -- q.enq(x) -----------------------------------
+  P2 ---------------- q.enq(y) ---- q.deq() --------
+  ```
+
+  If the system is quiescent consistent, the last `q.deq()` will guarantee to produce x. If the system is sequential consistent, the last `q.deq()` might may produce y (a.k.a program order)
+
+  For a good example why sequential consistency is NOT compositional, see [here](https://cs.stackexchange.com/questions/54748/why-is-quiescent-consistency-compositional-but-sequential-consistency-is-not). For a good example why quiescent consistency is compositional, see [here]()
+
+  **THE QUESTION IS: how to define those quiescent point???**
+
+- **Linearizability**: 
+
+  Each method call should appear to take effect instantaneously at some moment between its invocation and response.  see [this talk outline](http://fpl.cs.depaul.edu/jriely/papers/2014-qqc-talk.pdf)
+
+
+
+​	You definitely want to read [this talk outline](http://fpl.cs.depaul.edu/jriely/papers/2014-qqc-talk.pdf) for more info on *memory consistency model*
