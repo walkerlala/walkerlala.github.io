@@ -46,7 +46,7 @@
     {"blog": 
         [
         {  "title": "locking interrupt issues",
-            "location": "./archive/locking-interrupt-issues.html"
+            "location": "./archive/locking-interrupt-issues.html",
             "time": "2017-04-24"
         },
         {  "title": "A Few Words About Concurrency(Part I)",
