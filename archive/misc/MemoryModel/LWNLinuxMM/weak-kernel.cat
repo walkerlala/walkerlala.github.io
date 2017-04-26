@@ -1,0 +1,102 @@
+"Linux kernel weak memory model"
+
+(*
+ * Copyright (C) 2016 Alan Stern <stern@rowland.harvard.edu>,
+ *		      Andrea Parri <parri.andrea@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *)
+
+include "cos-opt.cat"
+include "lock.cat"
+
+let com = rf | co | fr
+let coherence-order = po-loc | com
+acyclic coherence-order as coherence
+
+empty rmw & (fre;coe) as atomic
+
+
+let rf = rf | next-crit
+let rfe = rf & ext
+
+let exec-order-fence = rmb | acq-po | lk-po
+let propagation-fence = strong-fence | wmb | po-relass | po-ul
+let ordering-fence = propagation-fence | exec-order-fence
+
+(* On Alpha, rd-dep-fence makes addr and dep-rfi strong *)
+let dep = addr | data
+let dep-rfi = dep ; rfi
+let rd-addr-dep-rfi = (addr | dep-rfi)+ & rd-dep-fence
+let po-loc-ww = po-loc & (W*W)
+let detour = (po-loc & (coe ; rfe)) \ (po-loc-ww ; po-loc)
+
+(* The set of writes that are bounded by the end of the thread
+   or by a fence before the next write to the same address *)
+let BOUNDED-W = W \ domain(po-loc-ww \ ordering-fence)
+(* The set of "non-obscurable" writes on ARM *)
+let NOW = domain(rfe) | range(rmw) | ReleaseAssign |
+		BOUNDED-W | domain(detour)
+(* The set of "obscurable" writes *)
+let OW = W \ NOW
+(* The set of reads which might be forwarded from obscurable writes *)
+let OR = range(rfi & (OW*R))
+
+let nco = co & (NOW*W)
+let ncoe = nco & ext
+
+let strong-ppo = rd-addr-dep-rfi | ordering-fence |
+		((dep | ctrl) & (R*W))
+let Alpha-strong-ppo = strong-ppo
+let ARM-strong-ppo = strong-ppo | addr | dep-rfi
+let ppo = Alpha-strong-ppo | ARM-strong-ppo
+
+let rfe-ppo = strong-ppo | (ARM-strong-ppo ; ppo* ; Alpha-strong-ppo)
+
+(* strong-fence and release/assign are A-cumulative; wmb is not. *)
+let propbase = wmb | (rfe? ; strong-fence) | (rfe? ; po-relass)
+
+let lock-prop = po-ul ; next-crit ; lk-po
+acyclic lock-prop
+
+let short-obs = (((ncoe|fre) ; propbase+ ; rfe) | lock-prop* ) & int
+let hb0 = (ppo* ; Alpha-strong-ppo) | (rfe ; rfe-ppo)
+let hb = hb0 | (short-obs ; rfe-ppo)
+
+acyclic hb as happens-before
+
+
+let propbase-lock = (fre? ; propbase* ; rfe?) | lock-prop*
+let strong-prop = propbase-lock ; strong-fence ; hb* ; short-obs?
+let cpord = nco | strong-prop
+
+acyclic cpord as propagation
+
+
+(* Propagation between strong fences *)
+let rcu-order = hb* ; short-obs? ; cpord* ; fre? ; propbase* ; rfe?
+
+(* Chains that can prevent the RCU grace-period guarantee *)
+let gp-link = sync ; rcu-order
+let cs-link = po? ; crit^-1 ; po? ; rcu-order
+let rcu-path0 = gp-link |
+	(gp-link ; cs-link) |
+	(cs-link ; gp-link)
+let rec rcu-path = rcu-path0 |
+	(rcu-path ; rcu-path) |
+	(gp-link ; rcu-path ; cs-link) |
+	(cs-link ; rcu-path ; gp-link)
+
+irreflexive rcu-path as rcu

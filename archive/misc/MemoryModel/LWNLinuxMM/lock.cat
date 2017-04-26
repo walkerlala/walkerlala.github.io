@@ -1,0 +1,21 @@
+(* Non-nested critical sections *)
+let vide = domain 0
+let LK = try LK with vide
+let UL = try UL with vide
+
+let critical =
+  let lk-lk = ([LK] ; po ; [LK]) & loc
+  and ul-ul = ([UL] ; po ; [UL]) & loc
+  and lk-ul = ([LK] ; po ; [UL]) & loc in
+  let matched = lk-ul \ ((lk-ul;ul-ul)|(lk-lk;lk-ul)) in
+  matched
+
+flag ~empty LK \ domain(critical) as unbalanced-critical
+flag ~empty UL \ range(critical) as unbalanced-critical
+
+with lo from generate_orders(LK,po)
+
+let lo-succ = lo \ (lo;lo)
+let next-crit = critical^-1 ; lo-succ (* Same as rf releaseacquire *)
+let po-ul = [M] ; po ; [UL]
+let lk-po = [LK] ; po ; [M]

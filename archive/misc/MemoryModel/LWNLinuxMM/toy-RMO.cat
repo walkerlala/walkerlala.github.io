@@ -1,0 +1,9 @@
+"Toy RMO"
+
+include "cos.cat"
+
+let rfe = rf & ext
+let fence = fencerel(F)
+
+let rmo-order = fence | rfe | co | fr
+acyclic rmo-order

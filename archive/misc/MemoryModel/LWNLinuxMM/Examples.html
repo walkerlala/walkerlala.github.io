@@ -1,0 +1,2023 @@
+<!-- DO NOT HAND EDIT. -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+        <html>
+        <head><title>The Linux-Kernel Memory Model by Example [LWN.net]</title>
+        <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="robots" CONTENT="noindex">
+        <link rel="icon" href="/images/favicon.png" type="image/png">
+        <link rel="alternate" type="application/rss+xml" title="LWN.net headlines" href="http://lwn.net/headlines/newrss">
+<link rel="alternate" type="application/rss+xml" title="Comments posted to this article" href="http://lwn.net/headlines/418853/">
+        <link rel="stylesheet" href="/CSS/lwn">
+<link rel="stylesheet" href="/CSS/nosub">
+
+        
+
+        </head>
+        <body bgcolor="#ffffff" link="Blue" VLINK="Green" alink="Green">
+<h1>The Linux-Kernel Memory Model by Example</h1>
+<table class="Page">
+<tr>
+<td><table><tr>
+<td class="MidColumn">
+           <div class="Printable">
+<div class="ArticleText">
+<div class="GAByline">
+           <p>January 21, 2017</p>
+           <p>This article was contributed by Jade Alglave,
+	   Paul E. McKenney, Alan Stern, Luc Maranget, and Andrea Parri</p>
+           </div>
+
+
+<h2>Introduction</h2>
+
+<p>
+This document gives an example-driven intuitive introduction to the Linux
+kernel memory model.
+It is in no way a substitute for the
+<a href="StrongModel.html">mathematical model</a>,
+in particular, these examples do not explore the many interesting
+corner cases of that model.
+However, these examples should prove useful for developers who
+would like to write good concurrent Linux-kernel code, but who
+don't mind giving up those last few percentage points of
+performance by staying a bit back from the edge of memory-model
+disaster.
+
+<p>
+This article assumes that you understand some of the material in the
+<a href="LinuxMMModel.html">A Formal Model of Linux-Kernel Memory Ordering</a>
+article, particularly the section entitled
+<a href="LinuxMMModel.html#Memory Models and The Role of Cycles">Memory Models and The Role of Cycles</a>.
+
+<p>
+This article is organized as follows:
+
+<ol>
+<li>	<a href="#Communications Relations">Communications Relations</a>
+<li>	<a href="#Ordering For Free">Ordering For Free</a>
+<li>	<a href="#Local Execution-Based Ordering">
+	Local Execution-Based Ordering</a>
+<li>	<a href="#Release-Acquire Ordering">Release-Acquire Ordering</a>
+<li>	<a href="#Full-Barrier Transitive Ordering">
+	Full-Barrier Transitive Ordering</a>
+<li>	<a href="#Restoring Sequential Consistency">
+	Restoring Sequential Consistency</a>
+<li>	<a href="#Special Cases">Special Cases</a>
+<li>	<a href="#Summary">Summary</a>
+</ol>
+
+These are followed by the inescapable
+<a href="#Answers to Quick Quizzes">answers to the quick quizzes</a>.
+
+<h2><a name="Communications Relations">Communications Relations</a></h2>
+
+<p>
+Before starting the examples, it is worthwhile reviewing the communications
+relations.
+These relations are as follows:
+
+<ol>
+<li>	<tt>rf</tt>: &ldquo;read from&rdquo;, where a read returns the value
+	stored by an earlier write.
+	This relation links the write to the read.
+<li>	<tt>co</tt>: &ldquo;coherence&rdquo;, where a write's value is
+	overwritten by another write.
+	This relation links the overwritten write to the overwriting write.
+	Note that the <tt>co</tt> relation is transitive: If write&nbsp;A
+	links to write&nbsp;B and write&nbsp;B links to write&nbsp;C, then
+	write&nbsp;A will also link to write&nbsp;C.
+<li>	<tt>fr</tt>: &ldquo;from read&rdquo;, where a write overwrites
+	the variable accessed by a read, but too late to prevent the read from
+	returning the overwritten value.
+	This relation links from the read to the write.
+	Note that the <tt>fr</tt> relation is extended by the <tt>co</tt>
+	relation, so that if <tt>fr</tt> links a read&nbsp;D to a
+	write&nbsp;E, and if <tt>co</tt> links write&nbsp;E to another
+	write&nbsp;F, then <tt>fr</tt> also links read&nbsp;D to
+	write&nbsp;F.
+	(More detail on <tt>fr</tt> may be found
+	<a href="fr.html">here</a>.)
+</ol>
+
+<p>
+Each of these relations is described in more detail in one of the
+following sections.
+
+<h3>Reads-From (<tt>rf</tt>)</h3>
+
+Of these, the <tt>rf</tt> relation is the only one that implies a temporal
+constraint:
+In the absence of value-speculation optimizations, the read must have executed
+later than the write that supplied that read's value.
+
+<p><a name="Quick Quiz 1"><b>Quick Quiz 1</b>:</a>
+So what will you do if compilers or CPUs start using value-speculation
+optimizations?
+<br><a href="#qq1answer">Answer</a>
+
+<p>
+A key point is that writing to a variable cannot result in an instantaneously
+visible change in value, courtesy of the fact that the speed of light is
+finite and that atoms are non-zero in size.
+A change will instead propagate through the system, as fancifully depicted
+below, with time advancing from left to right:
+
+<p><img src="rf.svg" alt="rf.svg" width="65%"></p>
+
+<p><a name="Quick Quiz 2"><b>Quick Quiz 2</b>:</a>
+If it is not possible to make a change instantaneously visible,
+then how do sequentially consistent systems work?
+<br><a href="#qq2answer">Answer</a>
+
+<p>
+The upshot is that if a read from a shared variable returns the value stored
+by a write, then there will be an <tt>rf</tt> link from that write
+to that read, and we know that the read must have executed after the write did.
+
+<h3>Coherence (<tt>co</tt>)</h3>
+
+<p>
+Unlike the <tt>rf</tt> relation, the <tt>co</tt> relation does not
+imply any sort of temporal constraint.
+In fact, it is possible for an earlier write to overwrite a later write,
+as shown below:
+
+<p><img src="co.svg" alt="co.svg" width="65%"></p>
+
+<p>
+As can be seen in the figure, the write of the value 2
+happened earlier in time, but it nevertheless overwrote the later
+write of the value 1, so that the <tt>co</tt> relation
+goes backwards in time.
+This outcome is due to the fact that the written values take time to
+propagate through the system, so that the system decides at some later
+time which of the two values wins.
+
+<p><a name="Quick Quiz 3"><b>Quick Quiz 3</b>:</a>
+Exactly how could the system &ldquo;decide later&rdquo; which write won?
+<br><a href="#qq3answer">Answer</a>
+
+<p><a name="Quick Quiz 4"><b>Quick Quiz 4</b>:</a>
+Wouldn't it be way simpler if the last write always won?
+<br><a href="#qq4answer">Answer</a>
+
+<h3>From-Read (<tt>fr</tt>)</h3>
+
+<p>
+Like the <tt>co</tt> relation, the <tt>fr</tt> relation does not
+imply any sort of temporal constraint.
+Again, due to the finite speed with which information propagates through
+real systems, it is possible for a read to get a value from a write
+whose value is already destined to be overwritten, as shown below:
+
+<p><img src="fr.svg" alt="fr.svg" width="65%"></p>
+
+<p>
+In this example, the read returned the initialization value of zero
+despite the write of the value 1 having already executed.
+However, this new value had not yet propagated from CPU&nbsp;0 to
+CPU&nbsp;3, so this later read, being unaware of the new value, returned
+the old one.
+The <tt>fr</tt> relation therefore goes backwards in time.
+
+<h3>Relation Summary</h3>
+
+<p>
+In short, the <tt>rf</tt> relation implies a temporal constraint,
+while the <tt>co</tt> and <tt>fr</tt> relations do not.
+Therefore, as we will see in the remainder of this document,
+as a rough rule of thumb, the more <tt>rf</tt> links your
+code has, the less heavyweight ordering your code will need.
+This rule of thumb is illustrated by the examples in the remainder
+of this document.
+
+<h2><a name="Ordering For Free">Ordering For Free</a></h2>
+
+<p>
+This section describes types of ordering that are provided gratis by
+most CPUs, even the infamous DEC Alpha.
+But let's start with an example for which ordering is <i>not</i>
+guaranteed:
+
+<blockquote>
+<a id="litmus1" href="C-LB+o-o+o-o+o-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#1</a>
+<pre>
+  1 C C-LB+o-o+o-o+o-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   int r1;
+  9
+ 10   r1 = READ_ONCE(*a);
+ 11   WRITE_ONCE(*b, 1);
+ 12 }
+ 13
+ 14 P1(int *b, int *c)
+ 15 {
+ 16   int r1;
+ 17
+ 18   r1 = READ_ONCE(*b);
+ 19   WRITE_ONCE(*c, 1);
+ 20 }
+ 21
+ 22 P2(int *a, int *c)
+ 23 {
+ 24   int r1;
+ 25
+ 26   r1 = READ_ONCE(*c);
+ 27   WRITE_ONCE(*a, 1);
+ 28 }
+ 29
+ 30 exists
+ 31 (0:r1=1 /\ 1:r1=1 /\ 2:r1=1)
+</pre>
+</blockquote>
+
+<p>
+Because there is no natural ordering nor any sort of ordering constraint
+on the CPU, the counter-intuitive outcome on the <tt>exists</tt>
+clause on the last line can happen.
+All that is needed is for the CPU to reorder the read and the write
+from any of the three processes.
+And the Linux-kernel memory model agrees with this assessment,
+as confirmed by the <tt>Sometimes&nbsp;1&nbsp;7</tt>:
+
+<blockquote>
+<a id="litmus1" href="C-LB+o-o+o-o+o-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#1 (strong model)</a>
+<pre>
+ 1 Test C-LB+o-o+o-o+o-o Allowed
+ 2 States 8
+ 3 0:r1=0; 1:r1=0; 2:r1=0;
+ 4 0:r1=0; 1:r1=0; 2:r1=1;
+ 5 0:r1=0; 1:r1=1; 2:r1=0;
+ 6 0:r1=0; 1:r1=1; 2:r1=1;
+ 7 0:r1=1; 1:r1=0; 2:r1=0;
+ 8 0:r1=1; 1:r1=0; 2:r1=1;
+ 9 0:r1=1; 1:r1=1; 2:r1=0;
+10 0:r1=1; 1:r1=1; 2:r1=1;
+11 Ok
+12 Witnesses
+13 Positive: 1 Negative: 7
+14 Condition exists (0:r1=1 /\ 1:r1=1 /\ 2:r1=1)
+15 Observation C-LB+o-o+o-o+o-o Sometimes 1 7
+16 Hash=63d9717e69db4ea05bb2e6840d1d22d4
+</pre>
+</blockquote>
+
+<p><a name="Quick Quiz 5"><b>Quick Quiz 5</b>:</a>
+Only the CPU?
+Can't the compiler also reorder the reads and writes in
+<a href="#litmus1">Example&nbsp;Litmus&nbsp;Test&nbsp;#1</a>?
+<br><a href="#qq5answer">Answer</a>
+
+<p>
+The key point of this unordered example is that even if your litmus test
+has nothing but causal <tt>rf</tt> relations, it still needs at least some
+ordering to prohibit the counter-intuitive cyclic outcome.
+For example, if each process provides minimal
+ordering from its read to its write, then the cyclic
+outcome will be forbidden.
+For example, consider the following litmus test:
+
+<blockquote>
+<a id="litmus2" href="C-LB+ldref-o+o-ctrl-o+o-dep-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#2</a>
+<pre>
+  1 C C-LB+ldref-o+o-ctrl-o+o-dep-o.litmus
+  2
+  3 {
+  4   a=x0;
+  5   c=y0;
+  6   1:r2=b;
+  7 }
+  8
+  9 P0(int **a)
+ 10 {
+ 11   int *r1;
+ 12
+ 13   r1 = READ_ONCE(*a);
+ 14   WRITE_ONCE(*r1, 1);
+ 15 }
+ 16
+ 17 P1(int *b, int **c)
+ 18 {
+ 19   int r1;
+ 20
+ 21   r1 = READ_ONCE(*b);
+ 22   if (r1)
+ 23     WRITE_ONCE(*c, r2);
+ 24 }
+ 25
+ 26 P2(int **a, int **c)
+ 27 {
+ 28   int *r1;
+ 29
+ 30   r1 = READ_ONCE(*c);
+ 31   WRITE_ONCE(*a, r1);
+ 32 }
+ 33
+ 34 exists
+ 35 (0:r1=b /\ 1:r1=1 /\ 2:r1=b)
+</pre>
+</blockquote>
+
+<p>
+In this litmus test,
+<tt>P0()</tt> has an address dependency between its read and write,
+<tt>P1()</tt> has a control dependency between its read and write, and
+<tt>P2()</tt> has a data dependency between its read and write.
+The initialization on lines&nbsp;4-6 interacts with each process's
+code to set up for the dependency in the next process.
+Because there is an rf link between each adjacent pair of
+processes and because each process maintains ordering between its
+read and write, the counter-intuitive <tt>exists</tt> clause cannot
+happen, as confirmed by the strong model:
+
+<blockquote>
+<a id="litmus2" href="C-LB+ldref-o+o-ctrl-o+o-dep-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#2 (strong model)</a>
+<pre>
+ 1 Test C-LB+ldref-o+o-ctrl-o+o-dep-o Allowed
+ 2 States 2
+ 3 0:r1=x0; 1:r1=0; 2:r1=y0;
+ 4 0:r1=y0; 1:r1=0; 2:r1=y0;
+ 5 No
+ 6 Witnesses
+ 7 Positive: 0 Negative: 2
+ 8 Condition exists (0:r1=b /\ 1:r1=1 /\ 2:r1=b)
+ 9 Observation C-LB+ldref-o+o-ctrl-o+o-dep-o Never 0 2
+10 Hash=d8909b22b7196d3b91cd78e700c68cc6
+</pre>
+</blockquote>
+
+<p><a name="Quick Quiz 6"><b>Quick Quiz 6</b>:</a>
+But wait!
+DEC Alpha does not respect dependency ordering.
+So wouldn't it fail to order <tt>P0()</tt> and <tt>P2()</tt> in
+<a href="#litmus2">Example&nbsp;Litmus&nbsp;Test&nbsp;#2</a>?
+<br><a href="#qq6answer">Answer</a>
+
+<p>
+If any of the dependencies is removed, the cyclic outcome is allowed,
+as shown in the following litmus test, which eliminates <tt>P1()</tt>'s
+control dependency:
+
+<blockquote>
+<a id="litmus3" href="C-LB+ldref-o+o-o+o-dep-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#3</a>
+<pre>
+  1 C C-LB+ldref-o+o-o+o-dep-o.litmus
+  2
+  3 {
+  4   a=x0;
+  5   c=y0;
+  6   1:r2=b;
+  7 }
+  8
+  9 P0(int **a)
+ 10 {
+ 11   int *r1;
+ 12
+ 13   r1 = READ_ONCE(*a);
+ 14   WRITE_ONCE(*r1, 1);
+ 15 }
+ 16
+ 17 P1(int *b, int **c)
+ 18 {
+ 19   int r1;
+ 20
+ 21   r1 = READ_ONCE(*b);
+ 22   WRITE_ONCE(*c, r2);
+ 23 }
+ 24
+ 25 P2(int **a, int **c)
+ 26 {
+ 27   int *r1;
+ 28
+ 29   r1 = READ_ONCE(*c);
+ 30   WRITE_ONCE(*a, r1);
+ 31 }
+ 32
+ 33 exists
+ 34 (0:r1=b /\ 1:r1=1 /\ 2:r1=b)
+</pre>
+</blockquote>
+
+<p>
+The strong model confirms that the cycle is now allowed:
+
+<blockquote>
+<a id="litmus3" href="C-LB+ldref-o+o-o+o-dep-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#3 (strong model)</a>
+<pre>
+ 1 Test C-LB+ldref-o+o-o+o-dep-o Allowed
+ 2 States 5
+ 3 0:r1=b; 1:r1=0; 2:r1=b;
+ 4 0:r1=b; 1:r1=1; 2:r1=b;
+ 5 0:r1=x0; 1:r1=0; 2:r1=b;
+ 6 0:r1=x0; 1:r1=0; 2:r1=y0;
+ 7 0:r1=y0; 1:r1=0; 2:r1=y0;
+ 8 Ok
+ 9 Witnesses
+10 Positive: 1 Negative: 4
+11 Condition exists (0:r1=b /\ 1:r1=1 /\ 2:r1=b)
+12 Observation C-LB+ldref-o+o-o+o-dep-o Sometimes 1 4
+13 Hash=0ee6280cfb52bb0721c6e110bbf79597
+</pre>
+</blockquote>
+
+<p>
+Note that dependencies enforce ordering only for trailing writes.
+For example, consider the following trailing-read address-dependency
+litmus test, which corresponds
+to RCU-like insertion of an element into a linked list,
+and is an example of the
+<a href="#Message Passing">message-passing</a> pattern:
+
+<blockquote>
+<a id="litmus4" href="C-MP+o-assign+o-dep-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#4</a>
+<pre>
+  1 C C-MP+o-assign+o-dep-o.litmus
+  2
+  3 {
+  4   x=y0;
+  5   0:r4=y;
+  6 }
+  7
+  8 P0(int *x, int *y)
+  9 {
+ 10   WRITE_ONCE(*y, 1);
+ 11   rcu_assign_pointer(*x, r4);
+ 12 }
+ 13
+ 14 P1(int *x, int *y)
+ 15 {
+ 16   int r1;
+ 17   int r2;
+ 18
+ 19   r1 = READ_ONCE(*x);
+ 20   r2 = READ_ONCE(*r1);
+ 21 }
+ 22
+ 23 exists
+ 24 (1:r1=y /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model shows that the cycle is permitted, and thus that
+the above litmus test does <i>not</i> demonstrate a reliable way to
+do RCU-like insertion, courtesy of DEC Alpha:
+
+<blockquote>
+<a id="litmus4" href="C-MP+o-assign+o-dep-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#4 (strong model)</a>
+<pre>
+ 1 Test C-MP+o-assign+o-dep-o Allowed
+ 2 States 3
+ 3 1:r1=y; 1:r2=0;
+ 4 1:r1=y; 1:r2=1;
+ 5 1:r1=y0; 1:r2=0;
+ 6 Ok
+ 7 Witnesses
+ 8 Positive: 1 Negative: 2
+ 9 Condition exists (1:r1=y /\ 1:r2=0)
+10 Observation C-MP+o-assign+o-dep-o Sometimes 1 2
+11 Hash=15cc666886633d7ffe9f7d6129d54145
+</pre>
+</blockquote>
+
+<p>
+The following litmus test shows how to reliably carry out such an
+insertion, using <tt>lockless_dereference()</tt>, which supplies the
+memory barrier required by DEC Alpha, but only for DEC Alpha:
+
+<blockquote>
+<a id="litmus5" href="C-MP+o-assign+ldref-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#5</a>
+<pre>
+  1 C C-MP+o-assign+ldref-o.litmus
+  2
+  3 {
+  4   x=y0;
+  5   0:r4=y;
+  6 }
+  7
+  8 P0(int *x, int *y)
+  9 {
+ 10   WRITE_ONCE(*y, 1);
+ 11   rcu_assign_pointer(*x, r4);
+ 12 }
+ 13
+ 14 P1(int *x, int *y)
+ 15 {
+ 16   int r1;
+ 17   int r2;
+ 18
+ 19   r1 = lockless_dereference(*x);
+ 20   r2 = READ_ONCE(*r1);
+ 21 }
+ 22
+ 23 exists
+ 24 (1:r1=y /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model confirms that the bad outcome is prohibited:
+
+<blockquote>
+<a id="litmus5" href="C-MP+o-assign+ldref-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#5 (strong model)</a>
+<pre>
+ 1 Test C-MP+o-assign+ldref-o Allowed
+ 2 States 2
+ 3 1:r1=y; 1:r2=1;
+ 4 1:r1=y0; 1:r2=0;
+ 5 No
+ 6 Witnesses
+ 7 Positive: 0 Negative: 2
+ 8 Condition exists (1:r1=y /\ 1:r2=0)
+ 9 Observation C-MP+o-assign+ldref-o Never 0 2
+10 Hash=6c282e8fa5aa6a72221fa5c9529d087b
+</pre>
+</blockquote>
+
+<p>
+This RCU insertion litmus test provides ordering for free on all CPU
+families other than DEC Alpha.
+
+<h2><a name="Local Execution-Based Ordering">Local Execution-Based Ordering</a></h2>
+
+<p>
+Removing the control dependency allowed the cyclic results, as shown by
+<a href="#litmus3">Example&nbsp;Litmus&nbsp;Test&nbsp;#3</a>.
+However, changing the <tt>READ_ONCE()</tt> in <tt>P1()</tt> to the
+lightweight primitive
+<tt>smp_load_acquire()</tt> can prohibit this cycle despite there being
+no dependency, as shown below:
+
+<blockquote>
+<a id="litmus6" href="C-LB+ldref-o+acq-o+o-dep-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#6</a>
+<pre>
+  1 C C-LB+ldref-o+acq-o+o-dep-o.litmus
+  2
+  3 {
+  4   a=x0;
+  5   c=y0;
+  6   1:r2=b;
+  7 }
+  8
+  9 P0(int **a)
+ 10 {
+ 11   int *r1;
+ 12
+ 13   r1 = READ_ONCE(*a);
+ 14   WRITE_ONCE(*r1, 1);
+ 15 }
+ 16
+ 17 P1(int *b, int **c)
+ 18 {
+ 19   int r1;
+ 20
+ 21   r1 = smp_load_acquire(b);
+ 22   WRITE_ONCE(*c, r2);
+ 23 }
+ 24
+ 25 P2(int **a, int **c)
+ 26 {
+ 27   int *r1;
+ 28
+ 29   r1 = READ_ONCE(*c);
+ 30   WRITE_ONCE(*a, r1);
+ 31 }
+ 32
+ 33 exists
+ 34 (0:r1=b /\ 1:r1=1 /\ 2:r1=b)
+</pre>
+</blockquote>
+
+<p>
+Again, the strong model confirms this:
+
+<blockquote>
+<a id="litmus6" href="C-LB+ldref-o+acq-o+o-dep-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#6 (strong model)</a>
+<pre>
+ 1 Test C-LB+ldref-o+acq-o+o-dep-o Allowed
+ 2 States 4
+ 3 0:r1=b; 1:r1=0; 2:r1=b;
+ 4 0:r1=x0; 1:r1=0; 2:r1=b;
+ 5 0:r1=x0; 1:r1=0; 2:r1=y0;
+ 6 0:r1=y0; 1:r1=0; 2:r1=y0;
+ 7 No
+ 8 Witnesses
+ 9 Positive: 0 Negative: 4
+10 Condition exists (0:r1=b /\ 1:r1=1 /\ 2:r1=b)
+11 Observation C-LB+ldref-o+acq-o+o-dep-o Never 0 4
+12 Hash=67f08dc71f9c2a03065bd1c425c24f09
+</pre>
+</blockquote>
+
+<p>
+The venerable <tt>smp_rmb()</tt> barrier also operates via
+local execution-based ordering, as will be shown
+<a href="#Message Passing">later</a>.
+In the meantime, it is possible to substitute <tt>smp_load_acquire()</tt>
+for all of the dependencies, and still prohibit the cycle:
+
+<blockquote>
+<a id="litmus7" href="C-LB+acq-o+acq-o+acq-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#7</a>
+<pre>
+  1 C C-LB+acq-o+acq-o+acq-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   int *r1;
+  9
+ 10   r1 = smp_load_acquire(a);
+ 11   WRITE_ONCE(*b, 1);
+ 12 }
+ 13
+ 14 P1(int *b, int *c)
+ 15 {
+ 16   int r1;
+ 17
+ 18   r1 = smp_load_acquire(b);
+ 19   WRITE_ONCE(*c, 1);
+ 20 }
+ 21
+ 22 P2(int *a, int *c)
+ 23 {
+ 24   int r1;
+ 25
+ 26   r1 = smp_load_acquire(c);
+ 27   WRITE_ONCE(*a, 1);
+ 28 }
+ 29
+ 30 exists
+ 31 (0:r1=1 /\ 1:r1=1 /\ 2:r1=1)
+</pre>
+</blockquote>
+
+<p>
+Again, the model agrees that the cycle is prohibited:
+
+<blockquote>
+<a id="litmus7" href="C-LB+acq-o+acq-o+acq-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#7 (strong model)</a>
+<pre>
+ 1 Test C-LB+acq-o+acq-o+acq-o Allowed
+ 2 States 7
+ 3 0:r1=0; 1:r1=0; 2:r1=0;
+ 4 0:r1=0; 1:r1=0; 2:r1=1;
+ 5 0:r1=0; 1:r1=1; 2:r1=0;
+ 6 0:r1=0; 1:r1=1; 2:r1=1;
+ 7 0:r1=1; 1:r1=0; 2:r1=0;
+ 8 0:r1=1; 1:r1=0; 2:r1=1;
+ 9 0:r1=1; 1:r1=1; 2:r1=0;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (0:r1=1 /\ 1:r1=1 /\ 2:r1=1)
+14 Observation C-LB+acq-o+acq-o+acq-o Never 0 7
+15 Hash=c7f0f09c322fb880cdd71087857a9071
+</pre>
+</blockquote>
+
+<p>
+However, this works only because of the causal rf-only nature of this
+litmus test.
+Removing the causality by replacing one of the rf links with a
+write-to-write coherence or <i>co</i> link allows the
+cycle, as can be seen from this litmus test:
+
+<blockquote>
+<a id="litmus8" href="C-WWC+o+acq-o+acq-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#8</a>
+<pre>
+  1 C C-WWC+o+acq-o+acq-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9 }
+ 10
+ 11 P1(int *a, int *b)
+ 12 {
+ 13   int r1;
+ 14
+ 15   r1 = smp_load_acquire(a);
+ 16   WRITE_ONCE(*b, 1);
+ 17 }
+ 18
+ 19 P2(int *a, int *b)
+ 20 {
+ 21   int r1;
+ 22
+ 23   r1 = smp_load_acquire(b);
+ 24   WRITE_ONCE(*a, 2);
+ 25 }
+ 26
+ 27 exists
+ 28 (1:r1=1 /\ 2:r1=1 /\ a=1)
+</pre>
+</blockquote>
+
+<p>
+The Linux-kernel model shows that the cycle is allowed.
+
+<blockquote>
+<a id="litmus8" href="C-WWC+o+acq-o+acq-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#8 (strong model)</a>
+<pre>
+ 1 Test C-WWC+o+acq-o+acq-o Allowed
+ 2 States 10
+ 3 1:r1=0; 2:r1=0; a=1;
+ 4 1:r1=0; 2:r1=0; a=2;
+ 5 1:r1=0; 2:r1=1; a=1;
+ 6 1:r1=0; 2:r1=1; a=2;
+ 7 1:r1=1; 2:r1=0; a=1;
+ 8 1:r1=1; 2:r1=0; a=2;
+ 9 1:r1=1; 2:r1=1; a=1;
+10 1:r1=1; 2:r1=1; a=2;
+11 1:r1=2; 2:r1=0; a=1;
+12 1:r1=2; 2:r1=0; a=2;
+13 Ok
+14 Witnesses
+15 Positive: 1 Negative: 9
+16 Condition exists (1:r1=1 /\ 2:r1=1 /\ a=1)
+17 Observation C-WWC+o+acq-o+acq-o Sometimes 1 9
+18 Hash=e8861be8533cb22ff500cef0e1e446ab
+</pre>
+</blockquote>
+
+<p>
+Forbidding this cycle requires transitivity, a weak form of which is
+provided by release-acquire chains, which are the subject of the
+next section.
+
+<h2><a name="Release-Acquire Ordering">Release-Acquire Ordering</a></h2>
+
+<p>
+Transitivity is a subtle concept in memory ordering, being provided by
+a combination  of <i>A-cumulativity</i> and <i>B-cumulativity</i>,
+which is discussed in the
+<a href="StrongModel.html#Memory barriers">Memory barriers</a>
+section of the
+<a href="StrongModel.html">strong model presentation</a>.
+
+<p>
+In the meantime, for causal <tt>rf</tt> links,
+transitivity can be obtained by pairing
+<tt>smp_store_release()</tt> with <tt>smp_load_acquire()</tt>,
+forming a link in a release-acquire chain.
+As an added bonus, these two primitives generate no code on strongly
+ordered systems such as x86 and s390.
+In addition, the first <tt>smp_load_acquire()</tt> can be removed,
+as shown below:
+
+<blockquote>
+<a id="litmus9" href="C-WWC+o+o-rel+acq-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#9</a>
+<pre>
+  1 C C-WWC+o+o-rel+acq-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9 }
+ 10
+ 11 P1(int *a, int *b)
+ 12 {
+ 13   int r1;
+ 14
+ 15   r1 = READ_ONCE(*a);
+ 16   smp_store_release(b, 1);
+ 17 }
+ 18
+ 19 P2(int *a, int *b)
+ 20 {
+ 21   int r1;
+ 22
+ 23   r1 = smp_load_acquire(b);
+ 24   WRITE_ONCE(*a, 2);
+ 25 }
+ 26
+ 27 exists
+ 28 (1:r1=1 /\ 2:r1=1 /\ a=1)
+</pre>
+</blockquote>
+
+<p>
+And as the model says:
+
+<blockquote>
+<a id="litmus9" href="C-WWC+o+o-rel+acq-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#9 (strong model)</a>
+<pre>
+ 1 Test C-WWC+o+o-rel+acq-o Allowed
+ 2 States 9
+ 3 1:r1=0; 2:r1=0; a=1;
+ 4 1:r1=0; 2:r1=0; a=2;
+ 5 1:r1=0; 2:r1=1; a=1;
+ 6 1:r1=0; 2:r1=1; a=2;
+ 7 1:r1=1; 2:r1=0; a=1;
+ 8 1:r1=1; 2:r1=0; a=2;
+ 9 1:r1=1; 2:r1=1; a=2;
+10 1:r1=2; 2:r1=0; a=1;
+11 1:r1=2; 2:r1=0; a=2;
+12 No
+13 Witnesses
+14 Positive: 0 Negative: 9
+15 Condition exists (1:r1=1 /\ 2:r1=1 /\ a=1)
+16 Observation C-WWC+o+o-rel+acq-o Never 0 9
+17 Hash=d43b7fcba00cf52af389a7a87f51f46e
+</pre>
+</blockquote>
+
+<p>
+Note that although <tt>smp_store_release()</tt> and <tt>smp_load_acquire()</tt>
+provide ordering to processes participating in the release-acquire chain,
+they do not necessarily guarantee ordering from the perspective of processes
+outside of that chain.
+For example, in the following litmus test, <tt>P0()</tt> and <tt>P1()</tt>
+form a (rather short) release-acquire chain and <tt>P2()</tt> is an
+outside observer:
+
+<blockquote>
+<a id="litmus10" href="C-Z6.0+o-rel+acq-o+o-mb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#10</a>
+<pre>
+  1 C C-Z6.0+o-rel+acq-o+o-mb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9   smp_store_release(b, 1);
+ 10 }
+ 11
+ 12 P1(int *b, int *c)
+ 13 {
+ 14   int r1;
+ 15
+ 16   r1 = smp_load_acquire(b);
+ 17   WRITE_ONCE(*c, 1);
+ 18 }
+ 19
+ 20 P2(int *a, int *c)
+ 21 {
+ 22   int r1;
+ 23
+ 24   WRITE_ONCE(*c, 2);
+ 25   smp_mb();
+ 26   r1 = READ_ONCE(*a);
+ 27 }
+ 28
+ 29 exists
+ 30 (1:r1=1 /\ 2:r1=0 /\ c=2)
+</pre>
+</blockquote>
+
+<p>
+Note that <tt>P2()</tt> must use <tt>smp_mb()</tt> in order to order the
+prior write against the later read.
+However, even that <tt>smp_mb()</tt> is not sufficient to provide ordering
+in this case, given the co and <a href="fr.html">fr</a> links:
+
+<blockquote>
+<a id="litmus10" href="C-Z6.0+o-rel+acq-o+o-mb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#10 (strong model)</a>
+<pre>
+ 1 Test C-Z6.0+o-rel+acq-o+o-mb-o Allowed
+ 2 States 8
+ 3 1:r1=0; 2:r1=0; c=1;
+ 4 1:r1=0; 2:r1=0; c=2;
+ 5 1:r1=0; 2:r1=1; c=1;
+ 6 1:r1=0; 2:r1=1; c=2;
+ 7 1:r1=1; 2:r1=0; c=1;
+ 8 1:r1=1; 2:r1=0; c=2;
+ 9 1:r1=1; 2:r1=1; c=1;
+10 1:r1=1; 2:r1=1; c=2;
+11 Ok
+12 Witnesses
+13 Positive: 1 Negative: 7
+14 Condition exists (1:r1=1 /\ 2:r1=0 /\ c=2)
+15 Observation C-Z6.0+o-rel+acq-o+o-mb-o Sometimes 1 7
+16 Hash=30f1277a7ac1097b0934bce41caf6144
+</pre>
+</blockquote>
+
+<p>
+In this case, full ordering requires an <tt>smp_mb()</tt> on either
+<tt>P0()</tt> or <tt>P1()</tt>.
+The following litmus test chooses <tt>P0()</tt>:
+
+<blockquote>
+<a id="litmus11" href="C-Z6.0+o-mb-o+acq-o+o-mb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#11</a>
+<pre>
+  1 C C-Z6.0+o-mb-o+acq-o+o-mb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9   smp_mb();
+ 10   WRITE_ONCE(*b, 1);
+ 11 }
+ 12
+ 13 P1(int *b, int *c)
+ 14 {
+ 15   int r1;
+ 16
+ 17   r1 = smp_load_acquire(b);
+ 18   WRITE_ONCE(*c, 1);
+ 19 }
+ 20
+ 21 P2(int *a, int *c)
+ 22 {
+ 23   int r1;
+ 24
+ 25   WRITE_ONCE(*c, 2);
+ 26   smp_mb();
+ 27   r1 = READ_ONCE(*a);
+ 28 }
+ 29
+ 30 exists
+ 31 (1:r1=1 /\ 2:r1=0 /\ c=2)
+</pre>
+</blockquote>
+
+<p>
+The choice of <tt>P0()</tt> also allows the <tt>smp_store_release()</tt>
+to be downgraded to a <tt>WRITE_ONCE()</tt>, as confirmed by the
+model:
+
+<blockquote>
+<a id="litmus11" href="C-Z6.0+o-mb-o+acq-o+o-mb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#11 (strong model)</a>
+<pre>
+ 1 Test C-Z6.0+o-mb-o+acq-o+o-mb-o Allowed
+ 2 States 7
+ 3 1:r1=0; 2:r1=0; c=1;
+ 4 1:r1=0; 2:r1=0; c=2;
+ 5 1:r1=0; 2:r1=1; c=1;
+ 6 1:r1=0; 2:r1=1; c=2;
+ 7 1:r1=1; 2:r1=0; c=1;
+ 8 1:r1=1; 2:r1=1; c=1;
+ 9 1:r1=1; 2:r1=1; c=2;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (1:r1=1 /\ 2:r1=0 /\ c=2)
+14 Observation C-Z6.0+o-mb-o+acq-o+o-mb-o Never 0 7
+15 Hash=7cbe17aa8c52275b4b3a6c03658952b6
+</pre>
+</blockquote>
+
+<p>
+Because <tt>smp_store_release()</tt> is always a store and
+<tt>smp_load_acquire()</tt> is always a load, a release-acquire chain
+necessarily links from a store in one process to a load in the next.
+The following section shows how to enforce ordering for other types of links.
+
+<h2><a name="Full-Barrier Transitive Ordering">Full-Barrier Transitive Ordering</a></h2>
+
+<p>
+The following litmus test uses <tt>smp_mb()</tt> to provide transitive
+ordering despite the fact that all links from one process to the next
+are <tt>fr</tt> links:
+
+<blockquote>
+<a id="litmus12" href="C-3.SB+o-mb-o+o-mb-o+o-mb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#12</a>
+<pre>
+  1 C C-3.SB+o-mb-o+o-mb-o+o-mb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   int r1;
+  9
+ 10   WRITE_ONCE(*x, 1);
+ 11   smp_mb();
+ 12   r1 = READ_ONCE(*y);
+ 13 }
+ 14
+ 15 P1(int *y, int *z)
+ 16 {
+ 17   int r2;
+ 18
+ 19   WRITE_ONCE(*y, 1);
+ 20   smp_mb();
+ 21   r2 = READ_ONCE(*z);
+ 22 }
+ 23
+ 24 P2(int *z, int *x)
+ 25 {
+ 26   int r2;
+ 27
+ 28   WRITE_ONCE(*z, 1);
+ 29   smp_mb();
+ 30   r2 = READ_ONCE(*x);
+ 31 }
+ 32
+ 33 exists
+ 34 (0:r1=0 /\ 1:r2=0 /\ 2:r2=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model says that this litmus test's cycle is forbidden:
+
+<blockquote>
+<a id="litmus12" href="C-3.SB+o-mb-o+o-mb-o+o-mb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#12 (strong model)</a>
+<pre>
+ 1 Test C-3.SB+o-mb-o+o-mb-o+o-mb-o Allowed
+ 2 States 7
+ 3 0:r1=0; 1:r2=0; 2:r2=1;
+ 4 0:r1=0; 1:r2=1; 2:r2=0;
+ 5 0:r1=0; 1:r2=1; 2:r2=1;
+ 6 0:r1=1; 1:r2=0; 2:r2=0;
+ 7 0:r1=1; 1:r2=0; 2:r2=1;
+ 8 0:r1=1; 1:r2=1; 2:r2=0;
+ 9 0:r1=1; 1:r2=1; 2:r2=1;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (0:r1=0 /\ 1:r2=0 /\ 2:r2=0)
+14 Observation C-3.SB+o-mb-o+o-mb-o+o-mb-o Never 0 7
+15 Hash=9e78339cf867c77d247d5a43f65645f7
+</pre>
+</blockquote>
+
+<p>
+However, omitting even one <tt>smp_mb()</tt> results in the cycle
+being allowed:
+
+<blockquote>
+<a id="litmus13" href="C-3.SB+o-o+o-mb-o+o-mb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#13</a>
+<pre>
+  1 C C-3.SB+o-o+o-mb-o+o-mb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   int r1;
+  9
+ 10   WRITE_ONCE(*x, 1);
+ 11   r1 = READ_ONCE(*y);
+ 12 }
+ 13
+ 14 P1(int *y, int *z)
+ 15 {
+ 16   int r2;
+ 17
+ 18   WRITE_ONCE(*y, 1);
+ 19   smp_mb();
+ 20   r2 = READ_ONCE(*z);
+ 21 }
+ 22
+ 23 P2(int *z, int *x)
+ 24 {
+ 25   int r2;
+ 26
+ 27   WRITE_ONCE(*z, 1);
+ 28   smp_mb();
+ 29   r2 = READ_ONCE(*x);
+ 30 }
+ 31
+ 32 exists
+ 33 (0:r1=0 /\ 1:r2=0 /\ 2:r2=0)
+</pre>
+</blockquote>
+
+<p>
+This is confirmed by the strong model:
+
+<blockquote>
+<a id="litmus13" href="C-3.SB+o-o+o-mb-o+o-mb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#13 (strong model)</a>
+<pre>
+ 1 Test C-3.SB+o-o+o-mb-o+o-mb-o Allowed
+ 2 States 8
+ 3 0:r1=0; 1:r2=0; 2:r2=0;
+ 4 0:r1=0; 1:r2=0; 2:r2=1;
+ 5 0:r1=0; 1:r2=1; 2:r2=0;
+ 6 0:r1=0; 1:r2=1; 2:r2=1;
+ 7 0:r1=1; 1:r2=0; 2:r2=0;
+ 8 0:r1=1; 1:r2=0; 2:r2=1;
+ 9 0:r1=1; 1:r2=1; 2:r2=0;
+10 0:r1=1; 1:r2=1; 2:r2=1;
+11 Ok
+12 Witnesses
+13 Positive: 1 Negative: 7
+14 Condition exists (0:r1=0 /\ 1:r2=0 /\ 2:r2=0)
+15 Observation C-3.SB+o-o+o-mb-o+o-mb-o Sometimes 1 7
+16 Hash=d42d9489b5750bd71d719a152bd76659
+</pre>
+</blockquote>
+
+<p>
+The next section shows how <tt>smp_mb()</tt> provides even stronger
+guarantees than mere transitivity.
+
+<h2><a name="Restoring Sequential Consistency">Restoring Sequential Consistency</a></h2>
+
+<p>
+The canonical litmus test for sequential consistency is the celebrated
+(though as far as we know, not used in practice) &ldquo;independent reads
+of independent writes&rdquo;, or IRIW:
+
+<blockquote>
+<a id="litmus14" href="C-IRIW+o+o+o-mb-o+o-mb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#14</a>
+<pre>
+  1 C C-IRIW+o+o+o-mb-o+o-mb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x)
+  7 {
+  8   WRITE_ONCE(*x, 1);
+  9 }
+ 10
+ 11 P1(int *y)
+ 12 {
+ 13   WRITE_ONCE(*y, 1);
+ 14 }
+ 15
+ 16 P2(int *x, int *y)
+ 17 {
+ 18   int r1;
+ 19   int r2;
+ 20
+ 21   r1 = READ_ONCE(*x);
+ 22   smp_mb();
+ 23   r2 = READ_ONCE(*y);
+ 24 }
+ 25
+ 26 P3(int *x, int *y)
+ 27 {
+ 28   int r1;
+ 29   int r2;
+ 30
+ 31   r1 = READ_ONCE(*y);
+ 32   smp_mb();
+ 33   r2 = READ_ONCE(*x);
+ 34 }
+ 35
+ 36 exists
+ 37 (2:r1=1 /\ 2:r2=0 /\ 3:r1=1 /\ 3:r2=0)
+</pre>
+</blockquote>
+
+<p>
+If the cycle is permitted, then the two reader threads can disagree on
+the order of the independent stores.
+When both reader threads use <tt>smp_mb()</tt>, this cycle is forbidden:
+
+<blockquote>
+<a id="litmus14" href="C-IRIW+o+o+o-mb-o+o-mb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#14 (strong model)</a>
+<pre>
+ 1 Test C-IRIW+o+o+o-mb-o+o-mb-o Allowed
+ 2 States 15
+ 3 2:r1=0; 2:r2=0; 3:r1=0; 3:r2=0;
+ 4 2:r1=0; 2:r2=0; 3:r1=0; 3:r2=1;
+ 5 2:r1=0; 2:r2=0; 3:r1=1; 3:r2=0;
+ 6 2:r1=0; 2:r2=0; 3:r1=1; 3:r2=1;
+ 7 2:r1=0; 2:r2=1; 3:r1=0; 3:r2=0;
+ 8 2:r1=0; 2:r2=1; 3:r1=0; 3:r2=1;
+ 9 2:r1=0; 2:r2=1; 3:r1=1; 3:r2=0;
+10 2:r1=0; 2:r2=1; 3:r1=1; 3:r2=1;
+11 2:r1=1; 2:r2=0; 3:r1=0; 3:r2=0;
+12 2:r1=1; 2:r2=0; 3:r1=0; 3:r2=1;
+13 2:r1=1; 2:r2=0; 3:r1=1; 3:r2=1;
+14 2:r1=1; 2:r2=1; 3:r1=0; 3:r2=0;
+15 2:r1=1; 2:r2=1; 3:r1=0; 3:r2=1;
+16 2:r1=1; 2:r2=1; 3:r1=1; 3:r2=0;
+17 2:r1=1; 2:r2=1; 3:r1=1; 3:r2=1;
+18 No
+19 Witnesses
+20 Positive: 0 Negative: 15
+21 Condition exists (2:r1=1 /\ 2:r2=0 /\ 3:r1=1 /\ 3:r2=0)
+22 Observation C-IRIW+o+o+o-mb-o+o-mb-o Never 0 15
+23 Hash=b0840da8dd0f7482d111dab3f8dde214
+</pre>
+</blockquote>
+
+<p>
+The next litmus test replaces <tt>smp_mb()</tt> with release-acquire chains
+from each writer to the corresponding reader:
+
+<blockquote>
+<a id="litmus15" href="C-IRIW+rel+rel+acq-o+acq-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#15</a>
+<pre>
+  1 C C-IRIW+rel+rel+acq-o+acq-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x)
+  7 {
+  8   smp_store_release(x, 1);
+  9 }
+ 10
+ 11 P1(int *y)
+ 12 {
+ 13   smp_store_release(y, 1);
+ 14 }
+ 15
+ 16 P2(int *x, int *y)
+ 17 {
+ 18   int r1;
+ 19   int r2;
+ 20
+ 21   r1 = smp_load_acquire(x);
+ 22   r2 = READ_ONCE(*y);
+ 23 }
+ 24
+ 25 P3(int *x, int *y)
+ 26 {
+ 27   int r1;
+ 28   int r2;
+ 29
+ 30   r1 = smp_load_acquire(y);
+ 31   r2 = READ_ONCE(*x);
+ 32 }
+ 33
+ 34 exists
+ 35 (2:r1=1 /\ 2:r2=0 /\ 3:r1=1 /\ 3:r2=0)
+</pre>
+</blockquote>
+
+<p>
+In this case the cycle is allowed:
+
+<blockquote>
+<a id="litmus15" href="C-IRIW+rel+rel+acq-o+acq-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#15 (strong model)</a>
+<pre>
+ 1 Test C-IRIW+rel+rel+acq-o+acq-o Allowed
+ 2 States 16
+ 3 2:r1=0; 2:r2=0; 3:r1=0; 3:r2=0;
+ 4 2:r1=0; 2:r2=0; 3:r1=0; 3:r2=1;
+ 5 2:r1=0; 2:r2=0; 3:r1=1; 3:r2=0;
+ 6 2:r1=0; 2:r2=0; 3:r1=1; 3:r2=1;
+ 7 2:r1=0; 2:r2=1; 3:r1=0; 3:r2=0;
+ 8 2:r1=0; 2:r2=1; 3:r1=0; 3:r2=1;
+ 9 2:r1=0; 2:r2=1; 3:r1=1; 3:r2=0;
+10 2:r1=0; 2:r2=1; 3:r1=1; 3:r2=1;
+11 2:r1=1; 2:r2=0; 3:r1=0; 3:r2=0;
+12 2:r1=1; 2:r2=0; 3:r1=0; 3:r2=1;
+13 2:r1=1; 2:r2=0; 3:r1=1; 3:r2=0;
+14 2:r1=1; 2:r2=0; 3:r1=1; 3:r2=1;
+15 2:r1=1; 2:r2=1; 3:r1=0; 3:r2=0;
+16 2:r1=1; 2:r2=1; 3:r1=0; 3:r2=1;
+17 2:r1=1; 2:r2=1; 3:r1=1; 3:r2=0;
+18 2:r1=1; 2:r2=1; 3:r1=1; 3:r2=1;
+19 Ok
+20 Witnesses
+21 Positive: 1 Negative: 15
+22 Condition exists (2:r1=1 /\ 2:r2=0 /\ 3:r1=1 /\ 3:r2=0)
+23 Observation C-IRIW+rel+rel+acq-o+acq-o Sometimes 1 15
+24 Hash=e740a02d7b6130c50c917c38998da1dc
+</pre>
+</blockquote>
+
+<p>
+In short, <tt>smp_mb()</tt> is much stronger than is release-acquire.
+As well it should be, given that it is usually also much more expensive!
+
+<h2><a name="Special Cases">Special Cases</a></h2>
+
+<p>
+This section covers a couple of special cases, the first because it
+is heavily used, and the second because it is almost never used:
+
+<ol>
+<li>	<a href="#Message Passing">Message Passing</a>
+<li>	<a href="#Write-Only Scenarios">Write-Only Scenarios</a>
+<li>	<a href="#Emulating Locking">Emulating Locking</a>
+<li>	<a href="#Emulating call_rcu()">Emulating <tt>call_rcu()</tt></a>
+</ol>
+
+<h3><a name="Message Passing">Message Passing</a></h3>
+
+<p>
+The celebrated (and heavily used) <i>message-passing</i>
+pattern is shown below:
+
+<blockquote>
+<a id="litmus16" href="C-MP+o-rel+acq-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#16</a>
+<pre>
+  1 C C-MP+o-rel+acq-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9   smp_store_release(b, 1);
+ 10 }
+ 11
+ 12 P1(int *a, int *b)
+ 13 {
+ 14   int r1;
+ 15   int r2;
+ 16
+ 17   r1 = smp_load_acquire(b);
+ 18   r2 = READ_ONCE(*a);
+ 19 }
+ 20
+ 21 exists
+ 22 (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+This is of course forbidden:
+
+<blockquote>
+<a id="litmus16" href="C-MP+o-rel+acq-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#16 (strong model)</a>
+<pre>
+ 1 Test C-MP+o-rel+acq-o Allowed
+ 2 States 3
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (1:r1=1 /\ 1:r2=0)
+10 Observation C-MP+o-rel+acq-o Never 0 3
+11 Hash=a238b2bd1fd4e5e95a6c2d1095975619
+</pre>
+</blockquote>
+
+<p>
+However, <tt>smp_store_release</tt> and <tt>smp_load_acquire()</tt>
+can be replaced with
+the old-style <tt>smp_wmb()</tt> and <tt>smp_rmb()</tt> primitives
+as shown below:
+
+<blockquote>
+<a id="litmus17" href="C-MP+o-wmb-o+o-rmb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#17</a>
+<pre>
+  1 C C-MP+o-wmb-o+o-rmb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*b, 1);
+ 11 }
+ 12
+ 13 P1(int *a, int *b)
+ 14 {
+ 15   int r1;
+ 16   int r2;
+ 17
+ 18   r1 = READ_ONCE(*b);
+ 19   smp_rmb();
+ 20   r2 = READ_ONCE(*a);
+ 21 }
+ 22
+ 23 exists
+ 24 (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+This is still forbidden:
+
+<blockquote>
+<a id="litmus17" href="C-MP+o-wmb-o+o-rmb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#17 (strong model)</a>
+<pre>
+ 1 Test C-MP+o-wmb-o+o-rmb-o Allowed
+ 2 States 3
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (1:r1=1 /\ 1:r2=0)
+10 Observation C-MP+o-wmb-o+o-rmb-o Never 0 3
+11 Hash=14c5bb4f4878756fe2adc3eaed5fd3ce
+</pre>
+</blockquote>
+
+<p>
+That said, <tt>smp_store_release()</tt> and <tt>smp_load_acquire()</tt>
+are almost always easier to use and maintain, so they would normally
+be preferred.
+However, there are a few less-common cases where <tt>smp_wmb()</tt>
+and <tt>smp_rmb()</tt> can produce more efficient code on some
+weakly ordered systems:
+
+<blockquote>
+<a id="litmus18" href="C-MP2+o-o-wmb-o-o+o-rmb-o+o-rmb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#18</a>
+<pre>
+  1 C C-MP2+o-o-wmb-o-o+o-rmb-o+o-rmb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b, int *c, int *d)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9   WRITE_ONCE(*c, 1);
+ 10   smp_wmb();
+ 11   WRITE_ONCE(*b, 1);
+ 12   WRITE_ONCE(*d, 1);
+ 13 }
+ 14
+ 15 P1(int *a, int *b)
+ 16 {
+ 17   int r1;
+ 18   int r2;
+ 19
+ 20   r1 = READ_ONCE(*b);
+ 21   smp_rmb();
+ 22   r2 = READ_ONCE(*a);
+ 23 }
+ 24
+ 25 P2(int *c, int *d)
+ 26 {
+ 27   int r1;
+ 28   int r2;
+ 29
+ 30   r1 = READ_ONCE(*d);
+ 31   smp_rmb();
+ 32   r2 = READ_ONCE(*c);
+ 33 }
+ 34
+ 35 exists
+ 36 (1:r1=1 /\ 1:r2=0) \/ (2:r1=1 /\ 2:r2=0)
+</pre>
+</blockquote>
+
+<p>
+The model shows that this is also forbidden:
+
+<blockquote>
+<a id="litmus18" href="C-MP2+o-o-wmb-o-o+o-rmb-o+o-rmb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#18 (strong model)</a>
+<pre>
+ 1 Test C-MP2+o-o-wmb-o-o+o-rmb-o+o-rmb-o Allowed
+ 2 States 9
+ 3 1:r1=0; 1:r2=0; 2:r1=0; 2:r2=0;
+ 4 1:r1=0; 1:r2=0; 2:r1=0; 2:r2=1;
+ 5 1:r1=0; 1:r2=0; 2:r1=1; 2:r2=1;
+ 6 1:r1=0; 1:r2=1; 2:r1=0; 2:r2=0;
+ 7 1:r1=0; 1:r2=1; 2:r1=0; 2:r2=1;
+ 8 1:r1=0; 1:r2=1; 2:r1=1; 2:r2=1;
+ 9 1:r1=1; 1:r2=1; 2:r1=0; 2:r2=0;
+10 1:r1=1; 1:r2=1; 2:r1=0; 2:r2=1;
+11 1:r1=1; 1:r2=1; 2:r1=1; 2:r2=1;
+12 No
+13 Witnesses
+14 Positive: 0 Negative: 9
+15 Condition exists (1:r1=1 /\ 1:r2=0 \/ 2:r1=1 /\ 2:r2=0)
+16 Observation C-MP2+o-o-wmb-o-o+o-rmb-o+o-rmb-o Never 0 9
+17 Hash=5e1ec52282c90ed972723d7e044cab3e
+</pre>
+</blockquote>
+
+<p>
+Nevertheless, it is worth reiterating that <tt>smp_store_release()</tt>
+and <tt>smp_load_acquire()</tt> are almost always preferable to
+<tt>smp_wmb()</tt> and <tt>smp_rmb()</tt>.
+
+<h3><a name="Write-Only Scenarios">Write-Only Scenarios</a></h3>
+
+<p>
+Write-only scenarios are interesting in that it is not clear that
+reasonable hardware could fail to provide ordering, but it is also
+not clear that there are any reasonable use cases.
+Thus far, any useful write-only scenario has proven to have a more
+conventional counterpart that is better and easier to use.
+
+<p>
+Nevertheless, here is the simplest write-only scenario:
+
+<blockquote>
+<a id="litmus19" href="C-2+2W+o-wmb-o+o-wmb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#19</a>
+<pre>
+  1 C C-2+2W+o-wmb-o+o-wmb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 2);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*b, 1);
+ 11 }
+ 12
+ 13 P1(int *a, int *b)
+ 14 {
+ 15   WRITE_ONCE(*b, 2);
+ 16   smp_wmb();
+ 17   WRITE_ONCE(*a, 1);
+ 18 }
+ 19
+ 20 exists
+ 21 (b=2 /\ a=2)
+</pre>
+</blockquote>
+
+<p>
+The strong model prohibits the cycle:
+
+<blockquote>
+<a id="litmus19" href="C-2+2W+o-wmb-o+o-wmb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#19 (strong model)</a>
+<pre>
+ 1 Test C-2+2W+o-wmb-o+o-wmb-o Allowed
+ 2 States 3
+ 3 a=1; b=1;
+ 4 a=1; b=2;
+ 5 a=2; b=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (b=2 /\ a=2)
+10 Observation C-2+2W+o-wmb-o+o-wmb-o Never 0 3
+11 Hash=8264db947f1b73b8be16f98dd6bf1634
+</pre>
+</blockquote>
+
+<p>
+However, the weak model allows this same cycle:
+
+<blockquote>
+<a id="litmus19" href="C-2+2W+o-wmb-o+o-wmb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#19 (weak model)</a>
+<pre>
+ 1 Test C-2+2W+o-wmb-o+o-wmb-o Allowed
+ 2 States 4
+ 3 a=1; b=1;
+ 4 a=1; b=2;
+ 5 a=2; b=1;
+ 6 a=2; b=2;
+ 7 Ok
+ 8 Witnesses
+ 9 Positive: 1 Negative: 3
+10 Condition exists (b=2 /\ a=2)
+11 Observation C-2+2W+o-wmb-o+o-wmb-o Sometimes 1 3
+12 Hash=8264db947f1b73b8be16f98dd6bf1634
+</pre>
+</blockquote>
+
+<p>
+This disagreement between the strong and the weak model documents the
+current uncertainty as to whether or not this two-processes write-only
+scenario should be supported.
+The same uncertainty applies to the three-process extension of
+<a href="#litmus19">Example&nbsp;Litmus&nbsp;Test&nbsp;#19</a>:
+
+<blockquote>
+<a id="litmus20" href="C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#20</a>
+<pre>
+  1 C C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 2);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*b, 1);
+ 11 }
+ 12
+ 13 P1(int *b, int *c)
+ 14 {
+ 15   WRITE_ONCE(*b, 2);
+ 16   smp_wmb();
+ 17   WRITE_ONCE(*c, 1);
+ 18 }
+ 19
+ 20 P2(int *c, int *a)
+ 21 {
+ 22   WRITE_ONCE(*c, 2);
+ 23   smp_wmb();
+ 24   WRITE_ONCE(*a, 1);
+ 25 }
+ 26
+ 27 exists
+ 28 (a=2 /\ b=2 /\ c=2)
+</pre>
+</blockquote>
+
+<p>
+This is therefore also prohibited by the strong model:
+
+<blockquote>
+<a id="litmus20" href="C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#20 (strong model)</a>
+<pre>
+ 1 Test C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o Allowed
+ 2 States 7
+ 3 a=1; b=1; c=1;
+ 4 a=1; b=1; c=2;
+ 5 a=1; b=2; c=1;
+ 6 a=1; b=2; c=2;
+ 7 a=2; b=1; c=1;
+ 8 a=2; b=1; c=2;
+ 9 a=2; b=2; c=1;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (a=2 /\ b=2 /\ c=2)
+14 Observation C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o Never 0 7
+15 Hash=2054ae2b227f6081d169f318556b51a1
+</pre>
+</blockquote>
+
+<p>
+And similarly also allowed by the weak model:
+
+<blockquote>
+<a id="litmus20" href="C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#20 (weak model)</a>
+<pre>
+ 1 Test C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o Allowed
+ 2 States 8
+ 3 a=1; b=1; c=1;
+ 4 a=1; b=1; c=2;
+ 5 a=1; b=2; c=1;
+ 6 a=1; b=2; c=2;
+ 7 a=2; b=1; c=1;
+ 8 a=2; b=1; c=2;
+ 9 a=2; b=2; c=1;
+10 a=2; b=2; c=2;
+11 Ok
+12 Witnesses
+13 Positive: 1 Negative: 7
+14 Condition exists (a=2 /\ b=2 /\ c=2)
+15 Observation C-3+2W+o-wmb-o+o-wmb-o+o-wmb-o Sometimes 1 7
+16 Hash=2054ae2b227f6081d169f318556b51a1
+</pre>
+</blockquote>
+
+<h3><a name="Emulating Locking">Emulating Locking</a></h3>
+
+<p>
+Locking can be emulated using <tt>xchg()</tt>, for example as follows:
+
+<blockquote>
+<a id="litmus21" href="C-locktest.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#21</a>
+<pre>
+  1 C C-locktest.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *l)
+  7 {
+  8   int r1;
+  9   int r2;
+ 10
+ 11   r1 = xchg_acquire(l, 1);
+ 12   if (r1 == 0) {
+ 13     r2 = READ_ONCE(*x);
+ 14     WRITE_ONCE(*x, 1);
+ 15     WRITE_ONCE(*x, 0);
+ 16     smp_store_release(l, 0);
+ 17   }
+ 18 }
+ 19
+ 20 P1(int *x, int *l)
+ 21 {
+ 22   int r1;
+ 23   int r2;
+ 24
+ 25   r1 = xchg_acquire(l, 1);
+ 26   if (r1 == 0) {
+ 27     r2 = READ_ONCE(*x);
+ 28     WRITE_ONCE(*x, 1);
+ 29     WRITE_ONCE(*x, 0);
+ 30     smp_store_release(l, 0);
+ 31   }
+ 32 }
+ 33
+ 34 exists
+ 35 ((0:r1=0 /\ 0:r2=1) \/ (1:r1 = 0 /\ 1:r2=1))
+</pre>
+</blockquote>
+
+<p>
+This litmus test contains code that checks that this really does act like
+a lock, which the model confirms that it does, albeit a bit slowly:
+
+<blockquote>
+<a id="litmus21" href="C-locktest.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#21 (strong model)</a>
+<pre>
+ 1 Test C-locktest Allowed
+ 2 States 3
+ 3 0:r1=0; 0:r2=0; 1:r1=0; 1:r2=0;
+ 4 0:r1=0; 0:r2=0; 1:r1=1; 1:r2=0;
+ 5 0:r1=1; 0:r2=0; 1:r1=0; 1:r2=0;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 4
+ 9 Condition exists (0:r1=0 /\ 0:r2=1 \/ 1:r1=0 /\ 1:r2=1)
+10 Observation C-locktest Never 0 4
+11 Hash=46161c4de6c633ba172e91fb61ee7d54
+</pre>
+</blockquote>
+
+<h3><a name="Emulating call_rcu()">Emulating <tt>call_rcu()</tt></a></h3>
+
+<p>
+The effect of <tt>call_rcu()</tt> can be emulated by adding a process, and
+having that process check a flag, wait for a grace period, then execute
+the code that would be in the callback function.
+The location that would execute the <tt>call_rcu()</tt> instead uses
+<tt>smp_store_release()</tt> to set the flag.
+For example, the following litmus test emulates an RCU callback that sets
+variable <tt>b</tt> to one:
+
+<blockquote>
+<a id="litmus22" href="C-LB+o-rel+rl-o-o-rul+o-sync-o.litmus">Example&nbsp;Litmus&nbsp;Test&nbsp;#22</a>
+<pre>
+  1 C C-LB+o-sync-o+rl-o-o-rul+acq-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *r)
+  7 {
+  8   int r1;
+  9
+ 10   r1 = READ_ONCE(*a);
+ 11   smp_store_release(r, 1);
+ 12 }
+ 13
+ 14 P1(int *b, int *a)
+ 15 {
+ 16   int r2;
+ 17
+ 18   rcu_read_lock();
+ 19   r2 = READ_ONCE(*b);
+ 20   WRITE_ONCE(*a, 1);
+ 21   rcu_read_unlock();
+ 22 }
+ 23
+ 24 P2(int *r, int *b)
+ 25 {
+ 26   int r1;
+ 27
+ 28   r1 = READ_ONCE(*r);
+ 29   synchronize_rcu();
+ 30   WRITE_ONCE(*b, 1);
+ 31 }
+ 32
+ 33 exists
+ 34 (0:r1=1 /\ 1:r2=1 /\ 2:r1=1)
+</pre>
+</blockquote>
+
+<p>
+The model confirms that the cycle is forbidden, just as it is without the
+emulated callback:
+
+<blockquote>
+<a id="litmus22" href="C-LB+o-rel+rl-o-o-rul+o-sync-o.litmus"> Outcome for Example&nbsp;Litmus&nbsp;Test&nbsp;#22 (strong model)</a>
+<pre>
+ 1 Test C-LB+o-sync-o+rl-o-o-rul+acq-o Allowed
+ 2 States 7
+ 3 0:r1=0; 1:r2=0; 2:r1=0;
+ 4 0:r1=0; 1:r2=0; 2:r1=1;
+ 5 0:r1=0; 1:r2=1; 2:r1=0;
+ 6 0:r1=0; 1:r2=1; 2:r1=1;
+ 7 0:r1=1; 1:r2=0; 2:r1=0;
+ 8 0:r1=1; 1:r2=0; 2:r1=1;
+ 9 0:r1=1; 1:r2=1; 2:r1=0;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (0:r1=1 /\ 1:r2=1 /\ 2:r1=1)
+14 Observation C-LB+o-sync-o+rl-o-o-rul+acq-o Never 0 7
+15 Hash=51d4bf14a4485697aa76442f61f59304
+</pre>
+</blockquote>
+
+<h2><a name="Summary">Summary</a></h2>
+
+<p>
+This document has shown a progression of litmus tests requiring
+increasingly strong memory-ordering primitives, due to increasing
+numbers of non-causal non-<tt>rf</tt> links and decreasing numbers of
+dependencies.
+This progression give rise to the following rules of thumb:
+
+<ol>
+<li>	When the code has only causal <tt>rf</tt> links, and when
+	each process has properly placed address, control, or data
+	dependencies, no additional memory ordering is required.
+<li>	Code having only <tt>rf</tt> links can use either a release
+	(including RCU's <tt>rcu_assign_pointer()</tt>) or an acquire
+	on any process that lacks a properly placed dependency.
+<li>	Release-acquire chains (including RCU's
+	<tt>rcu_assign_pointer()</tt> and <tt>rcu_dereference()</tt>)
+	can guarantee ordering even if one
+	of the links is a non-causal non-<tt>rf</tt> link, at long
+	as the remaining links are all <tt>rf</tt> links.
+<li>	An acquire leading to a write can be replaced by dependencies,
+	and in many cases a given process's acquire and release can also
+	be replaced by dependencies.
+	However, it is wise to run the model to check a given scenario.
+<li>	An acquire leading to a dependent read can usually be replaced by
+	<tt>rcu_dereference()</tt> or <tt>lockless_dereference()</tt>.
+	Again, it is wise to run the model to check a given scenario.
+<li>	However, given more than one non-<tt>rf</tt> link,
+	release-acquire chains are not always able to provide ordering,
+	and <tt>smp_mb()</tt> might also be required.
+	As a rough rule of thumb, there will need to be at least one
+	<tt>smp_mb()</tt> between each successive pair of non-<tt>rf</tt>
+	links, but it is yet again wise to run the model to check a given
+	scenario.
+<li>	In the Linux kernel, fully ordered value-returning atomic
+	read-modify-write operations may be substituted for an
+	<tt>smp_mb()</tt>.
+<li>	If any process needs to order a prior store against a subsequent
+	load, an <tt>smp_mb()</tt> is needed.
+<li>	Finally, when it is necessary to fully restore sequential
+	consistency, it is in the worst case necessary to place an
+	<tt>smp_mb()</tt> between each pair of accesses to shared memory
+	within each process.
+	The canonical sequential-consistency exmaple is shown in
+<a href="#litmus14">Example&nbsp;Litmus&nbsp;Test&nbsp;#14</a>.
+</ol>
+
+<p>
+We hope that this provides a useful intuitive approximation to
+the full model.
+Those desiring a full understanding of the memory model should look
+<a href="StrongModel.html">here</a>.
+
+<h3><a name="Answers to Quick Quizzes">
+Answers to Quick Quizzes</a></h3>
+
+<a name="qq1answer"></a>
+<p><b>Quick Quiz 1</b>:
+So what will you do if compilers or CPUs start using value-speculation
+optimizations?
+
+
+</p><p><b>Answer</b>:
+To be useful by concurrent software such as the Linux kernel,
+such compilers and hardware will need to do one or both of two things:
+
+<ol>
+<li>	Permit value speculation only on accesses to non-shared memory.
+	For example, in C11, value speculation would need to be prohibited on
+	atomic accesses.
+<li>	Make sure that any speculation is rolled back as needed not only
+	to arrive at the correct value, but also to arrive at the correct
+	ordering.
+</ol>
+
+<p>
+It is also quite possible that those putting forward speculative
+optimizations will receive considerable quantities of highly colorful
+feedback from any number of flamboyant personalities.
+
+
+</p><p><a href="#Quick%20Quiz%201"><b>Back to Quick Quiz 1</b>.</a>
+
+<a name="qq2answer"></a>
+<p><b>Quick Quiz 2</b>:
+If it is not possible to make a change instantaneously visible,
+then how do sequentially consistent systems work?
+
+
+</p><p><b>Answer</b>:
+First, there are not many commercially available sequentially consistent
+systems.
+Second, sequential consistency does <i>not</i> guarantee simultaneity,
+but rather ordering.
+One way to guarantee ordering is to introduce delays, as shown by the
+red triangle below:
+
+<p><img src="rf-sc.svg" alt="rf-sc.svg" width="65%"></p>
+
+<p>
+Although there are any number of tricks that CPU designers can use to
+hide the delay, some would argue that these speed-of-light delays are
+a big reason why there are very few sequentially consistent systems
+available.
+
+
+</p><p><a href="#Quick%20Quiz%202"><b>Back to Quick Quiz 2</b>.</a>
+
+<a name="qq3answer"></a>
+<p><b>Quick Quiz 3</b>:
+Exactly how could the system &ldquo;decide later&rdquo; which write won?
+
+
+</p><p><b>Answer</b>:
+Consider the following sequence of events:
+
+<ol>
+<li>	The variable <tt>x</tt> is initially zero, and its cacheline
+	is in CPU&nbsp;0's cache.
+<li>	CPU&nbsp;1 writes the value 2 to </tt>x</tt>, but it does
+	not have the cacheline.
+	It therefore records the write in its write buffer and
+	requests exclusive access to the cacheline.
+<li>	CPU&nbsp;0 writes the value 1 to <tt>x</tt>, and because the
+	cacheline is at CPU&nbsp;0, the write completes almost
+	immediately, updating the value of <tt>x</tt> in the cacheline.
+<li>	CPU&nbsp;1's request for the cacheline arrives at CPU&nbsp;0,
+	which sends it (along with the new value of <tt>x</tt>)
+	to CPU&nbsp;1.
+<li>	CPU&nbsp;1 receives the cacheline, and moves the new value
+	of <tt>x</tt> to the cacheline.
+	CPU&nbsp;1's earlier write therefore overwrites CPU&nbsp;0's
+	later write.
+</ol>
+
+As you can see, it is the later movement of the cacheline that determines
+which write wins.
+
+
+</p><p><a href="#Quick%20Quiz%203"><b>Back to Quick Quiz 3</b>.</a>
+
+<a name="qq4answer"></a>
+<p><b>Quick Quiz 4</b>:
+Wouldn't it be way simpler if the last write always won?
+
+
+</p><p><b>Answer</b>:
+It might well be simpler, but it might not be better.
+For example, the cache state of the system might be such that an
+earlier write was stuck in its CPU's store buffer for an extended time.
+Many CPU vendors would like to be able to decide which value wins
+without needing an expensive inspection of the store buffer of each
+and every CPU.
+
+
+</p><p><a href="#Quick%20Quiz%204"><b>Back to Quick Quiz 4</b>.</a>
+
+<a name="qq5answer"></a>
+<p><b>Quick Quiz 5</b>:
+Only the CPU?
+Can't the compiler also reorder the reads and writes in
+<a href="#litmus1">Example&nbsp;Litmus&nbsp;Test&nbsp;#1</a>?
+
+
+</p><p><b>Answer</b>:
+No.
+The volatile accesses in <tt>READ_ONCE()</TT> and <tt>WRITE_ONCE()</tt>
+prohibit compiler reordering.
+
+<p>
+However, if the litmus test were to use C11 non-volatile
+<tt>memory_order_relaxed</tt> accesses, then the compiler could
+reorder these accesses.
+
+
+</p><p><a href="#Quick%20Quiz%205"><b>Back to Quick Quiz 5</b>.</a>
+
+<a name="qq6answer"></a>
+<p><b>Quick Quiz 6</b>:
+But wait!
+DEC Alpha does not respect dependency ordering.
+So wouldn't it fail to order <tt>P0()</tt> and <tt>P2()</tt> in
+<a href="#litmus2">Example&nbsp;Litmus&nbsp;Test&nbsp;#2</a>?
+
+
+</p><p><b>Answer</b>:
+No.
+The Alpha does have weak ordering, but it still avoids speculative
+writes.
+
+<p>
+However, if <tt>P0()</tt>'s and <tt>P1()</tt>'s final <tt>WRITE_ONCE()</tt>
+was instead a <tt>READ_ONCE()</tt>, speculation would be possible and Alpha
+would not guarantee ordering, as will be shown later.
+
+
+</p><p><a href="#Quick%20Quiz%206"><b>Back to Quick Quiz 6</b>.</a>
+
+
+           
+</div> <!-- ArticleText -->
+<p><a name="Comments"></a>
+
+
+</div><!-- Printable -->
+</td> <!-- MC -->
+</tr></table></td>
+</tr></table><!-- endpage -->
+            
+        </body></html>
+        

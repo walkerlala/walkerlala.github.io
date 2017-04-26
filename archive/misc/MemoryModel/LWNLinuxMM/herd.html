@@ -1,0 +1,604 @@
+<!-- DO NOT HAND EDIT. -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+        <html>
+        <head><title>How herd Works [LWN.net]</title>
+        <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="robots" CONTENT="noindex">
+        <link rel="icon" href="/images/favicon.png" type="image/png">
+        <link rel="alternate" type="application/rss+xml" title="LWN.net headlines" href="http://lwn.net/headlines/newrss">
+<link rel="alternate" type="application/rss+xml" title="Comments posted to this article" href="http://lwn.net/headlines/418853/">
+        <link rel="stylesheet" href="/CSS/lwn">
+<link rel="stylesheet" href="/CSS/nosub">
+
+        
+
+        </head>
+        <body bgcolor="#ffffff" link="Blue" VLINK="Green" alink="Green">
+<h1>How herd Works</h1>
+<table class="Page">
+<tr>
+<td><table><tr>
+<td class="MidColumn">
+           <div class="Printable">
+<div class="ArticleText">
+<div class="GAByline">
+           <p>January 14, 2017</p>
+           <p>This article was contributed by Jade Alglave,
+	   Paul E. McKenney, Alan Stern, Luc Maranget, and Andrea Parri</p>
+           </div>
+
+<p>
+The <tt>herd</tt> program reads in a litmus test and
+evaluates it according to a memory model.
+The model is contained in a <tt>.cat</tt> file
+specified by the &ldquo;<tt>-model</tt>&rdquo; command-line option
+(or a &ldquo;<tt>model</tt>&rdquo; line in the configuration file)
+plus an optional <tt>.bell</tt> file
+specified by the &ldquo;<tt>-bell</tt>&rdquo; option
+(or a &ldquo;<tt>bell</tt>&rdquo; line in the configuration file).
+The Bell file, if present, gets processed first.
+Both files consist of statements in the <tt>cat</tt> language,
+and <tt>herd</tt> treats them almost identically&mdash;the
+only real difference is that the Bell file is allowed to
+contain &ldquo;<tt>instructions</tt>&rdquo; statements but the
+Cat file is not.
+(The &ldquo;<tt>instructions</tt>&rdquo; statement defines
+tags which can decorate elementary operations.
+For instance, one such statement might specify that a
+barrier operation can be decorated with an &ldquo;<tt>mb</tt>&rdquo; tag,
+which could indicate that the operation is a full memory barrier.)
+Typically a Bell file is used for common code that is shared
+among multiple models, where each model would have its own Cat file.
+
+<p>
+After loading the Bell and Cat files, <tt>herd</tt> parses the
+litmus-test program.
+The program may contain macros
+(for instance, &ldquo;<tt>smp_mb()</tt>&rdquo;)
+which are expanded to internal constructs
+(such as a barrier with an &ldquo;<tt>mb</tt>&rdquo; tag).
+The mapping from user-level macros to internal constructs
+is defined in a file like <tt>linux.def</tt> that is specified
+by the &ldquo;<tt>-macros</tt>&rdquo; command-line option
+(or a &ldquo;<tt>macros</tt>&rdquo; line in the configuration file).
+
+<p>
+Next, <tt>herd</tt> interprets the program by constructing a list of
+events for each thread.
+For programs written in a high-level language like C, this involves
+breaking statements and expressions down into a series of elementary
+operations (read, write, arithmetic/logic on registers, branch, and so on);
+for programs in assembly language, the individual instructions
+generally correspond directly to these operations.
+However, atomic read-modify-write instructions always get represented
+by two operations, a read and a write, linked by the built-in <tt>rmw</tt>
+relation.
+
+<p>
+The events are organized as one list per thread, in program order.
+This is not always straightforward, because of a subtle but important fact:
+&ldquo;Program order&rdquo; refers to the order of instructions
+as they are presented to the processor's execution unit,
+<i>not</i> their order in the program's source or object code.
+While the two orders are often the same, they will differ when branches
+are present.
+A forward branch causes some instructions to be left out of the event list,
+and a backward branch can cause some instructions to be repeated in the list.
+
+<p>
+Since it is not known in advance whether a conditional branch will be
+taken, each such branch causes <tt>herd</tt> to generate two event lists:
+one in which the branch is taken and one in which it isn't.
+Thus, a program containing two conditional branches will give rise to four
+lists, a program containing three will give rise to eight, and so on.
+The <tt>po</tt> relation then refers to the order of the events in an
+individual list,
+and <tt>herd</tt> has to test each list separately, as a possible
+program execution.
+
+<p>
+When the program contains a loop, a conditional branch may be taken
+an indefinitely large number of times.
+In this situation the number of possible executions would quickly get
+out of hand, so there is a limit on how many times <tt>herd</tt> will
+allow a particular branch to appear in an execution
+(specified by the &ldquo;<tt>-unroll</tt>&rdquo; command-line option),
+typically set to 2.
+Executions with a higher number of iterations simply will not be considered.
+
+<p>
+Then, given a candidate execution, <tt>herd</tt> has to determine, for each
+read event, which write event stored the value that the read will retrieve.
+Again, there's no way to know this in advance, so if a program has
+more than one write to a particular variable, <tt>herd</tt> has to try
+all possible combinations for the <tt>rf</tt> relation.
+Just as with conditional branches, this can lead to exponential growth
+in the number of possible executions to be tested.
+
+<p>
+As part of its processing of a candidate execution, <tt>herd</tt>
+carries out a dataflow analysis of the values computed and stored in
+the local variables (or CPU registers) for each thread.
+This analysis gets used in several ways:
+
+<ul>
+<li>	<tt>herd</tt> checks each conditional branch, making sure that
+	the branch's condition is true if and only if the execution
+	has decided to take the branch.
+<li>	<tt>herd</tt> checks the target address of each indirect memory
+	access (i.e., access through a pointer or relative to a CPU
+	register), making sure that the <tt>rf</tt> relation really
+	does link writes and reads to the same target address.
+<li>	<tt>herd</tt> determines exactly what data, address, or control
+	<a href="LinuxMMModel.html#dependencies">dependencies</a> exist between
+	memory-access events.
+	These dependencies are made available to the model
+	through the built-in <tt>data</tt>, <tt>addr</tt>, and <tt>ctrl</tt>
+	relations.
+</ul>
+
+As an example of this last point, given the statement
+
+<blockquote>
+<pre>
+WRITE_ONCE(*x, READ_ONCE(*y));
+</pre>
+</blockquote>
+
+in the litmus-test program, <tt>herd</tt> would break it down into two events:
+
+<blockquote>
+<pre>
+rtemp = READ_ONCE(*y)
+WRITE_ONCE(*x, rtemp)
+</pre>
+</blockquote>
+
+(where <tt>rtemp</tt> is a temporary local variable), and it would add a link
+
+<blockquote>
+<tt>rtemp = READ_ONCE(*y)</tt> &#10230; <tt>WRITE_ONCE(*x, rtemp)</tt>
+</blockquote>
+
+to the <tt>data</tt> relation.
+
+<p>
+Finally, once a particular choice for the <tt>po</tt> and <tt>rf</tt>
+relations has been settled on, the execution checks out okay,
+and the <tt>data</tt>, <tt>addr</tt>, and <tt>ctrl</tt> relations have
+been set up, <tt>herd</tt> runs
+the statements in the Bell and Cat files to see whether the memory model
+considers the candidate execution to be allowed.
+If any of the model's checks fail, the execution is abandoned.
+Otherwise, <tt>herd</tt> evaluates the logical assertion at the end of
+the litmus test.
+It keeps track of the number of allowed executions for which the
+assertion is true and the number for which it is false; these are the
+numbers reported at the end in <tt>herd</tt>'s output.
+
+<p>
+Unlike <tt>po</tt> and <tt>rf</tt>, the <tt>co</tt> relation is not built-in.
+It has to be computed explicitly by the memory model.
+In practice this is done by the <tt>cos.cat</tt> file,
+which is included near the start of the model's Cat file
+(see for example line&nbsp;3 in each of the two RMO memory-model files above).
+This involves another potentially exponential computation,
+because it is necessary to try all possible orderings of the write accesses
+to each variable.
+
+<p>
+<tt>herd</tt> works in terms of sets of events and relations between events.
+(A relation is a collection of ordered pairs of events;
+you can think of each ordered pair as a link
+going from the first event in the pair to the second.)
+The <tt>cat</tt> language used in the
+<a name="Bell">Bell</a> and Cat files
+is rich in operators for constructing and testing these sets and relations.
+
+<p>
+To begin with, <tt>herd</tt> has a number of built-in sets
+used for classifying events.
+Each event is automatically added to the appropriate sets.
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Name</th>
+	<th>Contents</th>
+	<th>Comment</th>
+</tr>
+<tr>	<th><tt>R</tt></th>
+	<td>Read events</td>
+	<td></td>
+</tr>
+<tr>	<th><tt>W</tt></th>
+	<td>Write events</td>
+	<td></td>
+</tr>
+<tr>	<th><tt>IW</tt></th>
+	<td>Initial Write events</td>
+	<td>&ldquo;writes&rdquo; that set a variable's initial value</td>
+</tr>
+<tr>	<th><tt>FW</tt></th>
+	<td>Final Write events</td>
+	<td>values that are tested in the final assertion</td>
+</tr>
+<tr>	<th><tt>M</tt></th>
+	<td>Memory access events</td>
+	<td>same as &ldquo;<tt>R | W</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>B</tt></th>
+	<td>Branch events</td>
+	<td></td>
+</tr>
+<tr>	<th><tt>RMW</tt></th>
+	<td>Read-Modify-Write events</td>
+	<td>the component events of an atomic RMW instruction</td>
+</tr>
+<tr>	<th><tt>F</tt></th>
+	<td>Fence events</td>
+	<td>also known as Barrier events</td>
+</tr>
+<tr>	<th><tt>_</tt></th>
+	<td>All events</td>
+	<td>wildcard</td>
+</tr>
+</tbody></table>
+
+<p>
+<a name="other statement types">In addition,</a>
+using the &ldquo;<tt>enum</tt>&rdquo; and &ldquo;<tt>instructions</tt>&rdquo;
+statements, a Bell file can define an enumerated list of tag values
+and specify that instructions of a specific kind must be labelled
+with one of these tags.
+<tt>herd</tt> then creates a set for each tag value;
+the name of the set is the same as the name of the tag but with the
+first letter capitalized, and the set contains all events generated
+from instructions labelled by the corresponding tag.
+For example, the following <tt>cat</tt> code:
+
+<blockquote>
+<pre>
+enum Accesses = 'once || 'release || 'acquire || 'deref
+instructions R[{'once,'acquire,'deref}]
+</pre>
+</blockquote>
+
+defines a bunch of <tt>Accesses</tt> tags,
+and says that all read (&ldquo;<tt>R</tt>&rdquo;) instructions
+should be labelled with a
+&ldquo;<tt>once</tt>&rdquo;, an &ldquo;<tt>acquire</tt>&rdquo;,
+or a &ldquo;<tt>deref</tt>&rdquo; tag.
+Given this, the &ldquo;<tt>Once</tt>&rdquo; set would contain all events
+corresponding to an instruction (possibly a read, possibly something else)
+labelled with the &ldquo;<tt>once</tt>&rdquo; tag,
+and similarly for the &ldquo;<tt>Release</tt>&rdquo;,
+&ldquo;<tt>Acquire</tt>&rdquo; and &ldquo;<tt>Deref</tt>&rdquo; sets.
+
+<p>
+<tt>herd</tt> also comes with a selection of
+<a name="built-in relations">built-in relations</a>,
+some of which we have already mentioned:
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Name</th>
+	<th>Relation</th>
+	<th>Comment</th>
+</tr>
+<tr>	<th><tt>0</tt></th>
+	<td>Empty</td>
+	<td>empty relation, contains no links</td>
+</tr>
+<tr>	<th><tt>id</tt></th>
+	<td>Identity</td>
+	<td>links each event to itself</td>
+</tr>
+<tr>	<th><tt>int</tt></th>
+	<td>Internal</td>
+	<td>links events that are in the same thread</td>
+</tr>
+<tr>	<th><tt>ext</tt></th>
+	<td>External</td>
+	<td>links events that are in different threads</td>
+</tr>
+<tr>	<th><tt>loc</tt></th>
+	<td>Location</td>
+	<td>links memory-access events that target the same variable</td>
+</tr>
+<tr>	<th><tt>rf</tt></th>
+	<td>Reads-From</td>
+	<td>links a write event to any read event that loads the value
+	stored by that write</td>
+</tr>
+<tr>	<th><tt>rmw</tt></th>
+	<td>Read-Modify-Write</td>
+	<td>links the read and write component events of an RMW instruction</td>
+</tr>
+<tr>	<th><tt>po</tt></th>
+	<td>Program Order</td>
+	<td>links events in the same thread, in the order they occur
+	in the instruction stream</td>
+</tr>
+<tr>	<th><tt>addr</tt></th>
+	<td>Address dependency</td>
+	<td>links a read event to any memory-access event whose target address
+	depends on the value loaded by the read</td>
+</tr>
+<tr>	<th><tt>ctrl</tt></th>
+	<td>Control dependency</td>
+	<td>links a read event to all events that are executed conditionally
+	depending on the value loaded by the read</td>
+</tr>
+<tr>	<th><tt>data</tt></th>
+	<td>Data dependency</td>
+	<td>links a read event to any write event that stores a value
+	which depends on the value loaded by the read</td>
+</tr>
+</tbody></table>
+
+<p>
+<tt>herd</tt>'s standard libraries <tt>stdlib.cat</tt> (automatically included
+for all models) and <tt>cos.cat</tt> define a
+<a name="few extra relations">few extra relations</a>,
+which can be used as though they were built-in:
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Name</th>
+	<th>Relation</th>
+	<th>Comment</th>
+</tr>
+<tr>	<th><tt>po-loc</tt></th>
+	<td><tt>po</tt> for the same location</td>
+	<td>links memory-access events that target the same variable,
+	in program order;
+	same as &ldquo;<tt>po &amp; loc</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>rfe</tt></th>
+	<td>external reads-from</td>
+	<td><tt>rf</tt> restricted to pairs of accesses in different threads;
+	same as &ldquo;<tt>rf &amp; ext</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>rfi</tt></th>
+	<td>internal reads-from</td>
+	<td><tt>rf</tt> restricted to pairs of accesses in the same thread;
+	same as &ldquo;<tt>rf &amp; int</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>co</tt></th>
+	<td>coherence order</td>
+	<td>total ordering of all writes to the each variable</td>
+</tr>
+<tr>	<th><tt>coe</tt></th>
+	<td>external coherence order</td>
+	<td><tt>co</tt> restricted to pairs of writes in different threads;
+	same as &ldquo;<tt>co &amp; ext</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>coi</tt></th>
+	<td>internal coherence order</td>
+	<td><tt>co</tt> restricted to pairs of writes in the same thread;
+	same as &ldquo;<tt>co &amp; int</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>fr</tt></th>
+	<td>from-read</td>
+	<td>links a read event to any write event for the same variable
+	that comes after (in the variable's coherence order) the
+	write which the read event reads from;
+	same as &ldquo;<tt>rf^-1 ; co</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>fre</tt></th>
+	<td>external from-read</td>
+	<td><tt>fr</tt> restricted to pairs of accesses in different threads;
+	same as &ldquo;<tt>fr &amp; ext</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>fri</tt></th>
+	<td>internal from-read</td>
+	<td><tt>fr</tt> restricted to pairs of accesses in the same thread;
+	same as &ldquo;<tt>fr &amp; int</tt>&rdquo;</td>
+</tr>
+</tbody></table>
+
+<p>
+Bell and Cat files can compute their own sets and relations
+using
+<a name="functions and operators">functions and operators</a>
+provided by the <tt>cat</tt> language
+and libraries, as summarized in the following table.
+Operators with higher precedence (tighter binding) are higher up in the table.
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Operator</th>
+	<th>Operation</th>
+	<th>Example</th>
+	<th>Applicability</th>
+</tr>
+<tr>	<th><tt>domain</tt></th>
+	<td>Domain of a relation</td>
+	<td><tt>domain(x)</tt><br>
+	computes the set of all events that are the start of
+	a link in <tt>x</tt></td>
+	<td>Applies to a relation, yields a set</td>
+</tr>
+<tr>	<th><tt>range</tt></th>
+	<td>Range of a relation</td>
+	<td><tt>range(x)</tt><br>
+	computes the set of all events that are the end of
+	a link in <tt>x</tt></td>
+	<td>Applies to a relation, yields a set</td>
+</tr>
+<tr>	<th><tt>fencerel</tt></th>
+	<td>Link events separated by a fence</td>
+	<td><tt>fencerel(x)</tt><br>
+	computes the relation consisting of all pairs of events
+	where the first precedes (in program order) an event
+	in the set <tt>x</tt> and the second follows it; the same
+	as &ldquo;<tt>(po &amp; (_ * x)) ; po</tt>&rdquo;</td>
+	<td>Applies to a set, yields a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>^-1</tt></th>
+	<td>Inversion</td>
+	<td><tt>x^-1</tt><br>
+	computes the relation obtained by reversing
+	all the links in <tt>x</tt></td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>?</tt></th>
+	<td>Reflexive closure</td>
+	<td><tt>x?</tt><br>
+	computes the relation consisting of all pairs of events
+	that can be connected by a chain of links from
+	<tt>x</tt> of length 0 or 1;
+	the same as
+	&ldquo;<tt>id | x</tt>&rdquo;</td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>+</tt></th>
+	<td>Transitive closure</td>
+	<td><tt>x+</tt><br>
+	computes the relation consisting of all pairs of events
+	that can be connected by a chain of links from
+	<tt>x</tt> of length 1 or greater;
+	the same as
+	&ldquo;<tt>x | (x;x) | (x;x;x) | ...</tt>&rdquo;</td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>*</tt></th>
+	<td>Reflexive-transitive closure</td>
+	<td><tt>x*</tt><br>
+	computes the relation consisting of all pairs of events
+	that can be connected by a chain of links from
+	<tt>x</tt> of length 0 or greater;
+	the same as
+	&ldquo;<tt>id | x | (x;x) | (x;x;x) | ...</tt>&rdquo;</td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Prefix <tt>~</tt></th>
+	<td>Complement</td>
+	<td><tt>~x</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	not in <tt>x</tt></td>
+	<td>Applies to a relation or a set</td>
+</tr>
+<tr>	<th>Infix <tt>*</tt></th>
+	<td>Cartesian product</td>
+	<td><tt>x * y</tt><br>
+	computes the relation consisting of all links from
+	an event in set <tt>x</tt> to an event
+	in set <tt>y</tt></td>
+	<td>Applies to sets, yields a relation</td>
+</tr>
+<tr>	<th><tt>\</tt></th>
+	<td>Difference</td>
+	<td><tt>x \ y</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	in <tt>x</tt> that are not in <tt>y</tt></td>
+	<td>Applies to relations or sets</td>
+</tr>
+<tr>	<th><tt>&amp;</tt></th>
+	<td>Intersection</td>
+	<td><tt>x &amp; y</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	in both <tt>x</tt> and <tt>y</tt></td>
+	<td>Applies to relations or sets</td>
+</tr>
+<tr>	<th><tt>;</tt></th>
+	<td>Sequencing</td>
+	<td><tt>x ; y</tt><br>
+	computes the relation consisting of all links
+	<tt>a&#10230;c</tt> such that for some event <tt>b</tt>,
+	<tt>x</tt> contains <tt>a&#10230;b</tt>
+	and <tt>y</tt> contains <tt>b&#10230;c</tt></td>
+	<td>Applies to relations</td>
+</tr>
+<tr>	<th><tt>|</tt></th>
+	<td>Union</td>
+	<td><tt>x | y</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	in <tt>x</tt> or <tt>y</tt> or both</td>
+	<td>Applies to relations or sets</td>
+</tr>
+<tr>	<th><tt>(* *)</tt></th>
+	<td>Encloses comments</td>
+	<td><tt>(* This is a comment *)</tt></td>
+	<td></td>
+</tr>
+</tbody></table>
+
+<p>
+Although the language includes a variety of statement types,
+the ones found most frequently in Bell and Cat files are assignment
+(&ldquo;<tt>let</tt>&rdquo; or &ldquo;<tt>let rec</tt>&rdquo;)
+and check statements.
+
+&ldquo;<tt>let</tt>&rdquo; statements are self-explanatory;
+we have already seen several examples in the RMO memory models above.
+&ldquo;<tt>let rec</tt>&rdquo; statements,
+used for mutually recursive definitions,
+are more complex; we will see an example
+<a href="StrongModel.html#Bell File: RCU Read-Side Critical Sections">here</a>.
+Check statements come in three forms:
+
+<ul>
+<li>	&ldquo;<tt>acyclic &lt;expr&gt;</tt>&rdquo;
+	requires the relation computed from &ldquo;<tt>expr</tt>&rdquo;
+	not to have any cycles;
+<li>	&ldquo;<tt>irreflexive &lt;expr&gt;</tt>&rdquo;
+	requires the relation computed from &ldquo;<tt>expr</tt>&rdquo;
+	not to have any links from an event to itself;
+<li>	&ldquo;<tt>empty &lt;expr&gt;</tt>&rdquo;
+	requires the set or relation computed from &ldquo;<tt>expr</tt>&rdquo;
+	to be empty.
+</ul>
+
+If a check fails, it indicates that the memory model prohibits the
+candidate execution under consideration;
+that is, the memory model says that this execution could never occur.
+
+<p>
+A check can be negated by prefixing it with &ldquo;<tt>~</tt>&rdquo;.
+Also, a check can be flagged by putting the &ldquo;<tt>flag</tt>&rdquo;
+keyword in front of it.
+Unlike a normal check, when a flagged check succeeds it indicates that
+the execution has encountered some sort of semantic problem.
+If this happens, <tt>herd</tt> adds a warning message to its output.
+
+<p>
+Along with the &ldquo;<tt>let</tt>&rdquo;,
+&ldquo;<tt>include</tt>&rdquo;, and check statements,
+the only other types of statement we will see are
+&ldquo;<tt>enum</tt>&rdquo; and &ldquo;<tt>instructions</tt>&rdquo;,
+both briefly
+<a href="#other statement types">mentioned earlier</a>.
+
+<p>
+The <tt>cat</tt> language supports many features we won't cover here, 
+including higher-order sets and tuples, pattern matching, user-defined
+functions, iteration, and recursion in the style of OCaml
+(the language <tt>herd</tt> is written in).
+<tt>herd</tt> itself also has a large number of features we won't discuss,
+such as the ability to skip certain checks when
+testing a memory model or to produce figures (like the ones in this
+document) illustrating the events and relations in a particular
+program execution.
+More complete documentation can be found in the
+<a href="http://diy.inria.fr/tst/doc/herd.html"><tt>herd</tt> manual</a>.
+
+<p>
+With this background, we are ready to examine larger, more realistic
+memory models.
+Something like the
+<a href="StrongModel.html#Introduction to the Linux-Kernel Memory Models">Linux-kernel memory models</a>,
+in fact.
+
+<!-- <p>@@QQAL@@ -->
+
+</p><p>
+           
+</div> <!-- ArticleText -->
+<p><a name="Comments"></a>
+
+
+</div><!-- Printable -->
+</td> <!-- MC -->
+</tr></table></td>
+</tr></table><!-- endpage -->
+            
+        </body></html>
+        

@@ -1,0 +1,1909 @@
+<!-- DO NOT HAND EDIT. -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+        <html>
+        <head><title>A Formal Model of Linux-Kernel Memory Ordering[LWN.net]</title>
+        <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="robots" CONTENT="noindex">
+        <link rel="icon" href="/images/favicon.png" type="image/png">
+        <link rel="alternate" type="application/rss+xml" title="LWN.net headlines" href="http://lwn.net/headlines/newrss">
+<link rel="alternate" type="application/rss+xml" title="Comments posted to this article" href="http://lwn.net/headlines/418853/">
+        <link rel="stylesheet" href="/CSS/lwn">
+<link rel="stylesheet" href="/CSS/nosub">
+
+        
+
+        </head>
+        <body bgcolor="#ffffff" link="Blue" VLINK="Green" alink="Green">
+<h1>A Formal Model of Linux-Kernel Memory Ordering</h1>
+<table class="Page">
+<tr>
+<td><table><tr>
+<td class="MidColumn">
+           <div class="Printable">
+<div class="ArticleText">
+<div class="GAByline">
+           <p>January 24, 2017</p>
+           <p>This article was contributed by Jade Alglave,
+	   Paul E. McKenney, Alan Stern, Luc Maranget, and Andrea Parri</p>
+           </div>
+
+
+<h2>Introduction</h2>
+
+<p>
+It has been said that <tt>Documentation/memory-barriers.txt</tt>
+can be used to
+<a href="http://lwn.net/Articles/575835/">frighten small children</a>,
+and perhaps this is true.
+But even if it is true, it is woefully inefficient.
+After all, there is a huge number of children in this world,
+so a correspondingly huge amount of time and effort would be required in order
+to read it to them all.
+
+<p>
+This situation clearly calls for automated tooling, which is
+now available in prototype form.
+This tool takes short fragments of concurrent C code as input, and
+exhaustively analyzes the possible results.
+In other words, instead of perusing <tt>memory-barriers.txt</tt> to find the
+answer to a memory-ordering question, you can get your answer by writing
+a (very!) small test case and feeding it to the tool, at least for
+test cases within the tool's
+<a href="#Support Existing Non-Buggy Linux-Kernel Code">
+current capabilities</a>
+and
+<a href="#Be Compatible with Hardware Supported by the Linux Kernel">
+limitations</a>.
+This article gives an introduction to the tool, describing how to
+use it and how it works.
+
+<p>
+This article is organized as follows, with the intended audience
+for each section in parentheses:
+
+<ol>
+<li>	<a href="#Why Formal Memory Models?">Why Formal Memory Models?</a>
+	(all).
+<li>	<a href="#Guiding Principles">Guiding Principles</a>
+	(all).
+<li>	<a href="#Causality and Ordering">Causality and Ordering</a>
+	(people interested in using memory-ordering tools).
+<li>	<a href="#Memory Models and The Role of Cycles">
+	Memory Models and The Role of Cycles</a>
+	(people interested in using memory-ordering tools).
+<li>	<a href="#Specifying a Memory Model in Terms of Prohibited Cycles">
+	Specifying a Memory Model in Terms of Prohibited Cycles</a>
+	(people interested in understanding the memory model).
+<li>	<a href="#Conclusions">Conclusions</a>
+	(all).
+</ol>
+
+<p>
+This is followed by the inevitable
+<a href="#Answers to Quick Quizzes">answers to the quick quizzes</a>.
+
+<p>
+Those wishing to dive directly into the strong model will find it
+<a href="StrongModel.html">here</a>.
+
+<h2><a name="Why Formal Memory Models?">Why Formal Memory Models?</a></h2>
+
+<p>
+Even before Linux, kernel hacking has tended to involve more intuition
+and less formal methods.
+Formal methods can nevertheless be useful for providing definite
+answers to difficult questions.
+
+<p>
+For example, how many different behaviors can a computer program exhibit?
+Particularly one that uses only values in memory, with no user input
+or output?
+Computers being the deterministic automata they are,
+most people would say only one,
+and for uniprocessor systems they would be basically correct.
+But multiprocessor systems can give rise to a much wider range of behaviors,
+owing to subtle variations in the relative timing of the processors
+and the signals transmitted among them, their caches, and main memory.
+Memory models try to bring some order to the picture,
+first and foremost by characterizing exactly which outcomes are possible for
+a Symmetric Multiprocessor (SMP) system running a certain (small!) program.
+
+<p>
+Even better, a <em>formal</em> memory model enables tools to automatically
+analyze small programs, as described
+<a href="http://lwn.net/Articles/470681/">here</a> and
+<a href="http://lwn.net/Articles/608550/">here</a>.
+However, those tools are specialized to specific CPU families.
+For analyzing the Linux kernel, what we need is a tool targeted at
+a higher level, one that will be applicable to every CPU architecture
+supported by the kernel.
+
+<p>
+Formal memory models require extreme precision, far beyond what the
+informal discussion in <tt>memory-barriers.txt</tt> can possibly provide.
+To bridge this gap in the best way possible, we have formulated the
+guiding principles listed in the following section.
+
+<h2><a name="Guiding Principles">Guiding Principles</a></h2>
+
+<p>Our memory model is highly constrained because it must match
+the kernel's behavior (or intended behavior!).
+However, there are numerous choices to be made, so we
+formulated the following principles to guide those choices:
+
+<ol>
+<li>	<a href="#Strength Preferred to Weakness">
+	Strength Preferred to Weakness</a>.
+<li>	<a href="#Simplicity Preferred to Complexity">
+	Simplicity Preferred to Complexity</a>.
+<li>	<a href="#Support Existing Non-Buggy Linux-Kernel Code">
+	Support Existing Non-Buggy Linux-Kernel Code</a>.
+<li>	<a href="#Be Compatible with Hardware Supported by the Linux Kernel">
+	Be Compatible with Hardware Supported by the Linux Kernel</a>.
+<li>	<a href="#Support Future Hardware">
+	Support Future Hardware, Within Reason</a>.
+<li>	<a href="#C11 Compatibility">Be Compatible with the C11
+	Memory Model, Where Prudent and Reasonable</a>.
+<li>	<a href="#Expose Questions and Areas of Uncertainty">
+	Expose Questions and Areas of Uncertainty</a>.
+</ol>
+
+<h3><a name="Strength Preferred to Weakness">
+Strength Preferred to Weakness</a></h3>
+
+<p>
+When all else is equal, a stronger memory model is clearly better, but
+this raises the question of what is meant by &ldquo;stronger&rdquo;.
+For our purposes, one memory model is considered to be stronger than
+another if it rules out a larger set of behaviors.
+Thus, the weakest possible memory model is one that would allow
+a program to behave in any way at all
+(as exemplified by the &ldquo;undefined behavior&rdquo; so common in
+programming-language standards), whereas the strongest possible
+memory model is one that says no program can ever do anything.
+Of course, neither of these extremes is appropriate for the Linux kernel,
+or for much of anything else.
+
+<p>
+The strongest memory model typically considered is
+<a href="https://en.wikipedia.org/wiki/Sequential_consistency">sequential
+consistency</a> (SC),
+and the weakest is
+release consistency process consistency
+(<a href="http://dl.acm.org/citation.cfm?id=325102">RC<sub>pc</sub></a>).
+SC prohibits any and all reordering, so that all processes agree on
+some global order of all processes' accesses, which is theoretically
+appealing but expensive, so much so that no mainstream microprocessor
+provides SC by default.
+In contrast, RC<sub>pc</sub> is fairly close to the memory models we
+propose for the Linux kernel, courtesy of the
+Alpha, ARM, Itanium, MIPS, and PowerPC hardware that the Linux kernel
+supports.
+
+<p>
+On the other hand, we don't want to go overboard.
+Although strength is preferred over weakness as a general rule,
+small increases in strength are not worth order-of-magnitude
+increases in complexity.
+
+<h3><a name="Simplicity Preferred to Complexity">
+Simplicity Preferred to Complexity</a></h3>
+
+<p>
+Simpler is clearly better; however, simplicity will always be a subjective
+notion.
+A formal-methods expert might prefer a model with a more elegant definition,
+while a kernel hacker might prefer the model that
+best matched his or her intuition.
+Nevertheless, simplicity remains a useful decision criterion.
+For example, assuming all else is equal,
+a model with a simpler definition that better matched the
+typical kernel hacker's intuition would clearly be preferred over
+a complex counterintuitive model.
+
+<h3><a name="Support Existing Non-Buggy Linux-Kernel Code">
+Support Existing Non-Buggy Linux-Kernel Code</a></h3>
+
+<p>
+The memory model must support existing non-buggy code in the Linux kernel.
+However, our model (in its current form) is rather limited in scope.
+Because it is not intended to be a replacement for either hardware emulators
+or production compilers, it does <i>not</i> support:
+
+<ol>
+<li>	Any number of compiler optimizations.
+	For example, our model currently does not account for compiler
+	optimizations that hoist identical stores from both branches of
+	an &ldquo;if&rdquo; statement to precede that &ldquo;if&rdquo;
+	statement.
+	(On the other hand, the model also does not cover normal variable
+	access, instead requiring at least <tt>READ_ONCE()</tt> or
+	<tt>WRITE_ONCE()</tt>, each of which greatly limits the
+	compiler's ability to optimize.
+	This restriction is therefore less of a problem than it might
+	at first appear.)
+<li>	Arithmetic.
+	Not even integer arithmetic!
+<li>	Multiple access sizes.
+<li>	Partially overlapping accesses.
+<li>	Nontrivial data, including arrays and structures.
+	However, trivial linked lists <i>are</i> possible.
+<li>	Dynamic memory allocation.
+<li>	Complete modeling of read-modify-write atomic operations.
+	Currently, only atomic exchange is supported.
+<li>	Locking, though some subset of the Linux kernel's numerous
+	locking primitives is likely be added to a future version.
+	In the meantime, locking may be emulated using atomic exchange.
+<li>	Exceptions and interrupts.
+<li>	I/O, including DMA.
+<li>	Self-modifying code, as found in the kernel's alternative
+	mechanism, function tracer, Berkeley Packet Filter JIT compiler,
+	and module loader.
+<li>	Complete modeling of
+	<a href="RCUguarantees.html">read-copy update (RCU)</a>.
+	For example, we currently exclude asynchronous grace-period
+	primitives such as <tt>call_rcu()</tt> and <tt>rcu_barrier()</tt>.
+	However, we believe that this work includes the first
+	comprehensive formal model of the interaction between
+	RCU reader and synchronous grace periods with memory accesses
+	and memory-ordering primitives.
+</ol>
+
+<p><a name="Quick Quiz 1"><b>Quick Quiz 1</b>:</a>
+But my code contains simple unadorned accesses to shared variables!
+So what possible use is this memory model to me?
+<br><a href="#qq1answer">Answer</a>
+
+<p>
+As always, adding more detail and functionality to the model will slow
+it down, so the goal is therefore to balance the needs for speed and for
+functionality.
+The current model is a starting point, and we hope to incorporate
+additional functionality over time.
+We also hope that others will incorporate this memory model into their
+tools.
+
+<h3><a name="Be Compatible with Hardware Supported by the Linux Kernel">
+Be Compatible with Hardware Supported by the Linux Kernel</a></h3>
+
+<p>
+The memory model must be compatible with the hardware that the
+Linux kernel runs on.
+Although the memory model can be (and is) looser than a given instance of
+hardware, it absolutely must not be more strict.
+In other words, the memory model must in some sense be the
+least common denominator of all memory models of all
+CPU families that run the Linux kernel.
+This requirement is ameliorated, to some extent, by the ability of
+the compiler and the Linux kernel to mask hardware weaknesses.
+For example:
+
+<ol>
+<li>	The Alpha port of the Linux kernel provides memory-barrier
+	instructions as needed to compensate for the fact that
+	Alpha does not respect read-to-read address dependencies.
+<li>	The Itanium port of gcc emits <tt>ld.acq</tt>
+	for volatile loads and <tt>st.rel</tt> for
+	volatile stores, which compensates for the fact that
+	Itanium does not guarantee read-to-read ordering for
+	normal loads from the same variable.
+</ol>
+
+<p>Nevertheless, the memory model must be sufficiently weak that
+it does not rule out behaviors exhibited by any of the CPU architectures
+the Linux kernel has been ported to.
+Different CPU families can have quite divergent properties, so that
+each of Alpha, ARM, Itanium, MIPS, and PowerPC
+required special attention at some point or another.
+In addition, hardware memory models are subject to change over time,
+as are the use cases within the Linux kernel.
+The Linux-kernel memory model must therefore evolve over time to
+accommodate these changes, which means that the version presented in
+this paper should be considered to be an initial draft rather than as
+being set in stone.
+It seems likely that this memory model will have the same rate of
+change as does <tt>Documentation/memory-barriers.txt</tt>.
+
+<p>
+Providing compatibility with all the SMP systems supporting Linux is one
+of the biggest memory-model challenges, especially given that some
+systems' memory models have not yet been fully defined and documented.
+In each case, we have had to take our best guess based on:
+
+<ol>
+<li>	Existing documentation.
+<li>	Consultation with those hardware architects
+	willing to consult.
+<li>	Formal memory models, for those systems having them.
+<li>	Experiments on real hardware, for those systems we have
+	access to.
+</ol>
+
+<p>
+Thankfully, this situation has been improving.
+For example, although formal memory models have been available for
+quite some time (such as
+<a href="http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-9.pdf">here [PDF]</a>),
+tools that apply memory models to litmus tests have only appeared much more
+<a href="http://lwn.net/Articles/470681/">recently</a>.
+We most certainly hope that this trend towards more accessible and
+better-defined memory models continues, but in the meantime we will
+continue to work with whatever is available.
+
+<h3><a name="Support Future Hardware">
+Support Future Hardware, Within Reason</a></h3>
+
+<p>
+The memory model should support future hardware, within reason.
+Linux-kernel ports to new hardware must supply their
+own code for the various memory barriers, and might one day also
+need to supply their own code for similar common-code primitives.
+But since common code is valuable, an architecture wishing to supply
+its own code for (say) <tt>READ_ONCE()</tt>
+will need a very good reason for doing so.
+
+<p>
+This proposal assumes that future hardware will not deviate too far
+from current practice.
+For example, if you are porting Linux to a quantum supercomputer,
+the memory model is likely to be the least of your worries.
+
+<h3><a name="C11 Compatibility">
+Be Compatible with the C11 Memory Model, Where Prudent and Reasonable</a></h3>
+
+<p>
+Where prudent and reasonable, the model should be compatible
+with the existing C and C++ memory models.
+However, there are a couple areas where it is necessary to depart from
+these memory models:
+
+<ol>
+<li>	The <tt>smp_mb()</tt> full memory barrier is stronger
+	than that of C and C++.
+	But let's face it, <tt>smp_mb()</tt> was there first,
+	and there is a lot of code in the kernel that might be
+	adapted to <tt>smp_mb()</tt>'s current semantics.
+<li>	The Linux kernel's value-returning read-modify-write
+	atomics feature ordering properties that are not found
+	in their C/C++ counterparts.
+<li>	The <tt>smp_mb__before_atomic()</tt>,
+	<tt>smp_mb__after_atomic()</tt>, and
+	<tt>smp_mb__after_unlock_lock()</tt>
+	barrier-amplification APIs
+	have no counterparts in the C/C++ API.
+<li>	The <tt>smp_read_barrier_depends()</tt>
+	macro does not have a direct equivalent in the
+	C/C++ memory model.
+<li>    The Linux-kernel
+	notion of control dependency does not exist in C/C++.
+	However, control dependencies are an important example of
+	instruction ordering, so the memory model must account for them.
+<li>	The Linux-kernel notion of RCU grace periods does not
+	exist in C/C++.
+	(However, an RCU proposal has been solicited by the committee.)
+</ol>
+
+<p>
+On the positive side, the Linux kernel has recently been adding functionality
+that is closer to that of C and C++ atomics, with the ongoing move
+from <tt>ACCESS_ONCE()</tt> to <tt>READ_ONCE()</tt> and
+<tt>WRITE_ONCE()</tt> being one example and the addition
+of <tt>smp_load_acquire()</tt> and <tt>smp_store_release()</tt>
+being another.
+
+<h3><a name="Expose Questions and Areas of Uncertainty">
+Expose Questions and Areas of Uncertainty</a></h3>
+
+<p>
+Defining a memory model inevitably uncovers interesting questions
+and areas of uncertainty.
+For example:
+
+<ol>
+<li>	The Linux-kernel memory model is
+	<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0124r1.html">more strict than that of C11</a>.
+	It is useful to flag the differences in order to alert people who might
+	otherwise be tempted to rely solely on C11.
+	It is also quite possible that some of the Linux-kernel strictness
+	is strictly historical, in which case it might (or might not!)
+	be worth considering matching C11 semantics for those specific
+	situations.
+<li>	Release-acquire chains are required to provide ordering to those
+	tasks participating in the chain.
+	Failure to provide such ordering would have many problematic
+	consequences, not least being that locking would not work
+	correctly.
+	For tasks external to the chain, ordering cannot be provided
+	for a write preceding the first release and a read following the
+	last acquire due to hardware limitations.
+	For example, if one process writes to variable <tt>x</tt> while
+	holding a lock and a later critical section for that same lock
+	reads from variable <tt>y</tt>, an unrelated process not holding that
+	lock might well see these two accesses as occurring in the opposite
+	order.
+	Should release-acquire chains be required to provide externally
+	visible ordering for other combinations of reads and writes?
+<li>	It turns out that release-acquire chains can be implemented
+	using <tt>READ_ONCE()</tt> instead of <tt>smp_load_acquire()</tt>.
+	(However, substituting <tt>WRITE_ONCE()</tt> for
+	<tt>smp_store_release()</tt> is said to <i>not</i> work on all
+	architectures.)
+	Should the model require the use of <tt>smp_load_acquire()</tt>?
+<li>	Some architectures can &ldquo;erase&rdquo; writes, so that
+	ordering specific to a given write might not apply to a later
+	write to that same variable by that same task, even though
+	coherence ordering would normally order the two writes.
+	This can give rise to bizarre results, such as the possible
+	outcomes of a code sequence depending on the code that follows it.
+<li>	One interesting corner case of hardware memory models is that
+	weak barriers (i.e., <tt>smp_wmb()</tt>) suffice to provide
+	transitive orderings when all accesses are writes.
+	However, we were unable to come up with reasonable use cases,
+	and furthermore, the things that looked most reasonable proved
+	to be attractive nuisances.
+	Should the memory model nevertheless provide ordering in this case?
+	(If you know of some reason why this ordering should be respected
+	by the memory models, please don't keep it a secret!)
+</ol>
+
+<p>
+In a perfect world, we would resolve each and every area of uncertainty,
+then produce a single model reflecting full knowledge of all the
+hardware that the Linux kernel supports.
+However, astute readers might have noticed that the world is imperfect.
+Furthermore, rock-solid certainties can suddenly be cast into doubt,
+either with the addition of an important new architecture or with
+the uncovering of a misunderstanding or an error in documentation of
+some existing architecture.
+It will therefore be sometimes necessary for the Linux kernel memory
+model to say &ldquo;maybe&rdquo;.
+
+<p>
+Unfortunately, existing software tools are unable to say
+&ldquo;maybe&rdquo; in response to a litmus test.
+We therefore constructed not one but two formal models, one
+strong and the other less strong.
+These two models will disagree in &ldquo;maybe&rdquo; cases.
+Kernel hackers should feel comfortable relying on ordering
+only in cases where both models agree that ordering should be provided, and
+hardware architects should feel the need to provide strong ordering
+unless both models agree that strong ordering need not be provided.
+(Currently these models are still very much under development, so
+it is still unwise to trust either model too much.)
+
+<h2><a name="Causality and Ordering">
+Causality and Ordering</a></h2>
+
+<p>
+Causality is an important property of memory models, in part because
+causality looms large in most peoples' intuitive understanding of
+concurrent code.
+However, causality is a very generic term, lacking the precision
+required for a formal memory model.
+In this article we will therefore use the terms
+&ldquo;causality&rdquo; and &ldquo;causal relationship&rdquo;
+quite sparingly, instead defining precise terms that will be
+used directly within the memory model.
+But a brief discussion now will help illuminate the topic and
+will introduce some important relationships between causality,
+ordering, and memory models.
+
+<p>
+<i>Causality</i> is simply the principle that a cause happens before
+its effect, not after.
+It is therefore a statement about ordering of events in time.
+Let's start with the simplest and most direct example.
+If CPU A writes a value to a shared variable in memory, and CPU B reads
+that value back from the shared variable, then A's write must execute
+before B's read.
+This truly is an example of a cause-and-effect relation;
+the only way B can possibly know the value stored by A is to
+receive some sort of message sent directly or indirectly by A (for example,
+a cache-coherence protocol message).
+Messages take time to propagate from one CPU or cache to another,
+and they cannot be received before they have been sent.
+(In theory, B could guess the value of A's write, act on that guess,
+check the guess once the write message arrived, and if the guess
+was wrong, cancel any actions that were inconsistent with the actual
+value written.
+Nevertheless, B could not be entirely certain that its guess is correct
+until the message arrives&mdash;and our memory models assume that
+CPUs do not engage in this sort of guessing.)
+On the other hand, if B does not read the value stored by A but
+rather an earlier value, then there need not be any particular
+temporal relation between A's write and B's read.
+B's read could have executed either before or after A's write,
+as long as it executed before the write message reached B.
+In fact, on some architectures, the read could return the old
+value even if it executed a short time <i>after</i> the message's arrival!
+<i>A fortiori</i>, there would be no cause-and-effect relation.
+
+<p>
+Another example of ordering also involves the propagation of writes
+from one CPU to another.
+If CPU A writes to two shared variables,
+these writes need not propagate to CPU B in the same order as the
+writes were executed.
+In some architectures it is entirely possible for B to receive the
+messages conveying the new values in the opposite order.
+In fact, it is even possible for the writes to propagate to CPU B
+in one order and to CPU C in the other order.
+The only portable way for the programmer to enforce write propagation
+in the order given by the program is to use appropriate memory barriers
+or barrier-like constructs, such as <tt>smp_mb()</tt>,
+<tt>smp_store_release()</tt>, or C11 non-relaxed atomic operations.
+
+<p>
+A third example of ordering involves events occurring
+entirely within a single CPU.
+Modern CPUs can and do reorder instructions, executing them in an
+order different from the order they occur in the instruction stream.
+There are architectural limits to this sort of thing, of course.
+<a name="dependencies">
+Perhaps the most pertinent for memory models is the general principle
+that a CPU cannot execute an instruction before it knows what that
+instruction is supposed to do.
+For example, consider the statement &ldquo;<tt>x = y;</tt>&rdquo;.
+To carry out this statement, a CPU must first load the value of <tt>y</tt>
+from memory and then store that value to <tt>x</tt>.
+It cannot execute the store before the load;
+if it tried then it would not know what value to store.
+This is an example of a <i>data dependency</i>.
+There are also <i>address dependencies</i> (for example,
+&ldquo;<tt>a[n] = 3;</tt>&rdquo; where the value of <tt>n</tt>
+must be loaded before the CPU can know where to store the value 3).
+Finally, there are <i>control dependencies</i> (for example,
+&ldquo;<tt>if (i == 0) y = 5;</tt>&rdquo; where the value of <tt>i</tt>
+must be loaded before the CPU can know whether to store anything
+into <tt>y</tt>).
+In the general case where no dependency is present, however,
+the only portable way for the programmer
+to force instructions to be executed in the order given by the program
+is to use appropriate memory barriers or barrier-like constructs.</a>
+
+<p>
+Finally, at a higher level of abstraction, source code statements
+can be reordered or even eliminated entirely by an optimizing compiler.
+We won't discuss this very much here; <tt>memory-barriers.txt</tt>
+contains a number of examples demonstrating the sort of shenanigans
+a compiler can get up to when translating a program from source code
+to object code.
+
+<h2><a name="Memory Models and The Role of Cycles">
+Memory Models and The Role of Cycles</a></h2>
+
+<p>
+One way of formalizing a memory model is to create an abstract description
+of how a running system operates internally,
+and then enumerate all the possible outcomes
+this abstract operation can give rise to.
+There are <a href="http://lwn.net/Articles/470681/">tools that take this
+operational approach</a>.
+Another way is to define the constraints imposed by the memory model,
+in the form of logical axioms,
+and then enumerate all the possible outcomes that are
+consistent with these constraints.
+A tool using this axiomatic approach is described
+<a href="http://lwn.net/Articles/608550/">here</a>.
+This <tt>herd</tt> tool can be downloaded
+<a href="http://diy.inria.fr/sources/index.html">here</a>,
+and built as described in the <tt>INSTALL.txt</tt> file.
+
+<p>
+Both approaches take as input a small fragment of code and an assertion
+(together called a <i>litmus test</i>)
+and produce an output value indicating whether
+the memory model permits the
+code fragment to execute in a way that would make the assertion true.
+Here is a simple example of a litmus test (with line numbers added)
+that illustrates the so-called &ldquo;message-passing&rdquo; pattern:
+
+<blockquote>
+<a id="litmus1" href="C-MP+o-mb-o+o-mb-o.litmus">Litmus&nbsp;Test&nbsp;#1</a>
+<pre>
+  1 C C-MP+o-mb-o+o-mb-o
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   WRITE_ONCE(*y, 1);
+  9   smp_mb();
+ 10   WRITE_ONCE(*x, 1);
+ 11 }
+ 12
+ 13 P1(int *x, int *y)
+ 14 {
+ 15   int r1;
+ 16   int r2;
+ 17
+ 18   r1 = READ_ONCE(*x);
+ 19   smp_mb();
+ 20   r2 = READ_ONCE(*y);
+ 21 }
+ 22
+ 23 exists
+ 24 (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+Line&nbsp;1 identifies the source language of the code fragment
+(&ldquo;C&rdquo;)
+and gives the litmus test's name (&ldquo;C-MP+o-mb-o+o-mb-o&rdquo;).
+Lines&nbsp;3 and&nbsp;4 are where initial values could be provided.
+In this program no explicit initialization is needed,
+because all variables' initial values default to zero.
+Lines&nbsp;6-21 provide the code, in this case, one function for
+each of two processors.
+You can choose any name you like for these functions as long as it
+consists of a &lsquo;P&rsquo; immediately followed by the processor's
+number, numbered consecutively starting from zero.
+By convention, local variable names begin with &lsquo;<tt>r</tt>&rsquo;
+(these variables are treated as though they are stored in CPU registers),
+and global variables must be passed in by reference as function
+parameters.
+The names of these function parameters are significant:
+They must match the names of the corresponding global variables.
+
+<p>
+Finally, lines&nbsp;23 and&nbsp;24 provide an &ldquo;<tt>exists</tt>&rdquo;
+assertion expression to evaluate the final state.
+This final state is evaluated after the dust has settled:
+Both processes have completed and all of their memory references
+and memory barriers have propagated to all parts of the system.
+The references to the local
+variables &ldquo;<tt>r1</tt>&rdquo; and &ldquo;<tt>r2</tt>&rdquo;
+in line&nbsp;24 must be prefixed with &ldquo;<tt>1:</tt>&rdquo;
+to specify which processor they are local to.
+Note that a single &ldquo;<tt>=</tt>&rdquo; in this expression
+is an equality operator rather than an assignment
+(the assertion expression is written in the litmus-test language
+rather than in C).
+The &ldquo;<tt>/\</tt>&rdquo; character combination means &ldquo;and&rdquo;;
+it is an ASCII representation of the mathematical &lsquo;&#8743;&rsquo; symbol.
+Similarly, &ldquo;<tt>\/</tt>&rdquo; stands for &ldquo;or&rdquo;
+(the mathematical &lsquo;&#8744;&rsquo; symbol);
+this assertion could have been expressed just as well in negated form
+by writing:
+
+<blockquote>
+<pre>
+23 forall
+24 (1:r1=0 \/ 1:r2=1)
+</pre>
+</blockquote>
+
+<p>
+The &ldquo;<tt>~</tt>&rdquo; character indicates negation, so
+this assertion could also have been written in non-negated form as follows:
+
+<blockquote>
+<pre>
+23 exists
+24 ~(1:r1=0 \/ 1:r2=1)
+</pre>
+</blockquote>
+
+<p>
+The software tools mentioned above simply tell you whether
+the logic expression evaluates to <tt>true</tt> in 
+all, some, or none of the possible executions of the code.
+Value judgments are left to the user.
+
+<p>
+Again, the <tt>herd</tt> tool can be downloaded
+<a href="http://diy.inria.fr/sources/index.html">here</a>,
+and built as described in the <tt>INSTALL.txt</tt> file.
+It may then be run using the
+<tt><a href="linux.def">linux.def</a></tt>
+macro file included in the source package,
+the <a href="C-MP+o-mb-o+o-mb-o.litmus">Litmus Test&nbsp;#1</a> source file,
+and the
+&ldquo;<a href="strong-kernel.bell">bell</a>&rdquo; and
+&ldquo;<a href="strong-kernel.cat">cat</a>&rdquo; files
+for the strong kernel memory model described
+<a href="StrongModel.html">here</a>.
+The command is as follows:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat C-MP+o-mb-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+For people who prefer shorter command lines, the
+<a href="strong.cfg"><tt>strong.cfg</tt></a> configuration file
+specifies these settings already, along with several others
+related to the style of the plot files <tt>herd</tt> is
+capable of producing.
+The command is:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg C-MP+o-mb-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+The output from either command is:
+
+<blockquote>
+<a id="litmus1" href="C-MP+o-mb-o+o-mb-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#1 (strong model)</a>
+<pre>
+ 1 Test C-MP+o-mb-o+o-mb-o Allowed
+ 2 States 3
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (1:r1=1 /\ 1:r2=0)
+10 Observation C-MP+o-mb-o+o-mb-o Never 0 3
+11 Hash=3240a31645e46554cb09739d726087ad
+</pre>
+</blockquote>
+
+<p>
+This output indicates the three possible outcomes from running this code in
+the Linux kernel:
+
+<ol>
+<li>	<tt>r1 == 0 &amp;&amp; r2 == 0</tt>.
+	This outcome occurs when P1 completes before P0 begins.
+<li>	<tt>r1 == 0 &amp;&amp; r2 == 1</tt>.
+	This outcome occurs when P1 executes concurrently with P0,
+	so that P1's read from <tt>x</tt> executes before P0's
+	write to <tt>x</tt>, but P1's read from <tt>y</tt> executes
+	after P0's write to <tt>y</tt>.
+<li>	<tt>r1 == 1 &amp;&amp; r2 == 1</tt>.
+	This outcome occurs when P1 starts after P0 completes.
+</ol>
+
+<p>
+The outcome <tt>r1 == 1 &amp;&amp; r2 == 0</tt> is not possible,
+as indicated by the &ldquo;<tt>Never 0 3</tt>&rdquo;
+near the end of the output.
+This forbidden outcome would require a cycle of events, each happening
+before the next and the last happening before the first:
+
+<ol>
+<li>	P0 writes to <tt>x</tt>,
+<li>	P1 reads from <tt>x</tt>, 
+<li>	P1 reads from <tt>y</tt>, and
+<li>	P0 writes to <tt>y</tt>.
+</ol>
+
+This cycle is illustrated in the following figure.
+Please note that the concept of cycles can be thought of as a
+mathematically precise generalization of the
+<tt>memory-barriers.txt</tt> concept of memory-barrier pairing.
+
+<p><img src="cycle-new.svg" alt="cycle.svg" width="45%"></p>
+
+The labels in the diagram are defined as follows:
+
+<ol>
+<li>	<tt>fr</tt> = &ldquo;from-read&rdquo;, linking each read to
+	any writes to the same variable that execute too late to affect
+	the value returned by that read.
+<li>	<tt>po</tt> = &ldquo;program order&rdquo;, linking statements
+	within a given process in the order that they appear in the
+	instruction stream.
+<li>	<tt>rf</tt> = &ldquo;reads from&rdquo;, linking a given write
+	to any reads that load the value stored by that write.
+</ol>
+
+<p>
+The <tt>fr</tt> relation can be somewhat counter-intuitive,
+so please look
+<a href="fr.html">here</a>
+for additional explanation.
+The <tt>herd</tt> tool provides many additional relations,
+which are tabulated
+<a href="herd.html#built-in relations">here</a>.
+
+<p>
+It is important to note that not all cycles are prohibited.
+To see this, consider the following:
+
+<blockquote>
+<a id="litmus2" href="C-MP+o-o+o-o.litmus">Litmus&nbsp;Test&nbsp;#2</a>
+<pre>
+  1 C C-MP+o-o+o-o
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   WRITE_ONCE(*y, 1);
+  9   WRITE_ONCE(*x, 1);
+ 10 }
+ 11
+ 12 P1(int *x, int *y)
+ 13 {
+ 14   int r1;
+ 15   int r2;
+ 16
+ 17   r1 = READ_ONCE(*x);
+ 18   r2 = READ_ONCE(*y);
+ 19 }
+ 20
+ 21 exists
+ 22 (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+This is exactly the same as the previous litmus test except that the
+<tt>smp_mb()</tt> calls have been removed.
+Despite the fact that the outcome
+<tt>r1 == 1 &amp;&amp; r2 == 0</tt> exhibits the same cycle as above,
+it can in fact occur on weakly ordered systems where, for example,
+P0's writes and P1's reads can be reordered by the hardware.
+On such systems, the <tt>smp_mb()</tt> statements
+are necessary to ensure that the order of execution of the writes and
+reads is the same as their order in the source code.
+This can be confirmed by running the tool in the same way as before, but
+on the new litmus test:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg C-MP+o-o+o-o.litmus
+</pre>
+</blockquote>
+
+<p>
+The output will be as follows:
+
+<blockquote>
+<a id="litmus2" href="C-MP+o-o+o-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#2 (strong model)</a>
+<pre>
+ 1 Test C-MP+o-o+o-o Allowed
+ 2 States 4
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=0;
+ 6 1:r1=1; 1:r2=1;
+ 7 Ok
+ 8 Witnesses
+ 9 Positive: 1 Negative: 3
+10 Condition exists (1:r1=1 /\ 1:r2=0)
+11 Observation C-MP+o-o+o-o Sometimes 1 3
+12 Hash=c3bdaae6256fa364ad31fb3c1e07c0f5
+</pre>
+</blockquote>
+
+<p>
+Note that all four possible states are present, and note also the
+&ldquo;<tt>Sometimes 1 3</tt>&rdquo; near the end of the output.
+
+<p><a name="Quick Quiz 2"><b>Quick Quiz 2</b>:</a>
+Can't the compiler also reorder these accesses?
+<br><a href="#qq2answer">Answer</a>
+
+<p>
+On sufficiently weakly ordered systems, the cyclic outcome in
+<a href="#litmus2">Litmus&nbsp;Test&nbsp;#2</a>
+could occur even without instruction reordering,
+because the writes might not propagate from P0 to P1 in the
+order they were executed.
+And even on more strongly ordered systems,
+it would be sufficient to reorder either the reads or the writes;
+it is not necessary to reorder both.
+For example, if P1's accesses were reordered then we could have
+the following sequence of events:
+
+<ol>
+<li>	P1 reads from <tt>y</tt>,
+<li>	P0 writes to <tt>y</tt>,
+<li>	P0 writes to <tt>x</tt>, and
+<li>	P1 reads from <tt>x</tt>.
+</ol>
+
+This sequence says that P1 reads from <tt>y</tt> before reading
+from <tt>x</tt>, i.e., the reads are reordered.
+If this were to happen, there would no longer be a cycle,
+as indicated in the following diagram (the dotted arrow to
+the right indicates P1's reordering):
+
+<p><img src="cyclenot-new.svg" alt="cyclenot.svg" width="45%"></p>
+
+<p>
+This illustrates an important point: Cycles in time of
+instruction execution are impossible,
+because time is linearly ordered (in our universe, even if
+<a href="https://en.wikipedia.org/wiki/G%C3%B6del_metric">not
+in all solutions to Einstein's field equations</a>).
+Part of a memory model's job is to provide the conditions
+under which one instruction must execute before another
+and to check for any resulting cycles.
+On the other hand, if there is no such cycle then it is possible
+to find an order of execution for all the instructions which is
+compatible with the memory model's ordering requirements
+(for example, by doing a topological sort).
+If this potential execution order did not violate any
+of the memory model's other requirements,
+it would demonstrate that the litmus test's assertion could hold.
+
+<p>
+Okay, we admit the preceding paragraph is an oversimplification.
+Modern CPUs do not execute instructions at precise moments in time;
+instead they run instructions through complicated multi-stage pipelines
+and engage in multiple issue (running more than one instruction
+through the same pipeline stages in parallel).
+Furthermore, other ordering requirements come into play along with
+time of execution, such as cache coherence (see
+<a href="#cache coherence">below</a>).
+Nevertheless, the basic idea is valid.
+
+<p>
+It is worth pointing out that computer hardware almost always has additional
+restrictions beyond what the memory models describe;
+CPU designers generally do not implement
+all of the behaviors allowed by the instruction set architecture.
+The fact that a memory model says a particular litmus test's assertion might
+hold does not mean it can actually happen on any given computer.
+As a simple example,
+the finite write buffers found in real hardware prevent that
+hardware from actually doing all the reorderings of writes that memory
+models typically allow.
+It also goes the other way&mdash;sometimes CPU designers mistakenly
+implement a behavior that is prohibited by the instruction set architecture
+(otherwise known as a &ldquo;silicon bug&rdquo; or &ldquo;CPU erratum&rdquo;).
+
+<h2><a name="Specifying a Memory Model in Terms of Prohibited Cycles">
+Specifying a Memory Model in Terms of Prohibited Cycles</a></h2>
+
+<p>
+As we have just seen, there is a close relationship between orderings
+and the existence of cycles:
+If some events are constrained to be ordered in a certain way then
+that ordering cannot contain a cycle.
+Conversely, if a given relation among various events does not contain any
+cycles then it is possible to order those events consistently with the relation.
+Thus, if we can precisely specify which instructions must execute before others
+in a given piece of Linux kernel code,
+we will be well on our way to constructing a formal model
+that defines the kernel's execution-ordering guarantees
+in terms of cycles among instructions.
+Even better, this model can then be used to construct a tool that analyzes
+litmus tests for execution-ordering problems.
+(And of course, the same technique can be used for describing a memory model's
+other ordering requirements.)
+
+<p>
+The <tt>herd</tt> tool implements a language, called <tt>cat</tt>,
+designed to represent
+memory models, which it does by specifying what cycles are prohibited.
+This specification is defined in terms of sets and relations involving
+memory-access events, barriers, and threads.
+(For our purposes, each processor in a litmus test corresponds to
+a distinct thread.)
+<tt>herd</tt> is discussed in more detail
+<a href="herd.html">here</a>;
+in this section we will see how to write some simple memory models
+in the
+<a href="herd.html"><tt>cat</tt> language</a>.
+
+<p>
+But first, what cycles should the Linux kernel memory model prohibit?
+Here is a partial list:
+
+<ol>
+<li>	Placing a full memory barrier (<tt>smp_mb()</tt>) between
+	each pair of memory accesses in each process will prohibit
+	all cycles.
+	In other words, <tt>smp_mb()</tt> can be said to <i>restore SC</i>,
+	that is, to ensure that all processes agree on a global order
+	of all memory accesses by all processes.
+	The <a href="#Relaxed Memory Order: Toy Specification">next section</a>
+	shows example <tt>herd</tt> code that accomplishes this.
+<li>	So-called
+	<i><a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4375.html">out-of-thin-air</a></i>
+	computations must be ruled out.
+	These are cycles where each CPU writes a value depending on the
+	value written by the previous CPU in the cycle,
+	and they are handled by the
+	<a href="StrongModel.html#Cat File: Happens-Before">Happens-Before</a>
+	section of the model's <a href="StrongModel.html#Strong-Model Cat File">cat</a> file.
+	The underlying reason why the model does not produce
+	out-of-thin-air values is that any <tt>WRITE_ONCE()</tt>
+	that depends on a <tt>READ_ONCE()</tt> is ordered after it,
+	regardless of the type of dependency.
+<li>	All CPUs should agree on the order of accesses to any single
+	memory location.
+	Making this happen is described
+	<a href="#Relaxed Memory Order: Coherence Included">here</a>.
+<li>	A chain of release-acquire pairs, where each load-acquire returns
+	the value stored by the preceding store-release, should
+	never form a cycle.
+	The strong model's
+	<a href="StrongModel.html#Strong-Model Bell File">bell</a> and
+	<a href="StrongModel.html#Strong-Model Cat File">cat</a> files prohibit such cycles.
+<li>	Cycles violating
+	<a href="RCUguarantees.html">RCU's guarantees</a>
+	must be prohibited.
+	This is handled by the RCU-specific portions of the
+	<a href="StrongModel.html#Bell File: RCU Read-Side Critical Sections">bell</a>
+	and
+	<a href="StrongModel.html#Cat File: RCU">cat</a> files.
+</ol>
+
+<p>
+There are quite a few additional nuances of Linux-kernel use cases
+and peculiarities of specific hardware, but this list provides a good
+starting point.
+The following sections present trivial &ldquo;toy&rdquo; memory
+models that prohibit the first two types of cycles.
+
+<h3><a name="Relaxed Memory Order: Toy Specification">
+Relaxed Memory Order: Toy Specification</a></h3>
+
+<p>
+The following shows a simple <tt>herd</tt> program that represents a
+fragment of the Linux kernel memory model involving simple memory accesses
+(<tt>READ_ONCE()</tt> and <tt>WRITE_ONCE()</tt>) and strong memory barriers
+(<tt>smp_mb()</tt>):
+
+<blockquote>
+<a id="toy-RMO.cat" href="toy-RMO.cat">toy-RMO.cat</a>
+<pre>
+  1 "Toy RMO"
+  2
+  3 include "cos.cat"
+  4
+  5 let rfe = rf &amp; ext
+  6 let fence = fencerel(F)
+  7
+  8 let rmo-order = fence | rfe | co | fr
+  9 acyclic rmo-order
+</pre>
+</blockquote>
+
+<p>
+Line&nbsp;1 provides a name for the model, and line&nbsp;3 pulls in
+some definitions that can be thought of as the <tt>herd</tt> equivalent
+to the C-language:
+
+<blockquote>
+<pre>
+#include &lt;stdio.h&gt;
+</pre>
+</blockquote>
+
+<p>
+However, instead of defining I/O primitives,
+&ldquo;<tt>cos.cat</tt>&rdquo;
+defines some basic relations, including the <tt>fr</tt>
+relation mentioned earlier.
+
+<p>
+For the litmus tests above (assuming the cyclic execution),
+the built-in <tt>rf</tt> (&ldquo;reads-from&rdquo;) relation
+contains the following links:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 1)</tt> &#10230; <tt>r1 = READ_ONCE(*x)</tt>,
+<li>	<tt>INIT(*y, 0)</tt> &#10230; <tt>r2 = READ_ONCE(*y)</tt>.
+</ul>
+
+(where <tt>INIT(*y, 0)</tt> is the &ldquo;write&rdquo; that
+initializes <tt>y</tt>),
+and <tt>fr</tt> (&ldquo;from-read&rdquo;) contains:
+
+<ul>
+<li>	<tt>r1 = READ_ONCE(*y)</tt> &#10230; <tt>WRITE_ONCE(*y, 1)</tt>
+</ul>
+
+<tt>cos.cat</tt> also defines the <tt>co</tt>
+(&ldquo;coherence order&rdquo;) relation,
+which links each write to all later writes to the same variable
+(just the writes, not the reads).
+Initialization counts as a write; it is always the
+first write in the coherence order for each variable.
+Thus the <tt>co</tt> relation for these litmus tests looks like this:
+
+<ul>
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>WRITE_ONCE(*x, 1)</tt>
+<li>	<tt>INIT(*y, 0)</tt> &#10230; <tt>WRITE_ONCE(*y, 1)</tt>
+</ul>
+
+<p>
+Line&nbsp;5 computes <tt>rfe</tt> (&ldquo;reads-from external&rdquo;),
+which is a restricted version of
+the <tt>rf</tt> relation that covers only write-read
+pairs where the write and the read are executed by different threads.
+It does this by intersecting (the <tt>&amp;</tt> operator)
+the <tt>rf</tt> relation
+with the predefined <tt>ext</tt> relation,
+which links all pairs of instructions belonging to different threads.
+For the two litmus tests above, the <tt>rfe</tt> relation
+turns out to be exactly the same as the <tt>rf</tt> relation.
+
+<p>
+Line&nbsp;6 uses the standard <tt>fencerel()</tt> function and
+<tt>F</tt> event set to define a relation that links any two instructions
+separated by a memory barrier.
+For
+<a href="#litmus2">Litmus&nbsp;Test&nbsp;#2</a>,
+which contains no instances of
+<tt>smp_mb()</tt>, this relation is empty.
+For
+<a href="#litmus1">Litmus&nbsp;Test&nbsp;#1</a>,
+it contains the following links:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*y, 1)</tt> &#10230; <tt>WRITE_ONCE(*x, 1)</tt>
+<li>	<tt>r1 = READ_ONCE(*x)</tt> &#10230; <tt>r2 = READ_ONCE(*y)</tt>
+</ul>
+
+<p>
+Line&nbsp;8 defines the <tt>rmo-order</tt> relation as the
+union (the <tt>|</tt> operator) of the
+<tt>fence</tt>, <tt>rfe</tt>, <tt>co</tt>, and <tt>fr</tt> relations.
+<tt>rmo-order</tt> includes all pairs of instructions for which
+this toy model of relaxed memory order (RMO) requires
+the first to execute before the second.
+Line&nbsp;9 expresses this requirement by stating that
+the <tt>rmo-order</tt> relation is acyclic (contains no cycles).
+
+<p>
+For
+<a href="#litmus2">Litmus&nbsp;Test&nbsp;#2</a>,
+<tt>rmo-order</tt>
+does not contain a cycle, as shown below:
+
+<p><img src="rmo-acyclic.svg" alt="rmo-acyclic.svg" width="50%"></p>
+
+(The dotted &ldquo;po&rdquo; edges are for illustration only;
+they are not present in the <tt>rmo-order</tt> relation and do
+not contribute to any cycles.)
+
+<p>
+On the other hand, for
+<a href="#litmus1">Litmus&nbsp;Test&nbsp;#1</a>,
+the additional links
+added by the <tt>fence</tt> relation do create a cycle:
+
+<p><img src="rmo-cyclic.svg" alt="rmo-cyclic.svg" width="50%"></p>
+
+<p>
+Thus this model correctly distinguishes the &ldquo;message-passing&rdquo;
+examples with and without memory barriers, as can be seen by downloading
+<a href="toy-RMO.cat">toy-RMO.cat</a> and passing it via the
+<tt>-cat</tt> command-line argument for
+<a href="#litmus2">Litmus&nbsp;Test&nbsp;#2</a>
+as follows:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg -cat toy-RMO.cat C-MP+o-o+o-o.litmus
+</pre>
+</blockquote>
+
+<p>
+This produces the following output:
+
+<blockquote>
+<a id="litmus2" href="C-MP+o-o+o-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#2 (toy-RMO model)</a>
+<pre>
+ 1 Test C-MP+o-o+o-o Allowed
+ 2 States 4
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=0;
+ 6 1:r1=1; 1:r2=1;
+ 7 Ok
+ 8 Witnesses
+ 9 Positive: 1 Negative: 3
+10 Condition exists (1:r1=1 /\ 1:r2=0)
+11 Observation C-MP+o-o+o-o Sometimes 1 3
+12 Hash=c3bdaae6256fa364ad31fb3c1e07c0f5
+</pre>
+</blockquote>
+
+Given the lack of a cycle in the <tt>rmo-order</tt> relationship,
+the counter-intuitive cyclic execution is permitted,
+as indicated by
+&ldquo;<tt>Sometimes 1 3</tt>&rdquo; in the output.
+In contrast, for
+<a href="#litmus1">Litmus&nbsp;Test&nbsp;#1</a>,
+with memory barriers,
+the command line:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg -cat toy-RMO.cat C-MP+o-mb-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+produces the following output:
+
+<blockquote>
+<a id="litmus1" href="C-MP+o-mb-o+o-mb-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#1 (toy-RMO model)</a>
+<pre>
+ 1 Test C-MP+o-mb-o+o-mb-o Allowed
+ 2 States 3
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (1:r1=1 /\ 1:r2=0)
+10 Observation C-MP+o-mb-o+o-mb-o Never 0 3
+11 Hash=3240a31645e46554cb09739d726087ad
+</pre>
+</blockquote>
+
+As expected, the memory barriers exclude the counter-intuitive outcome
+where <tt>r1 == 1 &amp;&amp; r2 == 0</tt>.
+
+<h3><a name="Relaxed Memory Order: Coherence Included">
+Relaxed Memory Order: Coherence Included</a></h3>
+
+<p>
+Consider this ridiculous single-thread litmus test:
+
+<blockquote>
+<a id="litmus3" href="C-CO+o-o.litmus">Litmus&nbsp;Test&nbsp;#3</a>
+<pre>
+  1 C C-CO+o-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x)
+  7 {
+  8   *x = 3;
+  9   *x = 4;
+ 10 }
+ 11
+ 12 exists
+ 13 (x=3)
+</pre>
+</blockquote>
+
+<p>
+On the face of it, this test can never succeed.
+If we set <tt>x</tt> to 3 and then overwrite it with the value 4,
+how can <tt>x</tt> possibly end up containing 3?
+Nevertheless, running the
+<a href="toy-RMO.cat">Toy RMO</a>
+model shows that this outcome is permitted:
+
+<blockquote>
+<a id="litmus3" href="C-CO+o-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#3 (toy-RMO model)</a>
+<pre>
+ 1 Test C-CO+o-o Allowed
+ 2 States 2
+ 3 x=3;
+ 4 x=4;
+ 5 Ok
+ 6 Witnesses
+ 7 Positive: 1 Negative: 1
+ 8 Condition exists (x=3)
+ 9 Observation C-CO+o-o Sometimes 1 1
+10 Hash=b9e4f0d747854e10ad7310b4381f3652
+</pre>
+</blockquote>
+
+<p>
+This is because the model does not forbid it,
+and everything that is not explicitly forbidden is permitted.
+The model does not account for cache coherence,
+a feature supported by most modern microprocessors&mdash;and demanded
+by the vast majority of sane kernel hackers.
+That's one reason why this model should be considered to be a toy.
+
+<p>
+<a name="cache coherence"><i>Cache coherence</i> (sometimes referred to as
+&ldquo;per-location sequential consistency&rdquo;)</a>
+requires that the writes to any one
+location in memory occur in a single total order (the coherence order),
+which all the processors must agree on.
+It also says that within each thread, the coherence order must be consistent
+with the program order, as described by the following four
+<a name="coherence rules">coherence rules</a>:
+
+<ul>
+<li>	<i>Write-write coherence:</i>
+	If two writes in the same thread access the same location,
+	the write that comes first in program order must come first
+	in the coherence order for that location.
+<li>	<i>Write-read coherence:</i>
+	If a write W precedes (in program order) a read R of the same
+	location, then R must read from W or from a write that occurs after
+	W in the location's coherence order.
+<li>	<i>Read-write coherence:</i>
+	If a read R precedes (in program order) a write W of the same
+	location, then R must read from a write that occurs before W
+	in the location's coherence order.
+<li>	<i>Read-read coherence:</i>
+	If two reads R and R' in the same thread access the same location,
+	where R comes before R' in program order,
+	either they must read from the same write or else
+	the write read by R must occur before
+	the write read by R' in the location's coherence order.
+</ul>
+
+<p>
+In
+<a href="#litmus3">Litmus&nbsp;Test&nbsp;#3</a>
+above, there are three writes to the location where
+<tt>x</tt> is stored: the initializing write of 0 (implicit in lines&nbsp;3-4),
+and the writes of 3 and 4 (lines&nbsp;8-9).
+The initializing write always comes first in the coherence order,
+and the value tested in the &ldquo;exists&rdquo; clause is always
+the value stored by the write that comes last in the coherence order
+(called the <i>final write</i>).
+Thus for the test to succeed, the coherence order for <tt>x</tt>
+would have to be: <tt>x=0</tt>, <tt>x=4</tt>, <tt>x=3</tt>.
+But this would violate the write-write coherence rule,
+because the write that sets <tt>x</tt> to 3 comes before (in program order)
+the write that sets it to 4.
+
+<p>
+(Note: The C11 standard recognizes the notion of <i>sequenced-before</i>
+rather than that of program order.
+For the most part the two are the same, referring to the order in which
+loads and stores occur in the source code,
+but there are a few differences.
+For example, the compiler is not required to evaluate the
+arguments to a function call in any particular order.
+Thus, even though the statement
+
+<blockquote>
+<pre>
+	printf("%d %d", WRITE_ONCE(x, 3), WRITE_ONCE(x, 4));
+</pre>
+</blockquote>
+
+will always print out &ldquo;3 4&rdquo;, after it executes <tt>x</tt>
+may be equal either to 3 or 4.
+We will not worry such subtleties for now.
+But we will point out that in
+<a href="#litmus3">Litmus&nbsp;Test&nbsp;#3</a>,
+the
+&ldquo;<tt>*x = 3</tt>&rdquo; write
+<i>is</i> sequenced before the &ldquo;<tt>*x = 4</tt>&rdquo; write,
+and the compiler is not permitted to reorder them.
+That is why we have omitted the <tt>WRITE_ONCE()</tt> calls and
+reverted to plain ordinary assignment.
+It's okay in this case, because <tt>x</tt> isn't shared between
+processors and we're only trying to make a simple point.
+But note that even with this two-line test program,
+the compiler is permitted to eliminate the
+&ldquo;<tt>*x = 3</tt>&rdquo; write entirely.)
+
+<p>
+Our Toy RMO memory model can be strengthened
+to take cache coherence into account.
+Here is the result:
+
+<blockquote>
+<a id="coherent-RMO.cat" href="coherent-RMO.cat">coherent-RMO.cat</a>
+<pre>
+  1 "Coherent RMO"
+  2
+  3 include "cos.cat"
+  4
+  5 let rfe = rf &amp; ext
+  6 let fence = fencerel(F)
+  7
+  8 let rmo-order = fence | rfe | co | fr
+  9 acyclic rmo-order
+ 10
+ 11 let com = rf | co | fr
+ 12 let coherence-order = po-loc | com
+ 13 acyclic coherence-order
+</pre>
+</blockquote>
+
+<p>
+Aside from the name change on line&nbsp;1, the only difference is the
+addition of lines&nbsp;10-13.
+Line&nbsp;11 defines the <tt>com</tt> relation as the union of the
+<tt>rf</tt>, <tt>co</tt>, and <tt>fr</tt> relations.
+If you imagine inserting reads into the coherence order for a variable,
+by placing each read between the write that it reads from
+and the following write,
+you'll see that in each case <tt>com</tt> links a memory access
+to one that comes later in the coherence order.
+(<tt>com</tt>'s name arises from the fact that it describes the ways
+different processors can <i>com</i>municate by writing to and reading
+from shared variables in memory.)
+
+<p><a name="Quick Quiz 3"><b>Quick Quiz 3</b>:</a>
+The <tt>rf</tt>, <tt>co</tt>, and <tt>fr</tt> terms
+in the definition of <tt>com</tt> describe write-read,
+write-write, and read-write links respectively,
+corresponding to three of the four
+<a href="#coherence rules">coherence rules</a>.
+Why is there no term corresponding to the read-read rule?
+<br><a href="#qq3answer">Answer</a>
+
+<p>
+<tt>po-loc</tt> in line&nbsp;12 is another standard relation;
+it is the intersection of <tt>po</tt> and <tt>loc</tt>,
+where the <tt>loc</tt> relation links all pairs of memory accesses that
+refer to the same location in memory.
+Thus, <tt>po-loc</tt> links each memory access to all those that
+occur after it in program order and access the same variable.
+Lines&nbsp;12-13 go on to define <tt>coherence-order</tt> as the
+union of <tt>po-loc</tt> and <tt>com</tt> and to require that
+<tt>coherence-order</tt> not have any cycles.
+
+<p>
+Since
+<a href="#litmus3">Litmus&nbsp;Test&nbsp;#3</a>
+contains no reads, its <tt>rf</tt> and
+<tt>fr</tt> relations are empty and
+therefore <tt>com</tt> ends up being the same as <tt>co</tt>.
+In the non-intuitive execution accepted by the Toy RMO model
+(where <tt>x=3</tt> comes last in the coherence order),
+<tt>com</tt> contains the following links:
+
+<ul>
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>*x = 3</tt>,
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>*x = 4</tt>, and
+<li>	<tt>*x = 4</tt> &#10230; <tt>*x = 3</tt>,
+</ul>
+
+while <tt>po-loc</tt> contains only:
+
+<ul>
+<li>	<tt>*x = 3</tt> &#10230; <tt>*x = 4</tt>.
+</ul>
+
+Putting these together yields an obvious cycle in <tt>coherence-order</tt>,
+which causes the Coherent RMO model to
+forbid the counter-intuitive outcome in
+<a href="#litmus3">Litmus&nbsp;Test&nbsp;#3</a>:
+
+<blockquote>
+<a id="litmus3" href="C-CO+o-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#3 (coherent-RMO model)</a>
+<pre>
+ 1 Test C-CO+o-o Allowed
+ 2 States 1
+ 3 x=4;
+ 4 No
+ 5 Witnesses
+ 6 Positive: 0 Negative: 1
+ 7 Condition exists (x=3)
+ 8 Observation C-CO+o-o Never 0 1
+ 9 Hash=b9e4f0d747854e10ad7310b4381f3652
+</pre>
+</blockquote>
+
+<p>
+Here's a slightly more sophisticated test that probes the read-read
+coherence rule:
+
+<blockquote>
+<a id="litmus4" href="C-CO+o-o+o-o.litmus">Litmus&nbsp;Test&nbsp;#4</a>
+<pre>
+  1 C C-CO+o-o+o-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x)
+  7 {
+  8   WRITE_ONCE(*x, 3);
+  9   WRITE_ONCE(*x, 4);
+ 10 }
+ 11
+ 12 P1(int *x)
+ 13 {
+ 14   int r1;
+ 15   int r2;
+ 16
+ 17   r1 = READ_ONCE(*x);
+ 18   r2 = READ_ONCE(*x);
+ 19 }
+ 20
+ 21 exists
+ 22 (1:r1=4 /\ 1:r2=3)
+</pre>
+</blockquote>
+
+<p>
+Because of the write-write coherence rule, we know that the coherence order
+for <tt>x</tt> must be: <tt>x=0</tt>, <tt>x=3</tt>, <tt>x=4</tt>.
+If <tt>r1</tt> and <tt>r2</tt> were to end up equal to 4 and 3
+respectively, it would mean the later read (in program order) had
+read from the earlier write (in <tt>x</tt>'s coherence order),
+thereby violating read-read coherence.
+
+<p>
+To see why the Coherent RMO model forbids this result, consider how the
+various relations would turn out.
+Because <tt>x=4</tt> must come last in the coherence order for <tt>x</tt>,
+the <tt>co</tt> relation contains these links:
+
+<ul>
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>WRITE_ONCE(*x, 3)</tt>,
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt>, and
+<li>	<tt>WRITE_ONCE(*x, 3)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt>.
+</ul>
+
+Since there are some read instructions in this test,
+the <tt>rf</tt> and <tt>fr</tt> relations are non-empty.
+The links in <tt>rf</tt> are:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 4)</tt> &#10230; <tt>r1 = READ_ONCE(*x)</tt> and
+<li>	<tt>WRITE_ONCE(*x, 3)</tt> &#10230; <tt>r2 = READ_ONCE(*x)</tt>,
+</ul>
+
+while <tt>fr</tt> contains only:
+
+<ul>
+<li>	<tt>r2 = READ_ONCE(*x)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt>.
+</ul>
+
+Finally, <tt>po-loc</tt> contains:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 3)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt> and
+<li>	<tt>r1 = READ_ONCE(*x)</tt> &#10230; <tt>r2 = READ_ONCE(*x)</tt>.
+</ul>
+
+<p>
+Putting these together shows that <tt>coherence-order</tt> contains
+the following length-3 cycle:
+
+<ol>
+<li>	<tt>r2 = READ_ONCE(*x)</tt>
+<li>	<tt>WRITE_ONCE(*x, 4)</tt>
+<li>	<tt>r1 = READ_ONCE(*x)</tt>
+</ol>
+
+The links in this cycle are <tt>fr</tt> followed by <tt>rf</tt>
+followed by <tt>po-loc</tt>, as shown in this figure:
+
+<p><img src="read-read-coherence.svg" width="50%" alt="read-read-coherence.svg">
+
+<p>
+As can be seen in the following <tt>herd</tt> output, this cycle
+is prohibited:
+
+<blockquote>
+<a id="litmus4" href="C-CO+o-o+o-o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#4 (strong model)</a>
+<pre>
+ 1 Test C-CO+o-o+o-o Allowed
+ 2 States 6
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=3;
+ 5 1:r1=0; 1:r2=4;
+ 6 1:r1=3; 1:r2=3;
+ 7 1:r1=3; 1:r2=4;
+ 8 1:r1=4; 1:r2=4;
+ 9 No
+10 Witnesses
+11 Positive: 0 Negative: 6
+12 Condition exists (1:r1=4 /\ 1:r2=3)
+13 Observation C-CO+o-o+o-o Never 0 6
+14 Hash=e28b27408fda33a59c7f2cd8a5ff7615
+</pre>
+</blockquote>
+
+<p><a name="Quick Quiz 4"><b>Quick Quiz 4</b>:</a>
+But don't Itanium and SPARC RMO allow read-read reordering of
+acccesses to a single variable by a single CPU?
+How does the model handle these CPUs?
+<br><a href="#qq4answer">Answer</a>
+
+<p><a name="Quick Quiz 5"><b>Quick Quiz 5</b>:</a>
+Whatever happened to memory-barrier pairing???
+<br><a href="#qq5answer">Answer</a>
+
+<p>
+<b>Exercise:</b> Assuming only that the <tt>co</tt> relation gives
+a total ordering of all writes to a particular memory location,
+prove that any cache-coherent execution of any program
+(i.e., an execution that obeys the four coherence rules)
+results in a <tt>coherence-order</tt> relation without cycles.
+And conversely, prove that if an execution does violate any
+of the coherence rules then its <tt>coherence-order</tt> relation
+does contain a cycle.
+
+<p>
+This background will help you to understand the strong memory model
+itself, which can be found
+<a href="StrongModel.html">here</a>.
+
+<h2><a name="Conclusions">Conclusions</a></h2>
+
+<p>
+We have presented a Linux-kernel memory model that we hope will be useful
+for education, concurrent design, and for inclusion in other tooling.
+As far as we know, this is the first realistic formal memory model that
+includes RCU ordering properties.
+In addition, we believe this to be the first realistic formal memory
+model of the Linux kernel.
+
+<p>
+This model is not set in stone, but subject to change with the evolution
+of hardware and of Linux-kernel use cases.
+We expect the change rate to be rougly similar to the historical change
+rate of <tt>Documentation/memory-barriers.txt</tt>, however,
+we believe that the
+<a href="#Guiding Principles">guiding principles</a>
+underlying this memory model will be more durable.
+
+<p>
+The
+<a href="StrongModel.html">strong model</a>
+accepts significant complexity to attain greater strength.
+In contrast, the
+<a href="WeakModel.html">weak models</a>
+accept some weakenings in order to achieve some degree of simplicity.
+Candidate weakenings include:
+
+<ol>
+<li>	Simplifying the preserved-program-order relations by
+	omitting the <tt>rdw</tt>, <tt>detour</tt>, and <tt>atomicpo</tt>
+	relations from them.
+<li>	Omitting B-cumulativity, which has the effect of allowing
+	write-only cycles as exemplified by
+	<a href="C-2+2W+o-wmb-o+o-wmb-o.litmus">this litmus test</a>.
+<li>	Retaining a less-ornate version of the <tt>obs</tt>
+	(observation) relation.
+<li>	Retaining a less-ornate version of the <tt>cpord</tt>
+	(coherence-point ordering) relation.
+</ol>
+
+<p>
+Although we expect that this memory model will prove quite valuable, it
+does have a few limitations in addition to those called out earlier
+<a href="#Support Existing Non-Buggy Linux-Kernel Code">here</a>
+and
+<a href="#Be Compatible with Hardware Supported by the Linux Kernel">here</a>:
+
+<ol>
+<li>	These memory models do not constitute official statements by the
+	various CPU vendors on their respective architectures.
+	For example, any of these vendors might report bugs at any time
+	against any version of this memory model.
+	This memory model is therefore not a substitute for a carefully
+	designed and vigorously executed validation regime.
+	In addition, this memory model is under active development and
+	might change at any time.
+<li>	It is quite possible that this memory model will disagree with
+	CPU architectures or with real hardware.
+	For example, the model might well choose to allow behavior that
+	all CPUs forbid if forbidding that behavior would render the
+	model excessively complex.
+	On the other hand, any situation where the model forbids behavior
+	that some CPU allows constitutes a bug, either in the model or
+	in the CPU.
+<li>	This tool is exponential in nature.
+	Litmus tests that seem quite small compared to the entire Linux kernel
+	might well take geologic time for the <tt>herd</tt> tool to
+	analyze.
+	That said, this tool can be extremely effective in exhaustively
+	analyzing the code at the core of a synchronization primitive.
+<li>	The <tt>herd</tt> tool can only detect problems for which you
+	have coded an assertion.  This weakness is common to all formal
+	methods, and is one reason that we expect testing to continue
+	to be important.
+	In the immortal words of Donald Knuth: "Beware of bugs in the
+	above code; I have only proved it correct, not tried it."
+</ol>
+
+<p>
+On the other hand, one advantage of formal memory models is that tools based
+on them can detect any problem that might occur, even if the probability
+of occurrance is vanishingly small, in fact, even if current hardware
+is incapable of making that problem happen.
+Use of tools based on this memory model is therfore an excellent way to
+future-proof your code.
+
+</p><h2>Acknowledgments</h2>
+
+<p>We owe thanks to H.&nbsp;Peter Anvin, Will Deacon, Andy Glew,
+Derek Williams, Leonid Yegoshin, and Peter Zijlstra for their
+patient explanations of their respective systems' memory models.
+We are indebted to Peter Sewell, Sumit Sarkar, and their groups
+for their seminal work formalizing many of these same memory models.
+We all owe thanks to Dmitry Vyukov, Boqun Feng, and Peter Zijlstra for
+their help making this human-readable.
+We are also grateful to Michelle Rankin and Jim Wasko for their support
+of this effort.
+
+</p><p>This work represents the views of the authors and does not necessarily
+represent the views of University College London, INRIA Paris,
+Scuola Superiore Sant'Anna, Harvard University, or IBM Corporation.
+
+</p><p>Linux is a registered trademark of Linus Torvalds.
+
+</p><p>Other company, product, and service names may be trademarks or
+service marks of others.
+
+<h3><a name="Answers to Quick Quizzes">
+Answers to Quick Quizzes</a></h3>
+
+<a name="qq1answer"></a>
+<p><b>Quick Quiz 1</b>:
+But my code contains simple unadorned accesses to shared variables!
+So what possible use is this memory model to me?
+
+
+</p><p><b>Answer</b>:
+You are of course free to use simple unadorned accesses to shared variables
+in your code, but you are then required to make sure that the
+compiler isn't going to trip you up&mdash;as has always been the case.
+Once you have made sure that the compiler won't trip you up,
+simply translate those accesses to use <tt>READ_ONCE()</tt>
+and <tt>WRITE_ONCE()</tt> when using the model.
+
+
+</p><p><a href="#Quick%20Quiz%201"><b>Back to Quick Quiz 1</b>.</a>
+
+<a name="qq2answer"></a>
+<p><b>Quick Quiz 2</b>:
+Can't the compiler also reorder these accesses?
+
+
+</p><p><b>Answer</b>:
+Given the current Linux-kernel definitions of <tt>READ_ONCE()</tt>
+and <tt>WRITE_ONCE()</tt>, no.
+These two macros map to volatile accesses, which the compiler is not
+allowed to reorder with respect to each other.
+
+<p>
+However, if these macros instead mapped to non-volatile C11
+<tt>memory_order_relaxed</tt> loads and stores, then the compiler
+<i>would</i> be permitted to reorder them.
+And, as a general rule, compilers are much more aggressive about
+reordering accesses than even the most weakly ordered hardware.
+In both cases, those who don't like such code rearrangement call it
+&ldquo;weak ordering&rdquo; while those who do call it
+&ldquo;optimization&rdquo;.
+
+
+</p><p><a href="#Quick%20Quiz%202"><b>Back to Quick Quiz 2</b>.</a>
+
+<a name="qq3answer"></a>
+<p><b>Quick Quiz 3</b>:
+The <tt>rf</tt>, <tt>co</tt>, and <tt>fr</tt> terms
+in the definition of <tt>com</tt> describe write-read,
+write-write, and read-write links respectively,
+corresponding to three of the four
+<a href="#coherence rules">coherence rules</a>.
+Why is there no term corresponding to the read-read rule?
+
+
+</p><p><b>Answer</b>:
+It's not needed.
+As we will see in the discussion of
+<a href="#litmus4">Litmus&nbsp;Test&nbsp;#4</a>,
+a violation of the read-read coherence rule involves a
+write being &ldquo;interposed&rdquo; between two reads
+in the coherence order.
+It therefore can be described as a length-3 cycle in
+<tt>coherence-order</tt>, involving an <tt>fr</tt> link
+followed by an <tt>rf</tt> link followed by a <tt>po-loc</tt> link.
+
+
+</p><p><a href="#Quick%20Quiz%203"><b>Back to Quick Quiz 3</b>.</a>
+
+<a name="qq4answer"></a>
+<p><b>Quick Quiz 4</b>:
+But don't Itanium and SPARC RMO allow read-read reordering of
+acccesses to a single variable by a single CPU?
+How does the model handle these CPUs?
+
+
+</p><p><b>Answer</b>:
+In the case of Itanium, <tt>gcc</tt> compiles volatile reads
+(as in <tt>READ_ONCE()</tt>) as <tt>ld,acq</tt>,
+which enforces read-read ordering.
+And the Linux kernel runs SPARC in TSO mode, which prohibits
+read-read reorderings in general, including to a single variable.
+
+
+</p><p><a href="#Quick%20Quiz%204"><b>Back to Quick Quiz 4</b>.</a>
+
+<a name="qq5answer"></a>
+<p><b>Quick Quiz 5</b>:
+Whatever happened to memory-barrier pairing???
+
+
+</p><p><b>Answer</b>:
+Memory-barrier pairing can be thought of as a special case of cycles,
+but it was designed for a simpler time when people used much less
+aggressive lockless designs.
+Here is an example that breaks memory-barrier pairing:
+
+<blockquote>
+<a id="litmus5" href="C-R+o-wmb-o+o+mb+o.litmus">Litmus&nbsp;Test&nbsp;#5</a>
+<pre>
+  1 C C-R+o-wmb-o+o+mb+o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 1);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*b, 1);
+ 11 }
+ 12
+ 13 P1(int *a, int *b)
+ 14 {
+ 15   int r1;
+ 16
+ 17   WRITE_ONCE(*b, 2);
+ 18   smp_mb();
+ 19   r1 = READ_ONCE(*a);
+ 20 }
+ 21
+ 22 exists
+ 23 (b=2 /\ 1:r1=0)
+</pre>
+</blockquote>
+
+<p>
+Because the <tt>smp_wmb()</tt> orders writes and because the
+<tt>smp_mb()</tt> orders everything, straightforward application of
+memory-barrier pairing would lead you to believe that this cycle
+would be forbidden.
+This belief would be incorrect, as can be seen from running the
+litmus test against the strong model:
+
+<blockquote>
+<a id="litmus5" href="C-R+o-wmb-o+o+mb+o.litmus"> Outcome for Litmus&nbsp;Test&nbsp;#5 (strong model)</a>
+<pre>
+ 1 Test C-R+o-wmb-o+o+mb+o Allowed
+ 2 States 4
+ 3 1:r1=0; b=1;
+ 4 1:r1=0; b=2;
+ 5 1:r1=1; b=1;
+ 6 1:r1=1; b=2;
+ 7 Ok
+ 8 Witnesses
+ 9 Positive: 1 Negative: 3
+10 Condition exists (b=2 /\ 1:r1=0)
+11 Observation C-R+o-wmb-o+o+mb+o Sometimes 1 3
+12 Hash=0a4dd1e17f6132a7145a13b711ccd167
+</pre>
+</blockquote>
+
+<p>
+The problem is that the <tt>co</tt> relationship between <tt>P0()</tt>'s
+and <tt>P1()</tt>'s stores does not imply any sort of causal or
+temporal relationship between the two stores.
+Real hardware can and does chose the store ordering after the fact,
+and so real hardware can and does allow the cycle.
+
+<p>
+In short, memory-barrier pairing was useful in its day, but its day is
+rapidly drawing to a close.
+More sophisticated use of lockless algorithms requires more sophisticated
+mental models of memory barriers.
+
+
+</p><p><a href="#Quick%20Quiz%205"><b>Back to Quick Quiz 5</b>.</a>
+
+
+</p><p>
+           
+</div> <!-- ArticleText -->
+<p><a name="Comments"></a>
+
+
+</div><!-- Printable -->
+</td> <!-- MC -->
+</tr></table></td>
+</tr></table><!-- endpage -->
+            
+        </body></html>
+        

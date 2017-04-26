@@ -1,0 +1,4369 @@
+<!-- DO NOT HAND EDIT. -->
+<!-- Instead, edit LinuxMMModel.htmlx and run 'sh htmlqqz.sh LinuxMMModel' -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+        <html>
+        <head><title>A Formal Model of Linux-Kernel Memory Ordering[LWN.net]</title>
+        <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="robots" CONTENT="noindex">
+        <link rel="icon" href="/images/favicon.png" type="image/png">
+        <link rel="alternate" type="application/rss+xml" title="LWN.net headlines" href="http://lwn.net/headlines/newrss">
+<link rel="alternate" type="application/rss+xml" title="Comments posted to this article" href="http://lwn.net/headlines/418853/">
+        <link rel="stylesheet" href="/CSS/lwn">
+<link rel="stylesheet" href="/CSS/nosub">
+
+        
+
+        </head>
+        <body bgcolor="#ffffff" link="Blue" VLINK="Green" alink="Green">
+<h1>A Formal Model of Linux-Kernel Memory Ordering</h1>
+<h3>Draft, please do not distribute</h3>
+<table class="Page">
+<tr>
+<td><table><tr>
+<td class="MidColumn">
+           <div class="Printable">
+<div class="ArticleText">
+<div class="GAByline">
+           <p>July 1, 2016</p>
+           <p>This article was contributed by Jade Alglave,
+	   Paul E. McKenney, Alan Stern, Luc Maranget, Andrea Parri and TBD</p>
+           </div>
+
+<h2>Introduction</h2>
+
+<p>
+It has been said that <tt>Documentation/memory-barriers.txt</tt>
+can be used to
+<a href="http://lwn.net/Articles/575835/">frighten small children</a>,
+and perhaps this is true.
+But even if it is true, it is woefully inefficient.
+After all, there is a huge number of children in this world,
+so a correspondingly huge amount of time and effort would be required in order
+to read it to them all.
+
+<p>
+This situation clearly calls for automated tooling, which is
+now available in prototype form.
+This article gives an introduction to this tooling, describing how to
+use it and how it works.
+Feel free to evaluate its effectiveness by introducing it to a small
+child near you, however, before doing so, you might want to
+carefully review any local laws regulating child abuse.
+
+<p>
+This document is organized as follows:
+
+<ol>
+<li>	<a href="#Why Formal Memory Models?">Why Formal Memory Models?</a>.
+<li>	<a href="#Principles">Principles</a>.
+<li>	<a href="#Causality and Ordering">Causality and Ordering</a>.
+<li>	<a href="#Memory Models and The Role of Cycles">
+	Memory Models and The Role of Cycles</a>.
+<li>	<a href="#Specifying a Memory Model in Terms of Prohibited Cycles">
+	Specifying a Memory Model in Terms of Prohibited Cycles</a>.
+<li>	<a href="#How herd Works">How <tt>herd</tt> Works</a>.
+<li>	<a href="#Introduction to the Linux-Kernel Memory Models">
+	Introduction to the Linux-Kernel Memory Models</a>.
+<li>	<a href="#Bell File">Bell File</a>.
+<li>	<a href="#Cat File">Cat File</a>.
+<li>	(More TBD.)
+</ol>
+
+<p>
+This is followed by the inevitable
+<a href="#Answers to Quick Quizzes">answers to the quick quizzes</a>.
+
+<h2><a name="Why Formal Memory Models?">Why Formal Memory Models?</a></h2>
+
+<p>
+Even before Linux, kernel hacking has tended to involve more intuition
+and less formal methods.
+Formal methods can nevertheless be useful for providing definite
+answers to difficult questions.
+
+<p>
+For example, how many different behaviors can a computer program exhibit?
+Particularly one that uses only values in memory, with no user input
+or output?
+Computers being the deterministic automata they are,
+most people would say only one,
+and for uniprocessor systems they would be basically correct.
+But multiprocessor systems can give rise to a much wider range of behaviors,
+owing to subtle variations in the relative timing of the processors
+and the signals transmitted among them, their caches, and the main memory.
+Memory models try to bring some order to the picture,
+first and foremost by characterizing exactly which outcomes are possible for
+a Symmetric Multiprocessor (SMP) system running a certain (small!) program.
+
+<p>
+Even better, a <em>formal</em> memory model enables tools to automatically
+analyze small programs, as described
+<a href="http://lwn.net/Articles/470681/">here</a> and
+<a href="http://lwn.net/Articles/608550/">here</a>.
+However, those tools are specialized to specific CPU families.
+For analyzing the Linux kernel, what we need is a tool targeted at
+a higher level, one that will be applicable to every CPU architecture
+supported by the kernel.
+
+<p>
+Formality requires extreme precision, far beyond what the informal
+discussion in <tt>memory-barriers.txt</tt> can provide.
+We have been working to bridge this gap.
+The following section outlines some guiding principles underlying our efforts.
+
+<h2><a name="Principles">Principles</a></h2>
+
+<p>Our memory model is highly constrained by the necessity of matching
+the way the kernel behaves (or is meant to behave!).
+But even beyond that, there are several characteristics which
+would be quite desirable for a Linux kernel memory model:
+
+<ol>
+<li>	<a href="#Strength Preferred to Weakness">
+	Strength Preferred to Weakness</a>.
+<li>	<a href="#Simplicity Preferred to Complexity">
+	Simplicity Preferred to Complexity</a>.
+<li>	<a href="#Support Existing Non-Buggy Linux-Kernel Code">
+	Support Existing Non-Buggy Linux-Kernel Code</a>.
+<li>	<a href="#Be Compatible with Hardware Supported by the Linux Kernel">
+	Be Compatible with Hardware Supported by the Linux Kernel</a>.
+<li>	<a href="#Support Future Hardware">
+	Support Future Hardware, Within Reason</a>.
+<li>	<a href="#C11 Compatibility">Be Compatible with the C11
+	Memory Model, Where Prudent and Reasonable</a>.
+<li>	<a href="#Expose Questions and Areas of Uncertainty">
+	Expose Questions and Areas of Uncertainty</a>.
+</ol>
+
+<h3><a name="Strength Preferred to Weakness">
+Strength Preferred to Weakness</a></h3>
+
+<p>
+When all else is equal, a stronger memory model is clearly better, but
+this raises the question of what is meant by &ldquo;stronger&rdquo;.
+For our purposes, one memory model is considered to be stronger than
+another if it rules out a larger set of behaviors.
+Thus, the weakest possible memory model is one that would allow
+a program to behave in any way at all, whereas the strongest possible
+memory model is one that says no program will ever do anything.
+Of course, neither of these extremes is appropriate for the Linux kernel,
+or for much of anything else.
+
+<p>
+The strongest memory model typically considered is
+<a href="https://en.wikipedia.org/wiki/Sequential_consistency">sequential
+consistency</a> (SC),
+and the weakest is
+release consistency process consistency
+(<a href="http://dl.acm.org/citation.cfm?id=325102">RC<sub>pc</sub></a>),
+with the latter being fairly close to the memory models we
+propose for the Linux kernel, courtesy of the
+Alpha, ARM, Itanium, MIPS, and PowerPC hardware that the Linux kernel
+supports.
+We also don't want to go overboard;
+although strength is preferred over weakness as a general rule,
+small increases in strength are not worth order-of-magnitude
+increases in complexity.
+
+<h3><a name="Simplicity Preferred to Complexity">
+Simplicity Preferred to Complexity</a></h3>
+
+<p>
+Simpler is clearly better; however, simplicity will always be a subjective
+notion.
+A formal-methods expert might prefer a model with a simpler definition,
+while a kernel hacker might prefer the model that
+best matched his or her intuition.
+Nevertheless, simplicity is a useful concept.
+For example, a model with a simpler definition that better matched the
+typical kernel hacker's intuition would clearly be preferred over
+a complex counterintuitive model.
+
+<h3><a name="Support Existing Non-Buggy Linux-Kernel Code">
+Support Existing Non-Buggy Linux-Kernel Code</a></h3>
+
+<p>
+The memory model must support existing non-buggy code in the Linux kernel.
+However, our model (in its current form) is rather limited in scope.
+Because it is not intended to be a replacement for either hardware emulators
+or production compilers, it does <i>not</i> support:
+
+<ol>
+<li>	Arithmetic.
+<li>	Multiple access sizes or partially overlapping accesses.
+<li>	Arrays, structures, or dynamic memory allocation.
+<li>	Locking, though some subset of the Linux kernel's numerous
+	locking primitives is likely be added to a future version.
+<li>	Complete modeling of read-modify-write atomic operations,
+	though again, some subset
+	of the Linux kernel's numerous atomic operations will be
+	added to a future version.
+<li>	Exceptions or interrupts.
+<li>	I/O or DMA.
+<li>	Self-modifying code, as found in the kernel's alternative
+	mechanism, function tracer, Berkeley Packet Filter JIT compiler,
+	and module loader.
+<li>	Many possible compiler optimizations.
+<li>	Complete and accurate modeling of RCU.
+	The current RCU support is an approximate prototype that will
+	be refined over time.
+	Even in its current state, though,
+	the model does support common RCU uses and does represent a
+	significant advance in the definition of RCU.
+</ol>
+
+As always, adding more detail and functionality to the model will slow
+it down, so the goal is therefore to balance the need for speed and for
+functionality.
+The current model is a starting point, and we hope to incorporate
+additional functionality over time.
+
+<h3><a name="Be Compatible with Hardware Supported by the Linux Kernel">
+Be Compatible with Hardware Supported by the Linux Kernel</a></h3>
+
+<p>
+The memory model must be compatible with the hardware that the
+Linux kernel runs on.
+Although the memory model can be (and is) looser than a given instance of
+hardware, it absolutely must not be more strict.
+This requirement is ameliorated, to some extent, by the ability of
+the compiler or the Linux kernel to mask hardware weaknesses:
+
+<ol>
+<li>	The Alpha port of the Linux kernel supplies memory-barrier
+	instructions as needed to compensate for the fact that
+	Alpha does not respect read-to-read address dependencies.
+<li>	The Itanium port of gcc emits <tt>ld.acq</tt>
+	for volatile loads and <tt>st.rel</tt> for
+	volatile stores, which compensates for the fact that
+	Itanium does not guarantee read-read ordering for
+	normal loads from the same variable.
+</ol>
+
+<p>Nevertheless, the memory model must be sufficiently weak that
+it does not rule out a behavior exhibited by any of the CPU architectures
+the Linux kernel has been ported to.
+Different CPU families can have quite divergent properties, and
+depending on the issue at hand, ARM, Itanium, MIPS, and/or PowerPC will
+normally need special attention.
+
+<p>
+Providing compatibility with all the SMP systems supporting Linux is one
+of the biggest memory-model challenges.
+
+<h3><a name="Support Future Hardware">
+Support Future Hardware, Within Reason</a></h3>
+
+<p>
+The memory model should support future hardware, within reason.
+Linux-kernel ports to new hardware must supply their
+own code for the various memory barriers, and might one day also
+be able to supply their own code for <tt>rcu_dereference()</tt>
+and similar primitives.
+But since common code is valuable,
+although it might someday be the case that each
+architecture can define its own <tt>READ_ONCE()</tt>
+(for example), there will need to be a good reason for doing so.
+
+<p>
+This proposal assumes that future hardware will not deviate too far
+from current practice.
+On the other hand, if you are porting Linux to (say) a quantum supercomputer,
+the memory model is likely to be the least of your worries.
+
+<h3><a name="C11 Compatibility">
+Be Compatible with the C11 Memory Model, Where Prudent and Reasonable</a></h3>
+
+<p>
+Where prudent and reasonable, the model should be compatible
+with the C and C++ memory models.
+There are a couple areas where it is necessary to depart from
+these memory models:
+
+<ol>
+<li>	The <tt>smp_mb()</tt> full memory barrier is stronger
+	than that of C and C++.
+	But let's face it, <tt>smp_mb()</tt> was there first,
+	and there is a lot of code in the kernel that is
+	adapted to <tt>smp_mb()</tt>'s current semantics.
+<li>	The Linux kernel's value-returning read-modify-write
+	atomics feature full-ordering properties that are not found
+	in any C/C++ API.
+<li>	The <tt>smp_mb__before_atomic()</tt>,
+	<tt>smp_mb__after_atomic()</tt>, and
+	<tt>smp_mb__after_unlock_lock()</tt>
+	barrier-amplification APIs
+	have no counterparts in the C/C++ API.
+<li>	The <tt>smp_read_barrier_depends()</tt>
+	macro does not have a direct equivalent in the
+	C/C++ memory model.
+<li>    The Linux-kernel
+	notion of control dependency does not exist in C/C++.
+	However, control dependencies are an important example of
+	instruction ordering, so the memory model must account for them.
+<li>	The Linux-kernel notion of RCU grace periods does not yet
+	exist in C/C++.
+</ol>
+
+<p>
+On the positive side, the Linux kernel has recently been adding functionality
+that is closer to that of C and C++ atomics, with the ongoing move
+from <tt>ACCESS_ONCE()</tt> to <tt>READ_ONCE()</tt> and
+<tt>WRITE_ONCE()</tt> being one example and the addition
+of <tt>smp_load_acquire()</tt> and <tt>smp_store_release()</tt>
+being another.
+
+<h3><a name="Expose Questions and Areas of Uncertainty">
+Expose Questions and Areas of Uncertainty</a></h3>
+
+<p>
+Defining a memory model inevitably uncovers interesting questions
+and areas of uncertainty.
+For example:
+
+<ol>
+<li>	The Linux-kernel memory model is
+	<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0124r1.html">more strict than that of C11</a>.
+	It is useful to flag the differences in order to alert people who might
+	otherwise be tempted to rely solely on C11.
+	It is also quite possible that some of the Linux-kernel strictness is
+	strictly historical, in which case it might (or might not!)
+	be worth considering
+	matching C11 semantics on a case-by-case basis for those specific
+	situations.
+<li>	Release-acquire chains are required to provide ordering to those
+	tasks participating in the chain.
+	For tasks external to the chain, they cannot always provide ordering
+	for a write preceding the first release and a read following the
+	last acquire.
+	Should release-acquire chains be required to provide externally
+	visible ordering for other combinations of reads and writes?
+<li>	One interesting corner case of hardware memory models is that
+	weak barriers (i.e., <tt>smp_wmb()</tt>) suffice to provide
+	transitive orderings when all accesses are writes.
+	However, we were unable to come up with reasonable use cases,
+	and furthermore, the things that looked most reasonable proved
+	to be attractive nuisances.
+	Should the memory model nevertheless provide ordering in this case?
+	(The attractive nuisances convinced us to answer this question
+	uniformly &ldquo;no&rdquo;, however, it seemed worth calling this
+	out.
+	So if you know of some reason why this ordering should be respected
+	by the memory models, please don't keep it a secret!)
+</ol>
+
+<p>
+The existing software tools are unable to say &ldquo;maybe&rdquo; in response
+to a litmus test, so we constructed not one but two formal models, one
+strong and the other less strong.
+These two models will disagree in &ldquo;maybe&rdquo; cases.
+Therefore, kernel hackers should feel comfortable relying on ordering
+only in cases where both models agree that ordering should be provided, and
+hardware architects should feel comfortable providing weak ordering
+only in cases where both models agree that strong ordering need not be provided.
+(Currently these models are still very much under development, so
+people should avoid trusting either one too much.)
+
+<h2><a name="Causality and Ordering">
+Causality and Ordering</a></h2>
+
+<p>
+In any discussion of memory models, you are liable to run across
+people talking about &ldquo;causality&rdquo; or
+&ldquo;causal relationships&rdquo;, generally in a rather opaque and
+imprecise manner.
+In this article we will avoid these terms as much as possible.
+But a brief discussion now will help illuminate the topic and
+will introduce some important ideas.
+
+<p>
+<i>Causality</i> is simply the principle that causes happen before
+their effects, not after.
+It is a statement about ordering of events in time (the hard part
+being to identify which events are causes and which are effects!).
+Ordering of events is, of course, extremely important for memory models,
+and such orderings arise in many ways, not all involving any sort of
+cause-and-effect relation.
+Orderings will crop up numerous times in our discussion below,
+whereas (apart from this section) causality will not.
+
+<p>
+Let's start with the simplest and most direct example.
+If CPU A writes a value to a shared variable in memory, and CPU B reads
+that value back from the shared variable, then A's write must execute
+before B's read.
+This truly is an example of a cause-and-effect relation;
+the only way B has of knowing about the value stored by A is to
+receive a message sent directly or indirectly by A (generally
+some sort of cache-line-update signal).
+Messages take time to propagate from one CPU or cache to another,
+and they cannot be received before they have been sent.
+On the other hand, if CPU B does not read the value stored by A but
+rather an earlier value, there is no particular temporal relation
+between A's write and B's read.
+Certainly not any cause-and-effect relation.
+B's read could have executed before A's write or it could have
+executed afterwards, as long as it executed before the message sent by A
+reached B.
+
+<p>
+Another example of ordering also involves the propagation of writes
+from one CPU to another.
+If CPU A writes to two shared variables,
+these writes need not propagate to CPU B in the same order as the
+writes were executed.
+In some architectures it is entirely possible for B to receive the
+messages conveying the new values in the opposite order.
+In fact, it's even possible for the writes to propagate to CPU B
+in one order and to CPU C in the other order.
+The only portable way for the programmer to enforce write propagation
+in the order given by the program is to use appropriate memory barriers
+or barrier-like constructs, such as <tt>smp_store_release()</tt> or
+C11 non-relaxed atomic operations.
+
+<p>
+A third example of ordering involves events occurring
+entirely within a single CPU.
+Modern CPUs can and do reorder instructions, executing them in an
+order different from the order they occur in the instruction stream.
+There are architectural limits to this sort of thing, of course.
+<a name="dependencies">
+Perhaps the most pertinent for memory models is the general principle
+that a CPU cannot execute an instruction before it knows what that
+instruction is supposed to do.
+For example, consider the statement &ldquo;<tt>x = y;</tt>&rdquo;.
+To carry out this statement, a CPU must first load the value of <tt>y</tt>
+from memory and then store that value to <tt>x</tt>.
+It cannot execute the store before the load;
+if it tried then it would not know what value to store.
+This is an example of a <i>data dependency</i>.
+There are also <i>address dependencies</i> (example:
+&ldquo;<tt>a[n] = 3;</tt>&rdquo; where the value of <tt>n</tt>
+must be loaded before the CPU can know where to store the value 3)
+and <i>control dependencies</i> (example:
+&ldquo;<tt>if (i == 0) y = 5;</tt>&rdquo; where the value of <tt>i</tt>
+must be loaded before the CPU can know whether to store anything
+into <tt>y</tt>).</a>
+In the general case where no dependency is present, however,
+the only portable way for the programmer
+to force instructions to be executed in the order given by the program
+is to use appropriate memory barriers or barrier-like constructs.
+
+<p>
+Finally, at a higher level of abstraction, source code statements
+can be reordered or even eliminated entirely by an optimizing compiler.
+We won't discuss this very much here; <tt>memory-barriers.txt</tt>
+contains a number of examples demonstrating the sort of shenanigans
+a compiler can get up to when translating a program from source code
+to object code.
+
+<h2><a name="Memory Models and The Role of Cycles">
+Memory Models and The Role of Cycles</a></h2>
+
+<p>
+One way of formalizing a memory model is to create an abstract description
+of how a running system operates internally,
+and then enumerate all the possible outcomes
+this abstract operation can give rise to.
+There are <a href="http://lwn.net/Articles/470681/">tools that take this
+operational approach</a>.
+Another way is to define the constraints imposed by the memory model,
+in the form of logical axioms,
+and then enumerate all the possible outcomes that are
+consistent with these constraints.
+A tool using this axiomatic approach is described
+<a href="http://lwn.net/Articles/608550/">here</a>.
+
+<p>
+Both approaches take as input a small fragment of code and an assertion
+(together called a <i>litmus test</i>)
+and produce an output value indicating whether
+the memory model permits the
+code fragment to execute in a way that would make the assertion true.
+Here is a simple example of a litmus test (with line numbers added)
+that illustrates the so-called &ldquo;message-passing&rdquo; pattern:
+
+<blockquote>
+<a href="C-MP+o-mb-o+o-mb-o.litmus">Litmus Test #1</a>
+<pre>
+ 1 C C-MP+o-mb-o+o-mb-o
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *x, int *y)
+ 7 {
+ 8   WRITE_ONCE(*y, 1);
+ 9   smp_mb();
+10   WRITE_ONCE(*x, 1);
+11 }
+12
+13 P1(int *x, int *y)
+14 {
+15   int r1;
+16   int r2;
+17
+18   r1 = READ_ONCE(*x);
+19   smp_mb();
+20   r2 = READ_ONCE(*y);
+21 }
+22
+23 exists
+24 (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+Line&nbsp;1 identifies the source language of the code fragment
+(&ldquo;C&rdquo;)
+and gives the litmus test's name (&ldquo;C-MP+o-mb-o+o-mb-o&rdquo;).
+Lines&nbsp;3 and&nbsp;4 are where initial values could be provided.
+In this program no explicit initialization is needed,
+because all variables' initial values default to zero.
+Lines&nbsp;6-21 provide the code, in this case, one function for
+each of two processors.
+You can choose any name you like for these functions as long as it
+consists of a &lsquo;P&rsquo; immediately followed by the processor's
+number, numbered consecutively starting from zero.
+By convention, local variable names begin with &lsquo;<tt>r</tt>&rsquo;
+(these variables are treated as though they are stored in CPU registers),
+and global variables must be passed in by reference as function
+parameters.
+The names of these function parameters are significant:
+They must match the names of the corresponding global variables.
+
+<p>
+Finally, lines&nbsp;23 and&nbsp;24 provide an &ldquo;<tt>exists</tt>&rdquo;
+assertion expression to evaluate the final state.
+This final state is evaluated after the dust has settled:
+Both processes have completed and all of their memory references
+and memory barriers have propagated to all parts of the system.
+The references to the local
+variables &ldquo;<tt>r1</tt>&rdquo; and &ldquo;<tt>r2</tt>&rdquo;
+in line&nbsp;24 must be prefixed with &ldquo;<tt>1:</tt>&rdquo;
+to specify which processor they are local to.
+Note that a single &ldquo;<tt>=</tt>&rdquo; in this expression
+is an equality operator rather than an assignment
+(the assertion expression is written in the litmus-test language
+rather than in C).
+The &ldquo;<tt>/\</tt>&rdquo; character combination means &ldquo;and&rdquo;;
+it is an ASCII representation of the mathematical &lsquo;&#8743;&rsquo; symbol.
+Similarly, &ldquo;<tt>\/</tt>&rdquo; stands for &ldquo;or&rdquo;;
+this assertion could have been expressed just as well in negated form
+by writing:
+
+<blockquote>
+<pre>
+23 forall
+24 (1:r1=0 \/ 1:r2=1)
+</pre>
+</blockquote>
+
+<p>
+The &ldquo;<tt>~</tt>&rdquo; character indicates negation, so
+this assertion could also have been written in non-negated form as follows:
+
+<blockquote>
+<pre>
+23 exists
+24 ~(1:r1=0 \/ 1:r2=1)
+</pre>
+</blockquote>
+
+<p>
+The software tools mentioned above simply tell you whether
+the logic expression evaluates to <tt>true</tt> in 
+all, some, or none of the possible executions of the code.
+Value judgments are left to the user.
+
+<p>
+The <tt>herd</tt> tool can be downloaded
+<a href="http://diy.inria.fr/sources/index.html">here</a>,
+and built as described in the <tt>INSTALL.txt</tt> file.
+It may then be run using the
+<tt>linux.def</tt> macro file included in the source package,
+the <a href="C-MP+o-mb-o+o-mb-o.litmus">Litmus Test&nbsp;#1</a> source file,
+and the
+&ldquo;<a href="strong-kernel.bell">bell</a>&rdquo; and
+&ldquo;<a href="strong-kernel.cat">cat</a>&rdquo; files
+for the strong kernel memory model described later in this article.
+The command is as follows:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat C-MP+o-mb-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+For people who prefer shorter command lines, the
+<a href="strong.cfg"><tt>strong.cfg</tt></a> configuration file
+specifies these settings already (along with several others
+related to the style of the plot files <tt>herd</tt> is
+capable of producing).
+The command is:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg C-MP+o-mb-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+The output from either command is:
+
+<blockquote>
+<pre>
+Test C-MP+o-mb-o+o-mb-o Allowed
+States 3
+1:r1=0; 1:r2=0;
+1:r1=0; 1:r2=1;
+1:r1=1; 1:r2=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:r1=1 /\ 1:r2=0)
+Observation C-MP+o-mb-o+o-mb-o Never 0 3
+Hash=3240a31645e46554cb09739d726087ad
+</pre>
+</blockquote>
+
+<p>
+This output indicates the three possible outcomes from running this code in
+the Linux kernel:
+
+<ol>
+<li>	<tt>r1 == 0 &amp;&amp; r2 == 0</tt>.
+	This outcome occurs when P1 completes before P0 begins.
+<li>	<tt>r1 == 0 &amp;&amp; r2 == 1</tt>.
+	This outcome occurs when P1 executes concurrently with P0,
+	so that P1's read from <tt>x</tt> executes before P0's
+	write to <tt>x</tt>, but P1's read from <tt>y</tt> executes
+	after P0's write to <tt>y</tt>.
+<li>	<tt>r1 == 1 &amp;&amp; r2 == 1</tt>.
+	This outcome occurs when P1 starts after P0 completes.
+</ol>
+
+<p>
+The outcome <tt>r1 == 1 &amp;&amp; r2 == 0</tt> is not possible,
+as indicated by the &ldquo;<tt>Never 0 3</tt>&rdquo;
+near the end of the output.
+This forbidden outcome would require a cycle of events, each happening
+before the next and the last happening before the first:
+
+<ol>
+<li>	P0 writes to <tt>x</tt>,
+<li>	P1 reads from <tt>x</tt>, 
+<li>	P1 reads from <tt>y</tt>, and
+<li>	P0 writes to <tt>y</tt>.
+</ol>
+
+This cycle is illustrated in the following figure.
+
+<p><img src="cycle-new.svg" alt="cycle.svg" width="45%"></p>
+
+The labels in the diagram are defined as follows:
+
+<ol>
+<li>	<tt>fr</tt> = &ldquo;from-read&rdquo;, linking each read to
+	any writes to the same variable that execute too late to affect
+	the value returned by that read.
+<li>	<tt>po</tt> = &ldquo;program order&rdquo;, linking statements
+	within a given process in the order that they appear in the
+	instruction stream.
+<li>	<tt>rf</tt> = &ldquo;reads from&rdquo;, linking a given write
+	to any reads that load the value stored by that write.
+</ol>
+
+<p>
+It is important to note that not all cycles are prohibited.
+To see this, consider the following:
+
+<blockquote>
+<a href="C-MP+o-o+o-o.litmus">Litmus Test #2</a>
+<pre>
+ 1 C C-MP+o-o+o-o
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *x, int *y)
+ 7 {
+ 8   WRITE_ONCE(*y, 1);
+ 9   WRITE_ONCE(*x, 1);
+10 }
+11
+12 P1(int *x, int *y)
+13 {
+14   int r1;
+15   int r2;
+16
+17   r1 = READ_ONCE(*x);
+18   r2 = READ_ONCE(*y);
+19 }
+20
+21 exists
+22 (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+This is exactly the same as the previous litmus test except that the
+<tt>smp_mb()</tt> calls have been removed.
+Despite the fact that the outcome
+<tt>r1 == 1 &amp;&amp; r2 == 0</tt> exhibits the same cycle as above,
+it can in fact occur on weakly ordered systems where, for example,
+P0's writes and P1's reads can be reordered by the hardware.
+On such systems, the <tt>smp_mb()</tt> statements
+are necessary to ensure that the order of execution of the writes and
+reads is the same as their order in the source code.
+This can be confirmed by running the tool in the same way as before, but
+on the new litmus test:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg C-MP+o-o+o-o.litmus
+</pre>
+</blockquote>
+
+<p>
+The output will be as follows:
+
+<blockquote>
+<pre>
+Test C-MP+o-o+o-o Allowed
+States 4
+1:r1=0; 1:r2=0;
+1:r1=0; 1:r2=1;
+1:r1=1; 1:r2=0;
+1:r1=1; 1:r2=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (1:r1=1 /\ 1:r2=0)
+Observation C-MP+o-o+o-o Sometimes 1 3
+Hash=791a930f10ec3578ffdda7bf43deeb22
+</pre>
+</blockquote>
+
+<p>
+Note that all four possible states are present, and note also the
+&ldquo;<tt>Sometimes 1 3</tt>&rdquo; near the end of the output.
+
+<p><a name="Quick Quiz 1"><b>Quick Quiz 1</b>:</a>
+Can't the compiler also reorder these accesses?
+<br><a href="#qq1answer">Answer</a>
+
+<p>
+In fact, on sufficiently weakly ordered systems the cyclic outcome
+in Litmus Test&nbsp;#2 could occur even without instruction reordering,
+because the writes might not propagate from P0 to P1 in the
+order they were executed.
+And even on more strongly ordered systems,
+it would be sufficient to reorder either the reads or the writes;
+it is not necessary to reorder both.
+For example, if P1's accesses were reordered then we could have
+the following sequence of events:
+
+<ol>
+<li>	P1 reads from <tt>y</tt>,
+<li>	P0 writes to <tt>y</tt>,
+<li>	P0 writes to <tt>x</tt>, and
+<li>	P1 reads from <tt>x</tt>.
+</ol>
+
+This sequence says that P1 reads from <tt>y</tt> before reading
+from <tt>x</tt>, i.e., the reads are reordered.
+If this were to happen, there would no longer be a cycle,
+as indicated in the following diagram (the dotted arrow to
+the right indicates P1's reordering):
+
+<p><img src="cyclenot-new.svg" alt="cyclenot.svg" width="45%"></p>
+
+<p>
+This illustrates an important point: Cycles in time of
+instruction execution are impossible,
+because time is linearly ordered (in our universe, even if
+<a href="https://en.wikipedia.org/wiki/G%C3%B6del_metric">not
+in all solutions to Einstein's field equations</a>).
+Part of a memory model's job is to provide the conditions
+under which one instruction must execute before another
+and to check for any resulting cycles.
+On the other hand, if there is no such cycle then it is possible
+to find an order of execution for all the instructions which is
+compatible with the memory model's ordering requirements
+(for example, by doing a topological sort).
+If this potential execution order did not violate any
+of the memory model's other requirements,
+it would demonstrate that the litmus test's assertion could hold.
+
+<p>
+Okay, we admit the preceding paragraph is an oversimplification.
+Modern CPUs do not execute instructions at precise moments in time;
+instead they run instructions through complicated multi-stage pipelines
+and engage in multiple issue (running more than one instruction
+through the same pipeline stages in parallel).
+Furthermore, other ordering requirements come into play along with
+time of execution, such as cache coherence (see
+<a href="#cache coherence">below</a>).
+Nevertheless, the basic idea is valid.
+
+<p>
+It is worth pointing out that computer hardware almost always has additional
+restrictions beyond what the memory models describe;
+CPU designers generally do not implement
+all of the behaviors allowed by the instruction set architecture.
+The fact that a memory model says a particular litmus test's assertion might
+hold does not mean it can actually happen on any given computer.
+It also goes the other way&mdash;sometimes CPU designers mistakenly
+implement a behavior that is prohibited by the instruction set architecture
+(otherwise known as a &ldquo;silicon bug&rdquo; or &ldquo;CPU erratum&rdquo;).
+
+<h2><a name="Specifying a Memory Model in Terms of Prohibited Cycles">
+Specifying a Memory Model in Terms of Prohibited Cycles</a></h2>
+
+<p>
+As we have just seen, there is a close relationship between orderings
+and the existence of cycles:
+If some events are constrained to be ordered in a certain way then
+that ordering cannot contain a cycle.
+Conversely, if a given relation among various events does not contain any
+cycles then it is possible to order those events consistently with the relation.
+Thus, if we can precisely specify which instructions must execute before others
+in a given piece of Linux kernel code,
+we will be well on our way to constructing a formal model
+that defines the kernel's execution-ordering guarantees
+in terms of cycles among instructions.
+Even better, this model can then be used to construct a tool that analyzes
+litmus tests for execution-ordering problems.
+(And of course, the same technique can be used for describing a memory model's
+other ordering requirements.)
+
+<p>
+The <tt>herd</tt> tool implements a language, called <tt>cat</tt>,
+designed to represent
+memory models, which it does by specifying what cycles are prohibited.
+This specification is defined in terms of sets and relations involving
+memory-access events, barriers, and threads.
+(For our purposes, each processor in a litmus test corresponds to
+a distinct thread.)
+<tt>herd</tt> will be discussed in more detail
+<a href="#How herd Works">later</a>;
+in this section we will see how to write some simple memory models
+in the <tt>cat</tt> language.
+
+
+<h3>Relaxed Memory Order: Toy Specification</h3>
+
+<p>
+The following shows a simple <tt>herd</tt> program that represents a
+fragment of the Linux kernel memory model involving simple memory accesses
+(<tt>READ_ONCE()</tt> and <tt>WRITE_ONCE()</tt>) and strong memory barriers
+(<tt>smp_mb()</tt>):
+
+<blockquote>
+
+<a href="toy-RMO.cat">toy-RMO.cat</a>
+
+<pre>
+ 1 "Toy RMO"
+ 2 
+ 3 include "cos.cat"
+ 4 
+ 5 let rfe = rf &amp; ext
+ 6 let fence = fencerel(F)
+ 7 
+ 8 let rmo-order = fence | rfe | co | fr
+ 9 acyclic rmo-order
+</pre>
+</blockquote>
+
+<p>
+Line&nbsp;1 provides a name for the model, and line&nbsp;3 pulls in
+some definitions that can be thought of as the <tt>herd</tt> equivalent
+to the C-language:
+
+<blockquote>
+<pre>
+#include &lt;stdio.h&gt;
+</pre>
+</blockquote>
+
+<p>
+However, instead of defining I/O primitives,
+&ldquo;<tt>cos.cat</tt>&rdquo;
+defines some basic relations, including the <tt>fr</tt>
+relation mentioned earlier.
+
+<p>
+For the litmus tests above (assuming the cyclic execution),
+the built-in <tt>rf</tt> (&ldquo;reads-from&rdquo;) relation
+contains the following links:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 1)</tt> &#10230; <tt>r1 = READ_ONCE(*x)</tt>,
+<li>	<tt>INIT(*y, 0)</tt> &#10230; <tt>r2 = READ_ONCE(*y)</tt>.
+</ul>
+
+(where <tt>INIT(*y, 0)</tt> is the &ldquo;write&rdquo; that
+initializes <tt>y</tt>),
+and <tt>fr</tt> (&ldquo;from-read&rdquo;) contains:
+
+<ul>
+<li>	<tt>r1 = READ_ONCE(*y)</tt> &#10230; <tt>WRITE_ONCE(*y, 1)</tt>
+</ul>
+
+<tt>cos.cat</tt> also defines the <tt>co</tt>
+(&ldquo;coherence order&rdquo;) relation,
+which links each write to all later writes to the same variable
+(just the writes, not the reads).
+Initialization counts as a write; it is always the
+first write in the coherence order for each variable.
+Thus the <tt>co</tt> relation for these litmus tests looks like this:
+
+<ul>
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>WRITE_ONCE(*x, 1)</tt>
+<li>	<tt>INIT(*y, 0)</tt> &#10230; <tt>WRITE_ONCE(*y, 1)</tt>
+</ul>
+
+<p>
+Line&nbsp;5 computes <tt>rfe</tt> (&ldquo;reads-from external&rdquo;),
+which is a restricted version of
+the <tt>rf</tt> relation that covers only write-read
+pairs where the write and the read are executed by different threads.
+It does this by intersecting (the <tt>&amp;</tt> operator)
+the <tt>rf</tt> relation
+with the predefined <tt>ext</tt> relation,
+which links all pairs of instructions belonging to different threads.
+For the two litmus tests above, the <tt>rfe</tt> relation
+turns out to be exactly the same as the <tt>rf</tt> relation.
+
+<p>
+Line&nbsp;6 uses the standard <tt>fencerel()</tt> function and
+<tt>F</tt> event set to define a relation that links any two instructions
+separated by a memory barrier.
+For Litmus Test&nbsp;#2, which contains no instances of
+<tt>smp_mb()</tt>, this relation is empty.
+For Litmus Test&nbsp;#1, it contains the following links:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*y, 1)</tt> &#10230; <tt>WRITE_ONCE(*x, 1)</tt>
+<li>	<tt>r1 = READ_ONCE(*x)</tt> &#10230; <tt>r2 = READ_ONCE(*y)</tt>
+</ul>
+
+<p>
+Line&nbsp;8 defines the <tt>rmo-order</tt> relation as the
+union (the <tt>|</tt> operator) of the
+<tt>fence</tt>, <tt>rfe</tt>, <tt>co</tt>, and <tt>fr</tt> relations.
+<tt>rmo-order</tt> includes all pairs of instructions for which
+this toy model of relaxed memory order (RMO) requires
+the first to execute before the second.
+Line&nbsp;9 expresses this requirement by stating that
+the <tt>rmo-order</tt> relation is acyclic (contains no cycles).
+
+<p>
+For Litmus Test&nbsp;#2, <tt>rmo-order</tt>
+does not contain a cycle, as shown below:
+
+<p><img src="rmo-acyclic.svg" alt="rmo-acyclic.svg" width="50%"></p>
+
+(The dotted &ldquo;po&rdquo; edges are for illustration only;
+they are not present in the <tt>rmo-order</tt> relation and do
+not contribute to any cycles.)
+
+<p>
+On the other hand, for Litmus Test&nbsp;#1, the additional links
+added by the <tt>fence</tt> relation do create a cycle:
+
+<p><img src="rmo-cyclic.svg" alt="rmo-cyclic.svg" width="50%"></p>
+
+<p>
+Thus this model correctly distinguishes the &ldquo;message-passing&rdquo;
+examples with and without memory barriers, as can be seen by downloading
+<a href="toy-RMO.cat">toy-RMO.cat</a> and passing it via the
+<tt>-cat</tt> command-line argument for
+Litmus Test&nbsp;#2 as follows:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg -cat toy-RMO.cat C-MP+o-o+o-o.litmus
+</pre>
+</blockquote>
+
+<p>
+This produces the following output:
+
+<blockquote>
+<pre>
+Test C-MP+o-o+o-o Allowed
+States 4
+1:r1=0; 1:r2=0;
+1:r1=0; 1:r2=1;
+1:r1=1; 1:r2=0;
+1:r1=1; 1:r2=1;
+Ok
+Witnesses
+Positive: 1 Negative: 3
+Condition exists (1:r1=1 /\ 1:r2=0)
+Observation C-MP+o-o+o-o Sometimes 1 3
+Hash=c3bdaae6256fa364ad31fb3c1e07c0f5
+</pre>
+</blockquote>
+
+Given the lack of a cycle in the <tt>rmo-order</tt> relationship,
+the counter-intuitive cyclic execution is permitted,
+as indicated by
+&ldquo;<tt>Sometimes 1 3</tt>&rdquo; in the output.
+In contrast, for Litmus Test&nbsp;#1, with memory barriers,
+the command line:
+
+<blockquote>
+<pre>
+herd7 -conf strong.cfg -cat toy-RMO.cat C-MP+o-mb-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+produces the following output:
+
+<blockquote>
+<pre>
+Test C-MP+o-mb-o+o-mb-o Allowed
+States 3
+1:r1=0; 1:r2=0;
+1:r1=0; 1:r2=1;
+1:r1=1; 1:r2=1;
+No
+Witnesses
+Positive: 0 Negative: 3
+Condition exists (1:r1=1 /\ 1:r2=0)
+Observation C-MP+o-mb-o+o-mb-o Never 0 3
+Hash=3240a31645e46554cb09739d726087ad
+</pre>
+</blockquote>
+
+As expected, the memory barriers exclude the counter-intuitive outcome
+where <tt>r1 == 1 &amp;&amp; r2 == 0</tt>.
+
+<h3>Relaxed Memory Order: Coherence Included</h3>
+
+<p>
+Consider this ridiculous single-thread litmus test:
+
+<blockquote>
+<a href="C-CO+o-o.litmus">Litmus Test #3</a>
+<pre>
+ 1 C C-CO+o-o.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *x)
+ 7 {
+ 8   *x = 3;
+ 9   *x = 4;
+10 }
+11
+12 exists
+13 (x=3)
+</pre>
+</blockquote>
+
+<p>
+On the face of it, this test can never succeed.
+If we set <tt>x</tt> to 3 and then overwrite it with the value 4,
+how can <tt>x</tt> possibly end up containing 3?
+Nevertheless, running the
+<a href="toy-RMO.cat">Toy RMO</a>
+model shows that this outcome is permitted:
+
+<blockquote>
+<pre>
+Test C-CO+o-o Allowed
+States 2
+x=3;
+x=4;
+Ok
+Witnesses
+Positive: 1 Negative: 1
+Condition exists (x=3)
+Observation C-CO+o-o Sometimes 1 1
+Hash=3154e641cc0e24ee5ffdd25aba89ba01
+</pre>
+</blockquote>
+
+<p>
+This is because the model does not forbid it,
+and everything that is not explicitly forbidden is permitted.
+The model does not account for cache coherence,
+a feature supported by most modern microprocessors&mdash;and demanded
+by the vast majority of sane kernel hackers.
+That's one reason why this model should be considered to be a toy.
+
+<p>
+<a name="cache coherence"><i>Cache coherence</i> (sometimes referred to as
+&ldquo;per-location sequential consistency&rdquo;)</a>
+requires that the writes to any one
+location in memory occur in a single total order (the coherence order),
+which all the processors must agree on.
+It also says that within each thread, the coherence order must be consistent
+with the program order, as described by the following four
+<a name="coherence rules">coherence rules</a>:
+
+<ul>
+<li>	<i>Write-write coherence:</i>
+	If two writes in the same thread access the same location,
+	the write that comes first in program order must come first
+	in the coherence order for that location.
+<li>	<i>Write-read coherence:</i>
+	If a write W precedes (in program order) a read R of the same
+	location, then R must read from W or from a write that occurs after
+	W in the location's coherence order.
+<li>	<i>Read-write coherence:</i>
+	If a read R precedes (in program order) a write W of the same
+	location, then R must read from a write that occurs before W
+	in the location's coherence order.
+<li>	<i>Read-read coherence:</i>
+	If two reads R and R' in the same thread access the same location,
+	where R comes before R' in program order,
+	either they must read from the same write or else
+	the write read by R must occur before
+	the write read by R' in the location's coherence order.
+</ul>
+
+<p>
+In Litmus Test&nbsp;#3 above, there are three writes to the location where
+<tt>x</tt> is stored: the initializing write of 0 (implicit in lines&nbsp;3-4),
+and the writes of 3 and 4 (lines&nbsp;8-9).
+The initializing write always comes first in the coherence order,
+and the value tested in the &ldquo;exists&rdquo; clause is always
+the value stored by the write that comes last in the coherence order
+(called the <i>final write</i>).
+Thus for the test to succeed, the coherence order for <tt>x</tt>
+would have to be: <tt>x=0</tt>, <tt>x=4</tt>, <tt>x=3</tt>.
+But this would violate the write-write coherence rule,
+because the write that sets <tt>x</tt> to 3 comes before (in program order)
+the write that sets it to 4.
+
+<p>
+(Note: The C11 standard recognizes the notion of <i>sequenced-before</i>
+rather than that of program order.
+For the most part the two are the same, referring to the order in which
+loads and stores occur in the source code,
+but there are a few differences.
+For example, the compiler is not required to evaluate the
+arguments to a function call in any particular order.
+Thus, even though the statement
+
+<blockquote>
+<pre>
+	printf("%d %d", WRITE_ONCE(x, 3), WRITE_ONCE(x, 4));
+</pre>
+</blockquote>
+
+will always print out &ldquo;3 4&rdquo;, after it executes <tt>x</tt>
+may be equal either to 3 or 4.
+We will not worry such subtleties for now.
+But we will point out that in Litmus Test&nbsp;#3, the
+&ldquo;<tt>*x = 3</tt>&rdquo; write
+<i>is</i> sequenced before the &ldquo;<tt>*x = 4</tt>&rdquo; write,
+and the compiler is not permitted to reorder them.
+That is why we have omitted the <tt>WRITE_ONCE()</tt> calls and
+reverted to plain ordinary assignment.
+It's okay in this case, because <tt>x</tt> isn't shared between
+processors and we're only trying to make a simple point.
+But note that even with this two-line test program,
+the compiler is permitted to eliminate the
+&ldquo;<tt>*x = 3</tt>&rdquo; write entirely.)
+
+<p>
+Our Toy RMO memory model can be strengthened
+to take cache coherence into account.
+Here is the result:
+
+<blockquote>
+
+<a href="coherent-RMO.cat">coherent-RMO.cat</a>
+
+<pre>
+ 1 "Coherent RMO"
+ 2 
+ 3 include "cos.cat"
+ 4 
+ 5 let rfe = rf &amp; ext
+ 6 let fence = fencerel(F)
+ 7 
+ 8 let rmo-order = fence | rfe | co | fr
+ 9 acyclic rmo-order
+10 
+11 let com = rf | co | fr
+12 let coherence-order = po-loc | com
+13 acyclic coherence-order
+</pre>
+</blockquote>
+
+<p>
+Aside from the name change on line&nbsp;1, the only difference is the
+addition of lines&nbsp;10-13.
+Line&nbsp;11 defines the <tt>com</tt> relation as the union of the
+<tt>rf</tt>, <tt>co</tt>, and <tt>fr</tt> relations.
+If you imagine inserting reads into the coherence order for a variable,
+by placing each read between the write that it reads from
+and the following write,
+you'll see that in each case <tt>com</tt> links a memory access
+to one that comes later in the coherence order.
+(<tt>com</tt>'s name arises from the fact that it describes the ways
+different processors can <i>com</i>municate by writing to and reading
+from shared variables in memory.)
+
+<p><a name="Quick Quiz 2"><b>Quick Quiz 2</b>:</a>
+The <tt>rf</tt>, <tt>co</tt>, and <tt>fr</tt> terms
+in the definition of <tt>com</tt> describe write-read,
+write-write, and read-write links respectively,
+corresponding to three of the four
+<a href="coherence rules">coherence rules</a>.
+Why is there no term corresponding to the read-read rule?
+<br><a href="#qq2answer">Answer</a>
+
+<p>
+<tt>po-loc</tt> in line&nbsp;12 is another standard relation;
+it is the intersection of <tt>po</tt> and <tt>loc</tt>,
+where the <tt>loc</tt> relation links all pairs of memory accesses that
+refer to the same location in memory.
+Thus, <tt>po-loc</tt> links each memory access to all those that
+occur after it in program order and access the same variable.
+Lines&nbsp;12-13 go on to define <tt>coherence-order</tt> as the
+union of <tt>po-loc</tt> and <tt>com</tt> and to require that
+<tt>coherence-order</tt> not have any cycles.
+
+<p>
+Since Litmus Test&nbsp;#3 contains no reads, its <tt>rf</tt> and
+<tt>fr</tt> relations are empty and
+therefore <tt>com</tt> ends up being the same as <tt>co</tt>.
+In the non-intuitive execution accepted by the Toy RMO model
+(where <tt>x=3</tt> comes last in the coherence order),
+<tt>com</tt> contains the following links:
+
+<ul>
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>*x = 3</tt>,
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>*x = 4</tt>, and
+<li>	<tt>*x = 4</tt> &#10230; <tt>*x = 3</tt>,
+</ul>
+
+while <tt>po-loc</tt> contains only:
+
+<ul>
+<li>	<tt>*x = 3</tt> &#10230; <tt>*x = 4</tt>.
+</ul>
+
+Putting these together yields an obvious cycle in <tt>coherence-order</tt>,
+which causes the Coherent RMO model to
+forbid the counter-intuitive outcome in
+<a href="C-CO+o-o.litmus">Litmus Test&nbsp;#3</a>:
+
+<blockquote>
+<pre>
+Test C-CO+o-o Allowed
+States 1
+x=4;
+No
+Witnesses
+Positive: 0 Negative: 1
+Condition exists (x=3)
+Observation C-CO+o-o Never 0 1
+Hash=3154e641cc0e24ee5ffdd25aba89ba01
+</pre>
+</blockquote>
+
+<p>
+Here's a slightly more sophisticated test that probes the read-read
+coherence rule:
+
+<blockquote>
+<a href="C-CO+o-o+o-o.litmus">Litmus Test #4</a>
+<pre>
+ 1 C C-CO+o-o+o-o.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *x)
+ 7 {
+ 8   WRITE_ONCE(*x, 3);
+ 9   WRITE_ONCE(*x, 4);
+10 }
+11
+12 P1(int *x)
+13 {
+14   int r1;
+15   int r2;
+16
+17   r1 = READ_ONCE(*x);
+18   r2 = READ_ONCE(*x);
+19 }
+20
+21 exists
+22 (1:r1=4 /\ 1:r2=3)
+</pre>
+</blockquote>
+
+<p>
+Because of the write-write coherence rule, we know that the coherence order
+for <tt>x</tt> must be: <tt>x=0</tt>, <tt>x=3</tt>, <tt>x=4</tt>.
+If <tt>r1</tt> and <tt>r2</tt> were to end up equal to 4 and 3
+respectively, it would mean the later read (in program order) had
+read from the earlier write (in <tt>x</tt>'s coherence order),
+thereby violating read-read coherence.
+
+<p>
+To see why the Coherent RMO model forbids this result, consider how the
+various relations would turn out.
+Because <tt>x=4</tt> must come last in the coherence order for <tt>x</tt>,
+the <tt>co</tt> relation contains these links:
+
+<ul>
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>WRITE_ONCE(*x, 3)</tt>,
+<li>	<tt>INIT(*x, 0)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt>, and
+<li>	<tt>WRITE_ONCE(*x, 3)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt>.
+</ul>
+
+Since there are some read instructions in this test,
+the <tt>rf</tt> and <tt>fr</tt> relations are non-empty.
+The links in <tt>rf</tt> are:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 4)</tt> &#10230; <tt>r1 = READ_ONCE(*x)</tt> and
+<li>	<tt>WRITE_ONCE(*x, 3)</tt> &#10230; <tt>r2 = READ_ONCE(*x)</tt>,
+</ul>
+
+while <tt>fr</tt> contains only:
+
+<ul>
+<li>	<tt>r2 = READ_ONCE(*x)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt>.
+</ul>
+
+Finally, <tt>po-loc</tt> contains:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 3)</tt> &#10230; <tt>WRITE_ONCE(*x, 4)</tt> and
+<li>	<tt>r1 = READ_ONCE(*x)</tt> &#10230; <tt>r2 = READ_ONCE(*x)</tt>.
+</ul>
+
+<p>
+Putting these together shows that <tt>coherence-order</tt> contains
+the following length-3 cycle:
+
+<ol>
+<li>	<tt>r2 = READ_ONCE(*x)</tt>
+<li>	<tt>WRITE_ONCE(*x, 4)</tt>
+<li>	<tt>r1 = READ_ONCE(*x)</tt>
+</ol>
+
+The links in this cycle are <tt>fr</tt> followed by <tt>rf</tt>
+followed by <tt>po-loc</tt>, as shown in this figure:
+
+<p><img src="read-read-coherence.svg" width="50%" alt="read-read-coherence.svg">
+
+<p>
+As can be seen in the following <tt>herd</tt> output, this cycle
+is prohibited:
+
+<blockquote>
+<pre>
+Test C-CO+o-o+o-o Allowed
+States 6
+1:r1=0; 1:r2=0;
+1:r1=0; 1:r2=3;
+1:r1=0; 1:r2=4;
+1:r1=3; 1:r2=3;
+1:r1=3; 1:r2=4;
+1:r1=4; 1:r2=4;
+No
+Witnesses
+Positive: 0 Negative: 6
+Condition exists (1:r1=4 /\ 1:r2=3)
+Observation C-CO+o-o+o-o Never 0 6
+Hash=0c7d45bf7c2fb2125ef6013c9c59d437
+</pre>
+</blockquote>
+
+<p><a name="Quick Quiz 3"><b>Quick Quiz 3</b>:</a>
+But don't Itanium and SPARC RMO allow read-read reordering of
+acccesses to a single variable by a single CPU?
+How does the model handle these CPUs?
+<br><a href="#qq3answer">Answer</a>
+
+<p>
+<b>Exercise:</b> Assuming only that the <tt>co</tt> relation gives
+a total ordering of all writes to a particular memory location,
+prove that any cache-coherent execution of any program
+(i.e., an execution that obeys the four coherence rules)
+results in a <tt>coherence-order</tt> relation without cycles.
+And conversely, prove that if an execution does violate any
+of the coherence rules then its <tt>coherence-order</tt> relation
+does contain a cycle.
+
+<h2><a name="How herd Works">How <tt>herd</tt> Works</a></h2>
+
+<p>
+The <tt>herd</tt> program reads in a litmus test and
+evaluates it according to a memory model.
+The model is contained in a <tt>.cat</tt> file
+specified by the &ldquo;<tt>-model</tt>&rdquo; command-line option
+(or a &ldquo;<tt>model</tt>&rdquo; line in the configuration file)
+plus an optional <tt>.bell</tt> file
+specified by the &ldquo;<tt>-bell</tt>&rdquo; option
+(or a &ldquo;<tt>bell</tt>&rdquo; line in the configuration file).
+The Bell file, if present, gets processed first.
+Both files consist of statements in the <tt>cat</tt> language,
+and <tt>herd</tt> treats them almost identically&mdash;the
+only real difference is that the Bell file is allowed to
+contain &ldquo;<tt>instructions</tt>&rdquo; statements but the
+Cat file is not.
+Typically a Bell file is used for common code that can be shared
+among multiple models, where each model would have its own Cat file.
+In particular,the  &ldquo;<tt>instructions</tt>&rdquo; statements define
+legal tags that can decorate elementary operations: for instance, one may
+here specify that a full memory barrier is a barrier with tag <tt>mb</tt> etc.
+
+<p>
+After loading the Bell and Cat files, <tt>herd</tt> parses the
+litmus-test program.
+The program may contain some specific macros
+(for instance <tt>smp_mb()</tt>) which are expanded to internal constructs
+(for instance a barrier with tag <tt>mb</tt>).
+The mapping from user-level macros to internal constructs
+is defined in a specific file, for instance <tt>linux.def</tt>.
+
+<p>
+Next,  <tt>herd</tt> interprets the program by constructing a list of
+events for each thread.
+For programs written in a high-level language like C, this involves
+breaking statements and expressions down into a series of elementary
+operations (read, write, arithmetic/logic on registers, branch, and so on);
+for programs in assembly language, the individual instructions
+generally correspond directly to these operations.
+However, atomic read-modify-write instructions always get represented
+by two operations, a read and a write, linked by the built-in <tt>rmw</tt>
+relation.
+
+<p>
+Events are thus organized as one list per thread,
+in program order.
+This is not always straightforward, because of a subtle but important fact:
+&ldquo;Program order&rdquo; refers to the order of instructions
+as they are presented to the processor's execution unit,
+<i>not</i> their order in the program's source or object code.
+While the two orders are often the same, they will differ when branches
+are present.
+A forward branch causes some instructions to be left out of the event list,
+and a backward branch can cause some instructions to be repeated in the list.
+
+<p>
+Since it is not known in advance whether a conditional branch will be
+taken, each such branch causes <tt>herd</tt> to generate two event lists:
+one in which the branch is taken and one in which it isn't.
+Thus, a program containing two conditional branches will give rise to four
+lists, a program containing three will give rise to eight, and so on.
+The <tt>po</tt> relation then refers to the order of the events in an
+individual list,
+and <tt>herd</tt> has to test each list separately, as a possible
+program execution.
+
+<p>
+When the program contains a loop, a conditional branch may be taken
+an indefinitely large number of times.
+In this situation the number of possible executions would quickly get
+out of hand, so there is a limit on how many times <tt>herd</tt> will
+allow a particular branch to appear in an execution
+(specified by the &ldquo;<tt>-unroll</tt>&rdquo; command-line option),
+typically set to 2.
+Loops with a higher number of iterations simply will not be considered.
+
+<p>
+Then, given a candidate execution, <tt>herd</tt> has to determine, for each
+read event, which write event stored the value that the read will retrieve.
+Again, there's no way to know this in advance, so if a program has
+more than one write to a particular variable, <tt>herd</tt> has to try
+all possible combinations for the <tt>rf</tt> relation.
+Just as with conditional branches, this can lead to exponential growth
+in the number of possible executions to be tested.
+
+<p>
+As part of its processing of a candidate execution, <tt>herd</tt>
+carries out a dataflow analysis of the values computed and stored in
+the local variables (or CPU registers) for each thread.
+This analysis gets used in several ways:
+
+<ul>
+<li>	<tt>herd</tt> checks each conditional branch, making sure that
+	the branch's condition is true if and only if the execution
+	has decided to take the branch.
+<li>	<tt>herd</tt> checks the target address of each indirect memory
+	access (i.e., access through a pointer or relative to a CPU
+	register), making sure that the <tt>rf</tt> relation really
+	does link writes and reads to the same target address.
+<li>	<tt>herd</tt> determines exactly what data, address, or control
+	<a href="#dependencies">dependencies</a> exist between
+	memory-access events.
+	These dependencies are made available to the model
+	through the built-in <tt>data</tt>, <tt>addr</tt>, and <tt>ctrl</tt>
+	relations.
+</ul>
+
+As an example of this last point, given the statement
+
+<blockquote>
+<pre>
+WRITE_ONCE(*x, READ_ONCE(*y));
+</pre>
+</blockquote>
+
+in the litmus-test program, <tt>herd</tt> would break it down into two events:
+
+<blockquote>
+<pre>
+rtemp = READ_ONCE(*y)
+WRITE_ONCE(*x, rtemp)
+</pre>
+</blockquote>
+
+(where <tt>rtemp</tt> is a temporary local variable), and it would add a link
+
+<blockquote>
+<tt>rtemp = READ_ONCE(*y)</tt> &#10230; <tt>WRITE_ONCE(*x, rtemp)</tt>
+</blockquote>
+
+to the <tt>data</tt> relation.
+
+<p>
+Finally, once a particular choice for the <tt>po</tt> and <tt>rf</tt>
+relations has been settled on, the execution checks out okay,
+and the <tt>data</tt>, <tt>addr</tt>, and <tt>ctrl</tt> relations have
+been set up, <tt>herd</tt> runs
+the statements in the Bell and Cat files to see whether the memory model
+considers the candidate execution to be allowed.
+If any of the model's checks fail, the execution is abandoned.
+Otherwise, <tt>herd</tt> evaluates the logical assertion at the end of
+the litmus test.
+It keeps track of the number of allowed executions for which the
+assertion is true and the number for which it is false; these are the
+numbers reported at the end in <tt>herd</tt>'s output.
+
+<p>
+Unlike <tt>po</tt> and <tt>rf</tt>, the <tt>co</tt> relation is not built-in.
+It has to be computed explicitly by the memory model.
+In practice this is done by the <tt>cos.cat</tt> file,
+which is included near the start of the model's Cat file
+(see for example line&nbsp;3 in each of the two RMO memory-model files above).
+This involves another potentially exponential computation,
+because it is necessary to try all possible orderings of the write accesses
+to each variable.
+
+<p>
+<tt>herd</tt> works in terms of sets of events and relations between events.
+(A relation is a collection of ordered pairs of events;
+you can think of each ordered pair as a link
+going from the first event in the pair to the second.)
+The <tt>cat</tt> language used in the Bell and Cat files
+is rich in operators for constructing and testing these sets and relations.
+
+<p>
+To begin with, <tt>herd</tt> has a number of built-in sets
+used for classifying events.
+Each event is automatically added to the appropriate sets.
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Name</th>
+	<th>Contents</th>
+	<th>Comment</th>
+</tr>
+<tr>	<th><tt>R</tt></th>
+	<td>Read events</td>
+	<td></td>
+</tr>
+<tr>	<th><tt>W</tt></th>
+	<td>Write events</td>
+	<td></td>
+</tr>
+<tr>	<th><tt>IW</tt></th>
+	<td>Initial Write events</td>
+	<td>&ldquo;writes&rdquo; that set a variable's initial value</td>
+</tr>
+<tr>	<th><tt>FW</tt></th>
+	<td>Final Write events</td>
+	<td>values that are tested in the final assertion</td>
+</tr>
+<tr>	<th><tt>M</tt></th>
+	<td>Memory access events</td>
+	<td>same as &ldquo;<tt>R | W</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>B</tt></th>
+	<td>Branch events</td>
+	<td></td>
+</tr>
+<tr>	<th><tt>RMW</tt></th>
+	<td>Read-Modify-Write events</td>
+	<td>the component events of an atomic RMW instruction</td>
+</tr>
+<tr>	<th><tt>F</tt></th>
+	<td>Fence events</td>
+	<td>also known as Barrier events</td>
+</tr>
+<tr>	<th><tt>_</tt></th>
+	<td>All events</td>
+	<td>wildcard</td>
+</tr>
+</tbody></table>
+
+<p>
+<a name="other statement types">In addition,</a>
+using the &ldquo;<tt>enum</tt>&rdquo; and &ldquo;<tt>instructions</tt>&rdquo;
+statements, a Bell file can define an enumerated list of tag values
+and specify that instructions of a specific kind must be labelled
+with one of these tags.
+<tt>herd</tt> then creates a set for each tag value;
+the name of the set is the same as the name of the tag but with the
+first letter capitalized, and the set contains all events generated
+from instructions labelled by the corresponding tag.
+For example, the following <tt>cat</tt> code:
+
+<blockquote>
+<pre>
+enum Accesses = 'once || 'release || 'acquire || 'deref
+instructions R[{'once,'acquire,'deref}]
+</pre>
+</blockquote>
+
+defines a bunch of <tt>Accesses</tt> tags,
+and says that all read instructions should be labelled with a
+&ldquo;<tt>once</tt>&rdquo;, an &ldquo;<tt>acquire</tt>&rdquo;,
+or a &ldquo;<tt>deref</tt>&rdquo; tag.
+Given this, the &ldquo;<tt>Once</tt>&rdquo; set would contain all events
+corresponding to an instruction (possibly a read, possibly something else)
+labelled with the &ldquo;<tt>once</tt>&rdquo; tag,
+and similarly for the &ldquo;<tt>Release</tt>&rdquo;,
+&ldquo;<tt>Acquire</tt>&rdquo; and &ldquo;<tt>Deref</tt>&rdquo; sets.
+
+<p>
+<tt>herd</tt> also comes with a selection of built-in relations,
+some of which we have already mentioned:
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Name</th>
+	<th>Relation</th>
+	<th>Comment</th>
+</tr>
+<tr>	<th><tt>0</tt></th>
+	<td>Empty</td>
+	<td>empty relation, contains no links</td>
+</tr>
+<tr>	<th><tt>id</tt></th>
+	<td>Identity</td>
+	<td>links each event to itself</td>
+</tr>
+<tr>	<th><tt>int</tt></th>
+	<td>Internal</td>
+	<td>links events that are in the same thread</td>
+</tr>
+<tr>	<th><tt>ext</tt></th>
+	<td>External</td>
+	<td>links events that are in different threads</td>
+</tr>
+<tr>	<th><tt>loc</tt></th>
+	<td>Location</td>
+	<td>links memory-access events that target the same variable</td>
+</tr>
+<tr>	<th><tt>rf</tt></th>
+	<td>Reads-From</td>
+	<td>links a write event to any read event that loads the value
+	stored by that write</td>
+</tr>
+<tr>	<th><tt>rmw</tt></th>
+	<td>Read-Modify-Write</td>
+	<td>links the read and write component events of an RMW instruction</td>
+</tr>
+<tr>	<th><tt>po</tt></th>
+	<td>Program Order</td>
+	<td>links events in the same thread, in the order they occur
+	in the instruction stream</td>
+</tr>
+<tr>	<th><tt>addr</tt></th>
+	<td>Address dependency</td>
+	<td>links a read event to any memory-access event whose target address
+	depends on the value loaded by the read</td>
+</tr>
+<tr>	<th><tt>ctrl</tt></th>
+	<td>Control dependency</td>
+	<td>links a read event to all events that are executed conditionally
+	depending on the value loaded by the read</td>
+</tr>
+<tr>	<th><tt>data</tt></th>
+	<td>Data dependency</td>
+	<td>links a read event to any write event that stores a value
+	which depends on the value loaded by the read</td>
+</tr>
+</tbody></table>
+
+<p>
+<tt>herd</tt>'s standard libraries <tt>stdlib.cat</tt> (automatically included
+for all models) and <tt>cos.cat</tt> define a few extra relations,
+which can be used as though they were built-in:
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Name</th>
+	<th>Relation</th>
+	<th>Comment</th>
+</tr>
+<tr>	<th><tt>po-loc</tt></th>
+	<td><tt>po</tt> for the same location</td>
+	<td>links memory-access events that target the same variable,
+	in program order;
+	same as &ldquo;<tt>po &amp; loc</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>rfe</tt></th>
+	<td>external reads-from</td>
+	<td><tt>rf</tt> restricted to pairs of accesses in different threads;
+	same as &ldquo;<tt>rf &amp; ext</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>rfi</tt></th>
+	<td>internal reads-from</td>
+	<td><tt>rf</tt> restricted to pairs of accesses in the same thread;
+	same as &ldquo;<tt>rf &amp; int</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>co</tt></th>
+	<td>coherence order</td>
+	<td>total ordering of all writes to the each variable</td>
+</tr>
+<tr>	<th><tt>coe</tt></th>
+	<td>external coherence order</td>
+	<td><tt>co</tt> restricted to pairs of writes in different threads;
+	same as &ldquo;<tt>co &amp; ext</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>coi</tt></th>
+	<td>internal coherence order</td>
+	<td><tt>co</tt> restricted to pairs of writes in the same thread;
+	same as &ldquo;<tt>co &amp; int</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>fr</tt></th>
+	<td>from-read</td>
+	<td>links a read event to any write event for the same variable
+	that comes after (in the variable's coherence order) the
+	write which the read event reads from;
+	same as &ldquo;<tt>rf^-1 ; co</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>fre</tt></th>
+	<td>external from-read</td>
+	<td><tt>fr</tt> restricted to pairs of accesses in different threads;
+	same as &ldquo;<tt>fr &amp; ext</tt>&rdquo;</td>
+</tr>
+<tr>	<th><tt>fri</tt></th>
+	<td>internal from-read</td>
+	<td><tt>fr</tt> restricted to pairs of accesses in the same thread;
+	same as &ldquo;<tt>fr &amp; int</tt>&rdquo;</td>
+</tr>
+</tbody></table>
+
+<p>
+Bell and Cat files can compute their own sets and relations
+using functions and operators provided by the <tt>cat</tt> language
+and libraries, as summarized in the following table.
+Operators with higher precedence (tighter binding) are higher up in the table.
+
+<table cellpadding="3" border=3 align="center"><tbody>
+<tr>	<th>Operator</th>
+	<th>Operation</th>
+	<th>Example</th>
+	<th>Applicability</th>
+</tr>
+<tr>	<th><tt>domain</tt></th>
+	<td>Domain of a relation</td>
+	<td><tt>domain(x)</tt><br>
+	computes the set of all events that are the start of
+	a link in <tt>x</tt></td>
+	<td>Applies to a relation, yields a set</td>
+</tr>
+<tr>	<th><tt>range</tt></th>
+	<td>Range of a relation</td>
+	<td><tt>range(x)</tt><br>
+	computes the set of all events that are the end of
+	a link in <tt>x</tt></td>
+	<td>Applies to a relation, yields a set</td>
+</tr>
+<tr>	<th><tt>fencerel</tt></th>
+	<td>Relate events separated by a fence</td>
+	<td><tt>fencerel(x)</tt><br>
+	computes the relation consisting of all pairs of events
+	where the first precedes (in program order) an event
+	in the set <tt>x</tt> and the second follows it; the same
+	as &ldquo;<tt>(po &amp; (_ * x)) ; po</tt>&rdquo;</td>
+	<td>Applies to a set, yields a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>^-1</tt></th>
+	<td>Inversion</td>
+	<td><tt>x^-1</tt><br>
+	computes the relation obtained by reversing
+	all the links in <tt>x</tt></td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>?</tt></th>
+	<td>Reflexive closure</td>
+	<td><tt>x?</tt><br>
+	computes the relation consisting of all pairs of events
+	that can be connected by a chain of links from
+	<tt>x</tt> of length 0 or 1;
+	the same as
+	&ldquo;<tt>id | x</tt>&rdquo;</td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>+</tt></th>
+	<td>Transitive closure</td>
+	<td><tt>x+</tt><br>
+	computes the relation consisting of all pairs of events
+	that can be connected by a chain of links from
+	<tt>x</tt> of length 1 or greater;
+	the same as
+	&ldquo;<tt>x | (x;x) | (x;x;x) | ...</tt>&rdquo;</td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Postfix <tt>*</tt></th>
+	<td>Reflexive-transitive closure</td>
+	<td><tt>x*</tt><br>
+	computes the relation consisting of all pairs of events
+	that can be connected by a chain of links from
+	<tt>x</tt> of length 0 or greater;
+	the same as
+	&ldquo;<tt>id | x | (x;x) | (x;x;x) | ...</tt>&rdquo;</td>
+	<td>Applies to a relation</td>
+</tr>
+<tr>	<th>Prefix <tt>~</tt></th>
+	<td>Complement</td>
+	<td><tt>~x</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	not in <tt>x</tt></td>
+	<td>Applies to a relation or a set</td>
+</tr>
+<tr>	<th>Infix <tt>*</tt></th>
+	<td>Cartesian product</td>
+	<td><tt>x * y</tt><br>
+	computes the relation consisting of all links from
+	an event in set <tt>x</tt> to an event
+	in set <tt>y</tt></td>
+	<td>Applies to sets, yields a relation</td>
+</tr>
+<tr>	<th><tt>\</tt></th>
+	<td>Difference</td>
+	<td><tt>x \ y</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	in <tt>x</tt> that are not in <tt>y</tt></td>
+	<td>Applies to relations or sets</td>
+</tr>
+<tr>	<th><tt>&amp;</tt></th>
+	<td>Intersection</td>
+	<td><tt>x &amp; y</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	in both <tt>x</tt> and <tt>y</tt></td>
+	<td>Applies to relations or sets</td>
+</tr>
+<tr>	<th><tt>;</tt></th>
+	<td>Sequencing</td>
+	<td><tt>x ; y</tt><br>
+	computes the relation consisting of all links
+	<tt>a&#10230;c</tt> such that for some event <tt>b</tt>,
+	<tt>x</tt> contains <tt>a&#10230;b</tt>
+	and <tt>y</tt> contains <tt>b&#10230;c</tt></td>
+	<td>Applies to relations</td>
+</tr>
+<tr>	<th><tt>|</tt></th>
+	<td>Union</td>
+	<td><tt>x | y</tt><br>
+	computes the relation (or set) consisting of all links (or events)
+	in <tt>x</tt> or <tt>y</tt> or both</td>
+	<td>Applies to relations or sets</td>
+</tr>
+<tr>	<th><tt>(* *)</tt></th>
+	<td>Encloses comments</td>
+	<td><tt>(* This is a comment *)</tt></td>
+	<td></td>
+</tr>
+</tbody></table>
+
+<p>
+Although the language includes a variety of statement types,
+the ones found most frequently in Bell and Cat files are assignment
+(&ldquo;<tt>let</tt>&rdquo; or &ldquo;<tt>let rec</tt>&rdquo;)
+and check statements.
+
+&ldquo;<tt>let</tt>&rdquo; statements are self-explanatory;
+we have already seen several examples in the RMO memory models above.
+&ldquo;<tt>let rec</tt>&rdquo; statements,
+used for mutually recursive definitions,
+are more complex; we will see an example
+<a href="#Bell File: RCU Read-Side Critical Sections">below</a>.
+Check statements come in three forms:
+
+<ul>
+<li>	&ldquo;<tt>acyclic &lt;expr&gt;</tt>&rdquo;
+	requires the relation computed from &ldquo;<tt>expr</tt>&rdquo;
+	not to have any cycles;
+<li>	&ldquo;<tt>irreflexive &lt;expr&gt;</tt>&rdquo;
+	requires the relation computed from &ldquo;<tt>expr</tt>&rdquo;
+	not to have any links from an event to itself;
+<li>	&ldquo;<tt>empty &lt;expr&gt;</tt>&rdquo;
+	requires the set or relation computed from &ldquo;<tt>expr</tt>&rdquo;
+	to be empty.
+</ul>
+
+If a check fails, it indicates that the memory model prohibits the
+candidate execution under consideration;
+that is, the memory model says that this execution could never occur.
+
+<p>
+A check can be negated by prefixing it with &ldquo;<tt>~</tt>&rdquo;.
+Also, a check can be flagged by putting the &ldquo;<tt>flag</tt>&rdquo;
+keyword in front of it.
+Unlike a normal check, when a flagged check succeeds it indicates that
+the execution has encountered some sort of semantic problem.
+If this happens, <tt>herd</tt> adds a warning message to its output.
+
+<p>
+Along with the &ldquo;<tt>let</tt>&rdquo;,
+&ldquo;<tt>include</tt>&rdquo;, and check statements,
+the only other types of statement we will see are
+&ldquo;<tt>enum</tt>&rdquo; and &ldquo;<tt>instructions</tt>&rdquo;,
+both briefly
+<a href="#other statement types">mentioned earlier</a>.
+
+<p>
+The <tt>cat</tt> language supports many features we won't cover here, 
+including higher-order sets and tuples, pattern matching, user-defined
+functions, iteration, and recursion in the style of OCaml
+(the language <tt>herd</tt> is written in).
+<tt>herd</tt> itself also has a large number of features we won't discuss,
+such as the ability to skip certain checks when
+testing a memory model or to produce figures (like the ones in this
+document) illustrating the events and relations in a particular
+program execution.
+More complete documentation can be found in the
+<a href="http://diy.inria.fr/tst/doc/herd.html"><tt>herd</tt> manual</a>.
+
+<p>
+With this background, we are ready to examine larger, more realistic
+memory models.
+Something like the Linux-kernel memory models, in fact.
+
+<h2><a name="Introduction to the Linux-Kernel Memory Models">
+Introduction to the Linux-Kernel Memory Models</a></h2>
+
+<p>
+This section is mostly concerned with the strong memory model.
+The other, less strong (we hesitate to call it &ldquo;weak&rdquo;)
+model is derived from the strong one by relaxing several of the
+less-important constraints.
+
+<p>
+The strong Linux-kernel memory model started out as an operational
+model, based on the PPCMEM model for PowerPC as presented in
+two papers (&ldquo;Understanding POWER Multiprocessors&rdquo; 
+<a href="http://www.cl.cam.ac.uk/~pes20/ppc-supplemental/pldi105-sarkar.pdf">[pdf]</a>
+and &ldquo;Synchronising C/C++ and POWER&rdquo;
+<a href="http://www.cl.cam.ac.uk/~pes20/cppppc-supplemental/pldi010-sarkar.pdf">[pdf]</a>)
+by Susmit Sarkar, Peter Sewell, and others.
+Our model was a modified version of theirs, changed to take into account
+the properties of other relaxed-memory-order processors
+supported by the kernel.
+The <tt>herd</tt>-style Bell and Cat files discussed below
+were then developed as a formal axiomatization of this model.
+The formal version is not 100% equivalent to the original operational version
+(it accepts some litmus tests that the operational model forbids),
+but it comes pretty close.
+
+<p>
+The operational model divides a computer system into two subsystems:
+the processors, which execute instructions, and the memory subsystem,
+which propagates information about writes and barriers among the
+processors and is also responsible for determining the coherence order.
+When a processor executes a write or certain kinds of barriers,
+it tells the memory subsytem.
+And when a processor needs to load a value from memory or cache
+to satisfy a read,
+it asks the memory subsystem to provide the value.
+
+<h3>The Processor Subsystem</h3>
+
+<p>
+Although the underlying operations involved in executing an instruction
+on a modern CPU can be quite complicated,
+nevertheless there always comes a point where the CPU has finished
+evaluating all of the instruction's inputs and outputs and it commits
+itself irrevocably to using those values as the instruction's results.
+Conceptually, each instruction that gets executed is <i>committed</i>
+at a single, precise moment in time.
+(Instructions that don't get executed, such as those started speculatively
+in what turns out to be the unused arm of a conditional branch,
+are not committed.)
+
+<p>
+Instructions may commit in any order and at any rate, subject to certain
+constraints.
+For example, an instruction controlled by a conditional branch can't
+be committed before the branch itself, because until that time
+the CPU doesn't know for certain which way the branch will go.
+(The full set of constraints is listed below.)
+For instructions involving only quantities that are local to the processor,
+such as register-to-register arithmetic,
+that's all there is to it: The processor carries out the operations required
+by the instruction, eventually commits to the result, and moves on.
+But some instructions need more.
+In particular, some require the processor
+to communicate with the memory subsystem.
+
+<p>
+Writes and memory barriers are the simplest case.
+When a processor commits a write instruction, it tells the memory subsystem
+the target address of the write and the value to be stored there.
+It can't do this before the write commits, because once the information
+has been given to the memory subsystem there's no way to take it back.
+Similarly, when a processor commits one of the barriers that affect
+write-propagation order, it informs the memory subsystem, which then
+uses that information to control the way writes get propagated.
+
+<p>
+Reads are a little more complex.
+When a processor starts to execute a read instruction,
+it first has to calculate the target address (which on x86, for example,
+can involve adding together the value in a base register, the value in an
+index register optionally scaled by a power of 2, and a constant offset).
+It then checks to see if there are any uncommitted write instructions
+that come before the read in program order and have the same target
+address; if there are then the processor takes the value to be stored
+by the last such write and uses it as the value for the read.
+This is called <i>store forwarding</i>.
+But if there are no such uncommitted writes then the processor has to
+ask the memory subsystem to retrieve the value at the target address.
+Either way, we say that the processor <i>satisfies</i> the read,
+and this also takes place at a precise moment in time.
+A read instruction cannot commit until it has been satisfied.
+
+<p>
+There's more to it than that, however.
+Because the read is is not yet committed, the act of satisfying it
+is not irrevocable.
+It may turn out, for example, that the values used in calculating the
+target address were themselves not yet committed and hence are still
+subject to change.
+If that happens, the read instruction has to be <i>restarted</i>:
+The target address must be recalculated and the read must be satisfied again.
+This can happen several times before the read is committed.
+In fact, it can even happen several times without the read ever being
+committed, if the read was started speculatively and then abandoned.
+
+<p>
+Thus, a processor carries out a read instruction by satisfying it
+(perhaps more than once) and eventually committing it.
+For most other instruction types, execution only involves committing the
+instruction, but there is one exception.
+A strong memory barrier (i.e., <tt>smp_mb()</tt>)
+is not finished when it commits.
+Instead, the processor has to wait for the strong barrier to be
+<i>acknowledged</i> by the memory subsystem.
+This doesn't happen until the memory subsystem has propagated the
+barrier to all the other processors in the system,
+and the processor is not allowed to begin executing any instructions that
+come after the strong barrier in program order until then.
+This is what makes these barriers so strong (and so slow!).
+
+<h3>The Memory Subsystem</h3>
+
+<p>
+To be written...
+
+<h2><a name="Bell File">Bell File</a></h2>
+
+<p>The full Bell file for Alan Stern's strong model
+(<a href="strong-kernel.bell"><tt>strong-kernel.bell</tt></a>)
+is as follows:
+
+<blockquote>
+<pre>
+  1 "Linux kernel strong memory model"
+  2 
+  3 (* Copyright (C) 2016 Alan Stern &lt;stern@rowland.harvard.edu&gt; *)
+  4 
+  5 let RMW = domain(rmw) | range(rmw)
+  6 
+  7 enum Accesses = 'once (*READ_ONCE,WRITE_ONCE,ACCESS_ONCE*) || 
+  8 		'release (*smp_store_release*) ||
+  9 		'acquire (*smp_load_acquire*) ||
+ 10 		'assign (*rcu_assign_pointer*) || 
+ 11 		'deref (*rcu_dereference*) ||
+ 12 		'lderef (*lockless_dereference*)
+ 13 instructions R[{'once,'acquire,'deref,'lderef}]
+ 14 instructions W[{'once,'release,'assign}]
+ 15 instructions RMW[{'once,'acquire,'release}]
+ 16 
+ 17 enum Barriers = 'wmb (*smp_wmb*) ||
+ 18 		'rmb (*smp_rmb*) ||
+ 19 		'mb (*smp_mb*) ||
+ 20 		'rb_dep (*smp_read_barrier_depends*) ||
+ 21 		'lock (*rcu_read_lock*)  ||
+ 22 		'unlock (*rcu_read_unlock*) ||
+ 23 		'sync (*synchronize_rcu*)
+ 24 instructions F[Barriers]
+ 25 
+ 26 let rmb = fencerel(Rmb) & (R*R)
+ 27 let wmb = fencerel(Wmb) & (W*W)
+ 28 let mb = fencerel(Mb)
+ 29 let sync = (po & (_ * Sync)) ; (po?)
+ 30 
+ 31 let acq-po = po & (Acquire*_)
+ 32 let po-rel = po & (_*Release)
+ 33 let po-assign = po & (_*Assign)
+ 34 
+ 35 let rb-dep = fencerel(Rb_dep) & (R*R)
+ 36 let deref-po = po & (Deref*M)
+ 37 let lderef-po = po & (Lderef*M)
+ 38 
+ 39 let rd-dep-fence = rb-dep | deref-po | lderef-po
+ 40 let exec-order-fence = rmb | acq-po
+ 41 let weak-fence = wmb
+ 42 let medium-fence = po-rel | po-assign
+ 43 let strong-fence = mb | sync
+ 44 
+ 45 let transitive-fence = strong-fence | medium-fence
+ 46 let propagation-fence = transitive-fence | weak-fence
+ 47 let ordering-fence = propagation-fence | exec-order-fence
+ 48 
+ 49 (* Compute matching pairs of nested Locks and Unlocks *)
+ 50 let matched = let rec
+ 51 	    unmatched-locks = Lock \ domain(matched)
+ 52 	and unmatched-unlocks = Unlock \ range(matched)
+ 53 	and unmatched = unmatched-locks | unmatched-unlocks
+ 54 	and unmatched-po = (unmatched * unmatched) & po
+ 55 	and unmatched-locks-to-unlocks = (unmatched-locks *
+ 56 			unmatched-unlocks) & po
+ 57 	and matched = matched | (unmatched-locks-to-unlocks \
+ 58 		(unmatched-po ; unmatched-po))
+ 59 	in matched
+ 60 
+ 61 (* Validate nesting *)
+ 62 flag ~empty Lock \ domain(matched) as unbalanced-rcu-locking
+ 63 flag ~empty Unlock \ range(matched) as unbalanced-rcu-locking
+ 64 
+ 65 (* Outermost level of nesting only *)
+ 66 let crit = matched \ (po^-1 ; matched ; po^-1)
+</pre>
+</blockquote>
+
+<p>Taking this one piece at a time...
+
+<h3>Bell File: Memory Accesses</h3>
+
+<p>The &ldquo;<tt>"Linux kernel strong memory model"</tt>&rdquo; is a name
+that has no effect on the model's meaning.
+
+<p>The following portion of the Bell file defines the
+types of memory accesses:
+
+<blockquote>
+<pre>
+  5 let RMW = domain(rmw) | range(rmw)
+  6 
+  7 enum Accesses = 'once (*READ_ONCE,WRITE_ONCE,ACCESS_ONCE*) || 
+  8 		'release (*smp_store_release*) ||
+  9 		'acquire (*smp_load_acquire*) ||
+ 10 		'assign (*rcu_assign_pointer*) || 
+ 11 		'deref (*rcu_dereference*) ||
+ 12 		'lderef (*lockless_dereference*)
+ 13 instructions R[{'once,'acquire,'deref,'lderef}]
+ 14 instructions W[{'once,'release,'assign}]
+ 15 instructions RMW[{'once,'acquire,'release}]
+</pre>
+</blockquote>
+
+<p>
+The predefined &ldquo;<tt>rmw</tt>&rdquo; relation links the read and the
+write component of each read-modify-write (RMW) operation.
+The &ldquo;<tt>let RMW</tt>&rdquo; statement thus creates the
+set of all read and write events corresponding to an RMW instruction
+in the litmus-test program.
+(This shouldn't be necessary, because the <tt>RMW</tt>
+set is supposed to be built-in to <tt>herd</tt>.
+However at the time this memory model was created,
+the implementation of the <tt>RMW</tt> set wasn't working,
+so it was necessary to define the set manually.)
+
+
+<p>The &ldquo;<tt>enum Accesses</tt>&rdquo; statement defines the
+types of memory references, corresponding to the C functions listed
+in the comments.
+These correspondences are defined in <tt>herd</tt>'s
+<tt>linux.def</tt> macro file.
+The &ldquo;<tt>instructions R</tt>&rdquo; identifies which of the above
+types of memory references may be associated with a read instruction,
+the &ldquo;<tt>instructions W</tt>&rdquo; identifies which may be associated
+with a write instruction, and the &ldquo;<tt>instructions RMW</tt>&rdquo;
+identifies which may be associated with a read-modify-write instruction.
+
+<h3>Bell File: Barriers</h3>
+
+<p>The next portion of the Bell file defines the
+types of barrier-like constructs.
+
+<blockquote>
+<pre>
+ 17 enum Barriers = 'wmb (*smp_wmb*) ||
+ 18 		'rmb (*smp_rmb*) ||
+ 19 		'mb (*smp_mb*) ||
+ 20 		'rb_dep (*smp_read_barrier_depends*) ||
+ 21 		'lock (*rcu_read_lock*)  ||
+ 22 		'unlock (*rcu_read_unlock*) ||
+ 23 		'sync (*synchronize_rcu*)
+ 24 instructions F[Barriers]
+</pre>
+</blockquote>
+
+<p>The &ldquo;<tt>enum Barriers</tt>&rdquo; defines the types of barriers
+corresponding to the C functions listed in the comments
+(as set up in the <tt>linux.def</tt> macro file).
+The &ldquo;<tt>instructions F[Barriers]</tt>&rdquo; says that these
+types may be used in various sorts of barrier instructions.
+
+<p><a name="Quick Quiz 4"><b>Quick Quiz 4</b>:</a>
+Given that this is about memory barriers, why
+&ldquo;<tt>instructions F[Barriers]</tt>&rdquo; instead of perhaps
+&ldquo;<tt>instructions B[Barriers]</tt>&rdquo;?
+<br><a href="#qq4answer">Answer</a>
+
+<h3>Bell File: Relating Barriers and Memory Accesses</h3>
+
+<p>The next portion of the Bell file defines some
+relation involving the barrier events and the surrounding
+memory accesses:
+
+<blockquote>
+<pre>
+ 26 let rmb = fencerel(Rmb) & (R*R)
+ 27 let wmb = fencerel(Wmb) & (W*W)
+ 28 let mb = fencerel(Mb)
+ 29 let sync = (po & (_ * Sync)) ; (po?)
+</pre>
+</blockquote>
+
+<p>
+The standard library's <tt>fencerel(S)</tt> function returns
+a relation containing
+all pairs of events in which the first event precedes (in program order)
+an event in the <tt>S</tt> set
+(for example, an &ldquo;<tt>Rmb</tt>&rdquo; event
+in the case of the line&nbsp;26 above)
+and the second follows it, with all three events being in the same thread.
+As an example, the following snippet:
+
+<blockquote>
+<pre>
+r1 = READ_ONCE(*x);
+smp_rmb();
+r2 = READ_ONCE(*y);
+smp_mb();
+WRITE_ONCE(*z, r3);
+</pre>
+</blockquote>
+
+would produce an &ldquo;<tt>rmb</tt>&rdquo; relation containing only one link:
+
+<ul>
+<li>	<tt>r1 = READ_ONCE(*x)</tt> &#10230;
+		<tt>r2 = READ_ONCE(*y)</tt>
+</ul>
+
+and an &ldquo;<tt>mb</tt>&rdquo; relation containing three links:
+
+<ul>
+<li>	<tt>r1 = READ_ONCE(*x)</tt> &#10230;
+		<tt>WRITE_ONCE(*z, r3)</tt>,
+<li>	<tt>smp_rmb()</tt> &#10230;
+		<tt>WRITE_ONCE(*z, r3)</tt>, and
+<li>	<tt>r2 = READ_ONCE(*y)</tt> &#10230;
+		<tt>WRITE_ONCE(*z, r3)</tt>.
+</ul>
+
+The &ldquo;<tt>rmb</tt>&rdquo; relation doesn't include the other possible
+links because of the
+&ldquo;<tt>&amp; (R*R)</tt>&rdquo; clause in its definition,
+which intersects the full <tt>fencerel(Rmb)</tt> relation
+with the relation containing all pairs of reads (<tt>R*R</tt>).
+This is appropriate because <tt>smp_rmb()</tt> orders only reads,
+not writes.
+
+<p>
+(For database programming fans,
+the &ldquo;<tt>&amp;</tt>&rdquo; operator can be thought of
+as doing a database full equijoin operation, so that the result
+is only those elements that appear in both operands.
+Similarly, the &ldquo;<tt>*</tt>&rdquo; operator can be thought of as a
+database unconstrained join operation, in this case
+providing all combinations of pairs of read events.
+Later on, we will encounter operations that cannot be easily
+represented by
+<a href="https://en.wikipedia.org/wiki/SQL">SQL</a>,
+so we will shift to the notation used
+for mathematical sets.)
+
+<p>The &ldquo;<tt>let wmb = fencerel(Wmb) &amp; (W*W)</tt>&rdquo; definition
+acts similarly, but it extracts pairs of writes rather than reads, as required
+for <tt>smp_wmb()</tt>.
+The &ldquo;<tt>let mb = fencerel(Mb)</tt>&rdquo; definition
+keeps all events in the <tt>fencerel(Mb)</tt> relation,
+as required for <tt>smp_mb()</tt>.
+(It even keeps events that don't correspond to memory accesses,
+such as the <tt>smp_rmb()</tt> event above,
+although they are irrelevant here.)
+
+<p>
+Finally, the &ldquo;<tt>let sync = (po &amp; (_ * Sync)) ; (po?)</tt>&rdquo;
+definition uses a modified formula in place of
+&ldquo;<tt>fencerel(Sync)</tt>&rdquo;.
+It is different from the others in that it also includes pairs
+where the second event <i>is</i> the <tt>synchronize_rcu()</tt> call
+rather than something following it.
+Otherwise it is like the definition of the <tt>mb</tt> relation.
+
+<p><a name="Quick Quiz 5"><b>Quick Quiz 5</b>:</a>
+Why wouldn't &ldquo;<tt>let sync = fencerel(Sync)</tt>&rdquo;
+work just as well as the modified definition?
+<br><a href="#qq5answer">Answer</a>
+
+<h3>Bell File: Relating One-Sided Barriers and Memory Accesses</h3>
+
+<p>The next portion of the Bell file defines some relations involving
+&ldquo;one-sided&rdquo; barriers and their surrounding instructions:
+
+<blockquote>
+<pre>
+ 31 let acq-po = po & (Acquire*_)
+ 32 let po-rel = po & (_*Release)
+ 33 let po-assign = po & (_*Assign)
+ 34 
+ 35 let rb-dep = fencerel(Rb_dep) & (R*R)
+ 36 let deref-po = po & (Deref*M)
+ 37 let lderef-po = po & (Lderef*M)
+</pre>
+</blockquote>
+
+<p>The &ldquo;<tt>acq-po</tt>&rdquo; line defines the relation
+appropriate for <tt>smp_load_acquire()</tt> operations.
+This is the intersection of the program order (<tt>po</tt>) relation with
+the set of all pairs of events in which the first is an <tt>Acquire</tt>
+and the second can be anything (the &ldquo;<tt>_</tt>&rdquo; wildcard).
+Consider the following example containing code fragments
+running on two threads, where <tt>x</tt>, <tt>y</tt>, and
+<tt>z</tt> are all initially zero:
+
+<blockquote>
+<pre>
+Thread 0                              Thread 1
+--------                              --------
+WRITE_ONCE(*x, 1);                     r2 = smp_load_acquire(y);
+r1 = READ_ONCE(*z);                    r3 = READ_ONCE(*x);
+smp_store_release(y, 1);               WRITE_ONCE(*z, 1);
+</pre>
+</blockquote>
+
+This results in the following <tt>po</tt> links:
+
+<ul>
+<li>	<tt>WRITE_ONCE(*x, 1)</tt> &#10230;
+		<tt>r1 = READ_ONCE(*z)</tt>,
+<li>	<tt>WRITE_ONCE(*x, 1)</tt> &#10230;
+		<tt>smp_store_release(y, 1)</tt>,
+<li>	<tt>r1 = READ_ONCE(*z)</tt> &#10230;
+		<tt>smp_store_release(y, 1)</tt>,
+<li>	<tt>r2 = smp_load_acquire(y)</tt> &#10230;
+		<tt>r3 = READ_ONCE(x);</tt>,
+<li>	<tt>r2 = smp_load_acquire(y)</tt> &#10230;
+		<tt>WRITE_ONCE(z, 1)</tt>,
+<li>	<tt>r3 = READ_ONCE(*x);</tt> &#10230;
+		<tt>WRITE_ONCE(*z, 1)</tt>.
+</ul>
+
+<p>The first three links relate events in Thread&nbsp;0 and
+the last three relate events in Thread&nbsp;1.
+(The number of links in <tt>po</tt> is clearly quadratic
+in the number of statements in a given thread, but that is OK because
+several other things are exponential!
+Knowing this, you can understand
+why this sort of verification technique is unlikely to
+handle all 20 million lines of the Linux kernel at one go.
+Instead, these techniques should be applied to small but critical
+segments of code.)
+
+<p>
+In this example, there is only one <tt>Acquire</tt> event:
+&ldquo;<tt>r2 = smp_load_acquire(y)</tt>&rdquo;.
+Intersecting <tt>po</tt> with the set of
+all pairs of events in which the first is an <tt>Acquire</tt>
+gives the <tt>acq-po</tt> relation:
+
+<ul>
+<li>	<tt>r2 = smp_load_acquire(y)</tt> &#10230;
+		<tt>r3 = READ_ONCE(x);</tt>,
+<li>	<tt>r2 = smp_load_acquire(y)</tt> &#10230;
+		<tt>WRITE_ONCE(z, 1)</tt>,
+</ul>
+
+This naturally lists all pairs of instructions whose execution order is
+constrained by Thread&nbsp;1's <tt>smp_load_acquire()</tt>.
+
+<p>The &ldquo;<tt>po-rel</tt>&rdquo; definition works quite similarly, but with
+prior memory accesses rather than subsequent ones and with
+releases rather than acquires.
+The &ldquo;<tt>po-assign</tt>&rdquo; definition works the same as
+&ldquo;<tt>po-rel</tt>&rdquo;, but for <tt>rcu_assign_pointer()</tt>
+rather than <tt>smp_store_release()</tt>.
+
+<p>
+The &ldquo;<tt>rb-dep</tt>&rdquo; definition is the same as that of
+&ldquo;<tt>rmb</tt>&rdquo; earlier,
+except that it applies to <tt>smp_read_barrier_depends()</tt>
+instead of <tt>smp_rmb()</tt>.
+The &ldquo;<tt>deref-po</tt>&rdquo; definition is the same as that of
+&ldquo;<tt>acq-po</tt>&rdquo;, but for <tt>rcu_dereference()</tt>
+instead of <tt>smp_load_acquire()</tt>.
+The &ldquo;<tt>lderef-po</tt>&rdquo; definition is the same as that of
+&ldquo;<tt>deref-po</tt>&rdquo;,
+but for <tt>lockless_dereference()</tt>.
+Note that these three relations do not
+correspond exactly to ordering constraints,
+because <tt>smp_read_barrier_depends()</tt>, <tt>rcu_dereference()</tt>,
+and <tt>lockless_dereference()</tt> only
+order pairs of accesses where the second is &ldquo;dependent&rdquo; on the first
+(more precisely, where there is an address dependency between them);
+this restriction is described in more detail later on.
+
+<h3>Bell File: Classes of Fences</h3>
+
+<p>The next portion of the Bell file groups fences by strength:
+
+<blockquote>
+<pre>
+ 39 let rd-dep-fence = rb-dep | deref-po | lderef-po
+ 40 let exec-order-fence = rmb | acq-po
+ 41 let weak-fence = wmb
+ 42 let medium-fence = po-rel | po-assign
+ 43 let strong-fence = mb | sync
+ 44 
+ 45 let transitive-fence = strong-fence | medium-fence
+ 46 let propagation-fence = transitive-fence | weak-fence
+ 47 let ordering-fence = propagation-fence | exec-order-fence
+</pre>
+</blockquote>
+
+<p>
+These groupings correspond to the classes of barriers discussed earlier.
+They will be used in the Cat file to organize the various
+ordering requirements.
+
+<h3><a name="Bell File: RCU Read-Side Critical Sections">
+Bell File: RCU Read-Side Critical Sections</a></h3>
+
+<p>The final section of the Bell file is the most complex, due to the
+fact that <tt>rcu_read_lock()</tt> and <tt>rcu_read_unlock()</tt>
+must come in matching pairs and can be nested.
+
+<blockquote>
+<pre>
+ 49 (* Compute matching pairs of nested Locks and Unlocks *)
+ 50 let matched = let rec
+ 51 	    unmatched-locks = Lock \ domain(matched)
+ 52 	and unmatched-unlocks = Unlock \ range(matched)
+ 53 	and unmatched = unmatched-locks | unmatched-unlocks
+ 54 	and unmatched-po = (unmatched * unmatched) & po
+ 55 	and unmatched-locks-to-unlocks = (unmatched-locks *
+ 56 			unmatched-unlocks) & po
+ 57 	and matched = matched | (unmatched-locks-to-unlocks \
+ 58 		(unmatched-po ; unmatched-po))
+ 59 	in matched
+ 60 
+ 61 (* Validate nesting *)
+ 62 flag ~empty Lock \ domain(matched) as unbalanced-rcu-locking
+ 63 flag ~empty Unlock \ range(matched) as unbalanced-rcu-locking
+ 64 
+ 65 (* Outermost level of nesting only *)
+ 66 let crit = matched \ (po^-1 ; matched ; po^-1)
+</pre>
+</blockquote>
+
+<p>
+The &ldquo;<tt>matched</tt>&rdquo; relation is defined by the
+mutually recursive set of definitions on lines&nbsp;50-59.
+The idea behind this code is to associate an unmatched
+<tt>Lock</tt> event with a later unmatched <tt>Unlock</tt> event
+whenever no unmatched events lie between them,
+and to repeat this operation recursively until nothing more can be matched.
+
+<p>
+To that end, lines&nbsp;51-53 form the sets of not-yet-matched
+<tt>Lock</tt> and <tt>Unlock</tt> events and their union.
+Line&nbsp;54 then forms the relation of all pairs of these unmatched
+events that occur in the same thread, in program order.
+Lines&nbsp;55-56 similarly form the relation of all such pairs
+where the first member of the pair is a <tt>Lock</tt> event
+and the second is an <tt>Unlock</tt>.
+
+<p>
+The interesting part is lines&nbsp;57-58, which take
+pairs of unmatched <tt>Lock</tt> and <tt>Unlock</tt> events
+and add them to the &ldquo;<tt>matched</tt>&rdquo; relation,
+but only if there are no unmatched events in between.
+They do this by applying the
+&ldquo;<tt>\</tt>&rdquo; (backslash) subtraction operator to remove from
+the <tt>unmatched-locks-to-unlocks</tt> relation
+any pairs having an
+intervening unmatched <tt>Lock</tt> or <tt>Unlock</tt>.
+The &ldquo;<tt>;</tt>&rdquo; operator sequences relations
+(if relation <tt>x</tt> contains <tt>a&#10230;b</tt>
+and relation <tt>y</tt> contains <tt>b&#10230;c</tt>
+then (<tt>x ; y</tt>) will contain <tt>a&#10230;c</tt>).
+In this case, you can see that
+&ldquo;<tt>unmatched-po ; unmatched-po</tt>&rdquo;
+contains all pairs <tt>a&#10230;c</tt> of unmatched events for which
+a third unmatched event <tt>b</tt> lies between them in program order.
+
+<p>
+The only purpose of line&nbsp;59 is to prevent the
+<tt>unmatched-locks</tt>,
+<tt>unmatched-unlocks</tt>,
+<tt>unmatched</tt>,
+<tt>unmatched-po</tt>, and
+<tt>unmatched-locks-to-unlocks</tt>
+definitions from leaking out to the surrounding context.
+(Grammatically speaking, the construction used here is a
+<tt>let rec</tt> <i>expression</i> inside a <tt>let</tt> <i>statement</i>.
+In fact, <tt>let</tt> or <tt>let rec</tt> expressions
+are very much like GCC's statement expressions;
+the statement in lines&nbsp;50-59 is syntactically analogous to
+&ldquo;<tt>x = ({int x = u; if (x &lt; v) x = v; x;})</tt>&rdquo;.)
+
+<p>
+Line&nbsp;62 then checks whether there are any unmatched <tt>Lock</tt> events,
+and line&nbsp;63 does the same for unmatched <tt>Unlock</tt> events.
+The &ldquo;<tt>flag ~empty</tt>&rdquo; statement flags the litmus test
+as containing a semantic error if the specified set isn't empty,
+and the &ldquo;<tt>as ...</tt>&rdquo; clause merely
+provides a name to identify the particular failure mode.
+
+<p>
+Lastly, line&nbsp;66 computes those matching pairs which lie
+at the outermost level of nesting.
+They are the important ones, because they delimit
+RCU read-side critical sections.
+It does this by subtracting from &ldquo;<tt>matched</tt>&rdquo;
+all pairs which lie entirely between another matched pair.
+The &ldquo;<tt>^-1</tt>&rdquo; inversion operator computes the
+converse of a given relation; that is, it computes the collection
+of all links <tt>a&#10230;b</tt> such that
+<tt>b&#10230;a</tt> is in the given relation.
+Thus, <tt>po^-1</tt> contains all pairs of events in <i>reverse</i>
+program order.
+To see how &ldquo;<tt>(po^-1 ; matched ; po^-1)</tt>&rdquo; selects
+inner matched pairs, consider the following example:
+
+<blockquote>
+<pre>
+ 1 rcu_read_lock();
+ 2 rcu_read_lock();
+ 3 rcu_read_unlock();
+ 4 rcu_read_unlock();
+</pre>
+</blockquote>
+
+Starting at line&nbsp;2, a &ldquo;<tt>po^-1</tt>&rdquo; step takes us back to
+line&nbsp;1, a &ldquo;<tt>matched</tt>&rdquo; step takes us to line&nbsp;4,
+and a second &ldquo;<tt>po^-1</tt>&rdquo; takes us back to line&nbsp;3.
+Thus, this expression correctly identifies line&nbsp;2 &#10230 line&nbsp;3
+as an inner matched pair.
+You can easily see that this mechanism will remove from the
+<tt>matched</tt> relation all (and only!)
+matched pairs that are nested within another matched pair.
+
+<p>
+We are now ready to proceed to the Cat file.
+
+<h2><a name="Cat File">Cat File</a></h2>
+
+<p>
+<b>This section describes an slightly outdated version of
+<tt>strong-kernel.cat</tt>, and will be updated soon.
+The weak model is currently under development.
+</b>
+
+<p>The full cat file (<tt>linux.cat</tt>) for Alan Stern's
+strong model
+(<a href="strong-kernel.cat">strong-kernel.cat</a>)
+is as follows:
+
+<blockquote>
+<pre>
+ 1 "Linux kernel memory model"
+ 2
+ 3 (* Alan Stern, 31 May 2016 *)
+ 4
+ 5 include "cos.cat"
+ 6
+ 7 let com = rf | co | fr
+ 8 let coherence-order = po-loc | com
+ 9 acyclic coherence-order as coherence
+10
+11 empty rmw &amp; (fre;coe) as atomic
+12
+13
+14 let rdep = addr &amp; (_*R) &amp; rd-dep-fence
+15 let dep = addr | data
+16 let dep-rfi = dep ; rfi
+17 let rdw = po-loc &amp; (fre ; rfe)
+18 let detour = po-loc &amp; (coe ; rfe)
+19 let atomicpo = (RMW*RMW) &amp; po
+20 let addrpo = addr ; po
+21
+22 let ppo =
+23   rdep | dep-rfi | rdw |
+24   detour | atomicpo |
+25   ((dep | po-loc | ctrl | addrpo) &amp; (_*W))
+26 let strongly-hb = ppo | fence | rfe
+27 let obs = ((coe|fre) ; barrier+ ; rfe) &amp; int
+28
+29 let rec transitive-propbase = rfe? ; transitive-fence ; hb*
+30     and transitive-obs = (hb* ; (coe|fre) ; barrier* ;
+31     transitive-propbase) &amp; int
+32     and hb = strongly-hb | (addr+ ; strongly-hb) |
+33     obs | transitive-obs
+34
+35 acyclic hb as causality
+36
+37
+38 let propbase = barrier | transitive-propbase
+39 let strong-prop = fre? ; propbase* ; rfe? ; strong-fence ; hb*
+40 let prop = (transitive-propbase &amp; (W*W)) | strong-prop
+41 let atomic-hb = hb+ &amp; ((RMW&amp;W) * _)
+42 let cpord = co | prop | atomic-hb
+43
+44 acyclic cpord as propagation
+45
+46
+47 (* Propagation between strong fences *)
+48 let basic = hb* ; cpord* ; fre? ; propbase* ; rfe?
+49
+50 (* Chains that can prevent the RCU guarantee *)
+51 let s-link = sync ; basic
+52 let c-link = po ; crit^-1 ; po ; basic
+53 let rcu-path0 = s-link |
+54   (s-link ; c-link) |
+55   (c-link ; s-link)
+56 let rec rcu-path = rcu-path0 |
+57   (rcu-path ; rcu-path) |
+58   (s-link ; rcu-path ; c-link) |
+59   (c-link ; rcu-path ; s-link)
+60
+61 irreflexive rcu-path as rcu
+</pre>
+</blockquote>
+
+<p><a name="Quick Quiz 6"><b>Quick Quiz 6</b>:</a>
+This strong model is insanely complex!!!
+How can anyone be expected to understand it???
+<br><a href="#qq6answer">Answer</a>
+
+<p>Again, taking this one piece at at time...
+
+<p>First, the &ldquo;<tt>memory barriers</tt>&rdquo; is the title,
+and the &ldquo;<tt>include "cos.cat"</tt>&rdquo; pulls in some
+common definitions, similar to the C language's
+&ldquo;<tt>#include &lt;stdio.h&gt;</tt>&rdquo;.
+
+<h3>Cat File: SC Per Location and Atomics</h3>
+
+<p>The first section of the <tt>litmus.cat</tt> file defines
+SC per location, which again means that all CPUs agree on the
+order of reads and writes to any given single location.
+Therefore, any situation where CPUs disagree on the order of reads
+and writes must involve more than one variable.
+This section also provides ordering constraints for RMW atomic
+operations.
+
+<blockquote>
+<pre>
+  1 let com = rf | co | fr
+  2 let coherence-order = po-loc | com
+  3 acyclic coherence-order as coherence
+  4 
+  5 empty rmw & (fre;coe) as atomic
+</pre>
+</blockquote>
+
+<p>The &ldquo;<tt>com</tt>&rdquo; relation shown on line&nbsp;1
+is the union of:
+
+<ol>
+<li>	Coherence (<tt>co</tt>), which connects all writes
+	to any given variable, in the order that those writes
+	were executed.
+<li>	Reads-from (<tt>rf</tt>), which connects each read with
+	the write that produced the value read.
+	Note that initial values are considered to be &ldquo;before the
+	beginning of time&rdquo; writes, where time is measured by
+	the <tt>co</tt> ordering.
+<li>	From-reads (<tt>fr</tt>), which connects each read with
+	the writes to that same variable that follow the write
+	(in <tt>co</tt> order) producing the value read.
+</ol>
+
+<p>The resulting &ldquo;<tt>com</tt>&rdquo; relation tracks the
+communication of data, hence the name.
+
+<p>The predefined &ldquo;<tt>po-loc</tt>&rdquo; relation intersects the
+program-order relation &ldquo;<tt>po</tt>&rdquo; with the
+per-location &ldquo;<tt>loc</tt>&rdquo; relation.
+This results in &ldquo;<tt>po-loc</tt>&rdquo; being an union of
+relations, one per variable, connecting all per-thread accesses to any
+given variable, in program order.
+
+<p>The &ldquo;<tt>coherence-order</tt>&rdquo; relation on line&nbsp;2
+takes the
+union of &ldquo;<tt>po-loc</tt>&rdquo; and &ldquo;<tt>com</tt>&rdquo;,
+which combines the communication of data with the order in which each
+location is accessed by each thread, but maintaining all relations on
+a per-location basis.
+The &ldquo;<tt>acyclic</tt>&rdquo; constraint on line&nbsp;3
+prohibits cycles in the resulting &ldquo;<tt>coherence</tt>&rdquo;
+relation, in other words, that everyone agrees on the order of accesses
+to each location.
+
+<p>
+Line&nbsp;5 enforces the atomicity RMW operations on a given variable:
+More specifically no write to the given variable can intervene between the read
+and the write of the RMW operation.
+Recall that the &ldquo;<tt>rmw</tt>&rdquo; relationship connects a
+given RMW operation's read to its write.
+Note also that &ldquo;<tt>fre;coe</tt>&rdquo; connects any read to a given
+variable to some later write to that same variable, where at least
+one of the intervening writes was executed by some other thread.
+If the initial read was a given RMW operation's read and the final
+write was this same RMW operation's write, atomicity has been violated:
+Some other thread's write appeared after the RMW's read but before its
+write.
+Therefore, line&nbsp;5 requires that the intersection of
+&ldquo;<tt>rmw</tt>&rdquo; and &ldquo;<tt>fre;coe</tt>&rdquo; be the
+empty set, thus prohibiting violations of atomicity.
+
+<h3>Cat File: Intra-Thread Ordering</h3>
+
+<p>The next portion of the file defines intra-thread ordering relationships.
+Here &ldquo;intra-thread&rdquo; means that the ordered accesses are within
+the same thread.
+Some of the relationships will reference other threads.
+
+<blockquote>
+<pre>
+  1 let rdep = addr & (_*R) & rd-dep-fence
+  2 let dep = addr | data
+  3 let dep-rfi = dep ; rfi
+  4 let rdw = po-loc & (fre ; rfe)
+  5 let detour = po-loc & (coe ; rfe)
+  6 let atomicpo = (RMW*RMW) & po
+  7 let addrpo = addr ; po
+</pre>
+</blockquote>
+
+<p>The &ldquo;<tt>addr</tt>&rdquo; and
+&ldquo;<tt>data</tt>&rdquo;
+relations define address and data dependencies respectively.
+An address dependency occurs when a previously loaded value is used
+to form the address of a subsequent load or store within the same thread.
+A data dependency occurs when a previously loaded value is used to form
+the value stored by a subsequent store within the same thread.
+However, the Linux kernel respects neither address nor data dependencies
+unless: (1)&nbsp;The dependency is headed by <tt>rcu_dereference()</tt>
+or <tt>lockless_dereference()</tt> or
+(2)&nbsp;There is an <tt>smp_read_barrier_depends()</tt> between the
+load heading the dependency chain and the dependent memory reference.
+This requirement for a special operation helps to document the intent,
+and also allows architectures to include any special instructions
+required to enforce dependency ordering, for example, DEC Alpha
+requires a memory barrier if the dependent access is a read.
+
+<p>
+Line&nbsp;1 defines the &ldquo;<tt>rdep</tt>&rdquo; by intersecting
+the &ldquo;<tt>rd-dep-fence</tt>&rdquo; (which covers
+<tt>rcu_dereference()</tt>, <tt>lockless_dereference()</tt> and
+<tt>smp_read_barrier_depends()</tt>) with the set of address
+dependencies and with &ldquo;<tt>(_*R)</tt>&rdquo;, which
+is the set of pairs of operations where the second member of the
+pair is a read.
+This results in address dependencies leading to a read, but only
+those cases that enforce ordering between the load of the address
+and the read from that address.
+This distinction is necessary for DEC Alpha:  For all other systems,
+the definition of &ldquo;<tt>rdep</tt>&rdquo; could omit the
+intersection with &ldquo;<tt>rd-dep-fence</tt>&rdquo;.
+
+<p><a name="Quick Quiz 7"><b>Quick Quiz 7</b>:</a>
+For what code would this distinction matter?
+<br><a href="#qq7answer">Answer</a>
+
+<p>
+Line&nbsp;2 defines the &ldquo;<tt>dep</tt>&rdquo;
+relationship, which is simply the union of address and data
+dependencies.
+Line&nbsp;3 defines the &ldquo;<tt>dep-rfi</tt>&rdquo;
+relationship, which contains dependencies leading to a store,
+but where that store is read by a later load in that same thread.
+Line&nbsp;4 defines the &ldquo;<tt>rdw</tt>&rdquo;
+relationship, which contains load-store pairs within a given thread,
+where the load and store are to the same variable, but where at least
+one store to this same variable from some other thread intervened
+between this thread's load and store.
+Line&nbsp;5 does the same for store-load pairs, resulting in
+the &ldquo;<tt>detour</tt>&rdquo; relationship.
+Line&nbsp;6 forms the &ldquo;<tt>atomicpo</tt>&rdquo; relationship,
+which accumulates pairs of RMW operations where both members of
+each pair are on the same thread, and where the first member of the
+pair precedes the second member in program order.
+Finally, line&nbsp;7 defines the &ldquo;<tt>addrpo</tt>&rdquo; relationship,
+which relates operations heading address dependencies with any operations
+following the dependent operation in program order.
+
+<p><a name="Quick Quiz 8"><b>Quick Quiz 8</b>:</a>
+Why would an operation following an address dependency get any special
+treatment?
+After all, there does not appear to be any particular ordering relationship
+in the general case.
+<br><a href="#qq8answer">Answer</a>
+
+<h3>Cat File: Happens-Before</h3>
+
+The next portion of the file combines the effects of dependencies,
+barriers and grace periods to arrive at a causally ordered happens-before
+(&ldquo;<tt>hb</tt>&rdquo;) relationship.
+
+<blockquote>
+<pre>
+  1 let ppo =
+  2 	rdep | dep-rfi | rdw |
+  3 	detour | atomicpo |
+  4 	((dep | po-loc | ctrl | addrpo) & (_*W))
+  5 let strongly-hb = ppo | fence | rfe
+  6 let obs = ((coe|fre) ; barrier+ ; rfe) & int
+  7 
+  8 let rec transitive-propbase = rfe? ; transitive-fence ; hb*
+  9     and transitive-obs = (hb* ; (coe|fre) ; barrier* ;
+ 10 		transitive-propbase) & int
+ 11     and hb = strongly-hb | (addr+ ; strongly-hb) |
+ 12 		obs | transitive-obs
+ 13 
+ 14 acyclic hb as causality
+</pre>
+</blockquote>
+
+<p>
+The &ldquo;<tt>ppo</tt>&rdquo; (preserved program order) relationship
+is defined on lines&nbsp;1-4.
+This definition simply unions the sets of fence-free relationships
+for which ordering is guaranteed when the corresponding operations are
+executed within a given thread.
+The prohibition against speculating writes is taken into account with the
+intersection with &ldquo;<tt>(_*W)</tt>&rdquo; on line&nbsp;4.
+
+<p><a name="Quick Quiz 9"><b>Quick Quiz 9</b>:</a>
+Why does &ldquo;<tt>ppo</tt>&rdquo; intersect &ldquo;<tt>po-loc</tt>&rdquo;
+with &ldquo;<tt>(_*W)</tt>&rdquo;?
+Don't we need to enforce full cache coherence, not just cache coherence
+for trailing writes?
+<br><a href="#qq9answer">Answer</a>
+
+<p><a name="Quick Quiz 10"><b>Quick Quiz 10</b>:</a>
+Why do <tt>rcu_dereference()</tt> and
+<tt>lockless_dereference()</tt> respect control dependencies?
+<br><a href="#qq10answer">Answer</a>
+
+<p>
+Line&nbsp;5 defines &ldquo;<tt>strongly-hb</tt>&rdquo;
+(strongly happens-before), which combines
+&ldquo;<tt>ppo</tt>&rdquo; with fences and with cross-thread reads-from
+relationships (&ldquo;<tt>rfe</tt>&rdquo;).
+This relationship provides those single-step causal relationships
+that remain causal on DEC Alpha.
+
+<p>
+Line&nbsp;6 defines the &ldquo;<tt>obs</tt>&rdquo; (observation)
+set of relationships, in which a read operation observes
+the indirect effect of one of that thread's preceding writes,
+mediated by a read and a write separated by at least one barrier
+on some other thread.
+This set contains pairs of operations on a given
+thread (courtesy of the intersection with &ldquo;<tt>int</tt>&rdquo;)
+that are ordered by at least one fence on some other thread.
+The &ldquo;<tt>(coe|fre)</tt>&rdquo; gets us to that other thread,
+the &ldquo;<tt>barrier+</tt>&rdquo; is one or more memory-barrier
+instructions (including <tt>smp_load_acquire()</tt> and
+<tt>smp_store_release()</tt>) on that same thread, and finally the
+&ldquo;<tt>rfe</tt>&rdquo; gets us back to the original thread.
+(Of course, if it weren't for the intersection with &ldquo;<tt>int</tt>&rdquo;,
+that &ldquo;<tt>rfe</tt>&rdquo; might instead take us to a third thread.)
+
+<p>
+The &ldquo;<tt>ppo</tt>&rdquo;, &ldquo;<tt>strongly-hb</tt>&rdquo;, and
+&ldquo;<tt>obs</tt>&rdquo; relationships have provided us with
+casual relationships involving at most two threads.
+Causal relationships can extend over an arbitrarily large number of
+thread (in theory, anyway), and the purpose of the recursive definition
+of &ldquo;<tt>hb</tt>&rdquo; (happens-before) spanning lines&nbsp;8-12
+is exactly to extend causality, but in a way supported by all architectures
+that run Linux.
+
+<p>
+It is best to start with the base case on lines&nbsp;11 and&nbsp;12,
+which union the &ldquo;<tt>strongly-hb</tt>&rdquo; relationship
+(optionally preceded by an indefinitely long series of address
+dependencies) with the &ldquo;<tt>obs</tt>&rdquo; relationship.
+This results in all of the orderings involving a pair of threads.
+
+<p>
+Then line&nbsp;8's &ldquo;<tt>transitive-propbase</tt>&rdquo; (transitive
+propagation base) relationship works backwards in time, adding
+an optional cross-thread reads-from (&ldquo;<tt>rfe</tt>&rdquo;)
+relationship and a transitive fence to an existing series of
+&ldquo;<tt>hb</tt>&rdquo; relationships.
+This existing series is permitted to be empty, so that
+&ldquo;<tt>rfe? ; transitive-fence</tt>&rdquo; is a base case
+for &ldquo;<tt>transitive-propbase</tt>&rdquo; (but not for
+&ldquo;<tt>hb</tt>&rdquo;).
+
+<p>
+Lines&nbsp;9 and&nbsp;10 define &ldquo;<tt>transitive-obs</tt>&rdquo;
+(transitive observation) relationship.
+Because this is unioned directly into &ldquo;<tt>hb</tt>&rdquo;,
+it forms another base case in combination with
+&ldquo;<tt>transitive-propbase</tt>&rdquo;, namely
+&ldquo;<tt>((coe|fre);barrier*;rfe;transitive-fence)&int</tt>&rdquo;.
+This base case is roughly similar to the
+&ldquo;<tt>obs</tt>&rdquo; relationship defined on line&nbsp;6,
+hence the similar name.
+The inductive case is an arbitrarily long sequence of causally related
+events that begin and end on the same thread.
+
+<p>
+Putting the &ldquo;<tt>transitive-propbase</tt>&rdquo;,
+&ldquo;<tt>transitive-obs</tt>&rdquo;, and &ldquo;<tt>hb</tt>&rdquo;
+relationships together (recursively!), we get an arbitrarily long
+causal happens-before relationship.
+Line&nbsp;14 says that these causal relationships cannot form cycles,
+which should be intuitively appealing to anyone who does not possess
+a time machine.
+
+<h3>Cat File: Coherence Points</h3>
+
+<p>
+Even in weakly ordered systems, ordering extends somewhat beyond
+strict causality, for example, it includes the notion of coherence
+points.
+The corresponding ordering constraints are described below.
+
+<blockquote>
+<pre>
+ 1 let propbase = barrier | transitive-propbase
+ 2 let strong-prop = fre? ; propbase* ; rfe? ; strong-fence ; hb*
+ 3 let prop = (transitive-propbase &amp; (W*W)) | strong-prop
+ 4 let atomic-hb = hb+ &amp; ((RMW&amp;W) * _)
+ 5 let cpord = co | prop | atomic-hb
+ 6
+ 7 acyclic cpord as propagation
+</pre>
+</blockquote>
+
+<p>
+Line&nbsp;1 defines &ldquo;<tt>propbase</tt>&rdquo; (propagation base).
+This can be either some sort of memory barrier (&ldquo;<tt>barrier</tt>&rdquo;)
+or a &ldquo;<tt>transitive-propbase</tt>&rdquo;
+an arbitrarily long (including zero-length) series of happens-before
+relationships that begins with a transitive fence
+(and that is optionally preceded by an external reads-from relationship).
+Line&nbsp;2 defines &ldquo;<tt>strong-prop</tt>&rdquo; (strong propagation),
+which adds a strong fence (that is, either <tt>smp_mb()</tt> or
+<tt>synchronize_rcu()</tt>), and optionally much else besides to a
+(possibly empty) series of &ldquo;<tt>propbase</tt>&rdquo; relationships.
+Next, line&nbsp;3 defines &ldquo;<tt>prop</tt>&rdquo; (propagation),
+which augments &ldquo;<tt>strong-prop</tt>&rdquo; with
+&ldquo;<tt>transitive-propbase</tt>&rdquo;, but restricted to begin
+and end with a write operation.
+
+<p>
+Next, line&nbsp;4 folds in the beginnings of support for atomic RMW operations
+by defining the &ldquo;<tt>atomic-hb</tt>&rdquo; (atomic happens-before)
+relationship.
+This relationship is any non-zero-length series of happens-before
+relations ships where the first operation is the write portion of
+an atomic RMW operation.
+
+<p>
+The stage is then set for line&nbsp;5 to define the &ldquo;<tt>cpord</tt>&rdquo;
+(control-point order) relationship, which is just the union of
+the coherence, propagation, and atomic-happens-before relationships.
+Line&nbsp;7 then requires that this relationship be acyclic.
+This should be intuitively appealing to hardware architects who do not possess
+a time machine.
+
+<p>
+The happens-before and coherence-points machinery can be complex, but
+fortunately, many common use cases take simple paths through this
+happens-before machinery, for example:
+
+<blockquote>
+
+<a href="C-ISA2+o-rel+acq-rel+acq-o.litmus">Litmus Test #5</a>
+
+<pre>
+ 1 C C-ISA2+o-rel+acq-rel+acq-o.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *a, int *b)
+ 7 {
+ 8   WRITE_ONCE(*a, 1);
+ 9   smp_store_release(b, 1);
+10 }
+11
+12 P1(int *b, int *c)
+13 {
+14   int r1;
+15
+16   r1 = smp_load_acquire(b);
+17   smp_store_release(c, 1);
+18 }
+19
+20 P2(int *c, int *a)
+21 {
+22   int r2;
+23   int r3;
+24
+25   r2 = smp_load_acquire(c);
+26   r3 = READ_ONCE(*a);
+27 }
+28
+29 exists
+30 (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+</pre>
+</blockquote>
+
+<p>
+After all three threads have completed, is the outcome shown
+on line&nbsp;30 possible?
+
+<p>
+Referring to the bell file, we see that lines&nbsp;8&#10230;9, 16&#10230;17,
+and&nbsp;25&#10230;26
+are each examples of the &ldquo;<tt>transitive-weak-fence</tt>&rdquo;
+relationship.
+Other bell-file definitions mean that all three are also examples of the
+&ldquo;<tt>weak-fence</tt>&rdquo;,
+&ldquo;<tt>transitive-fence</tt>&rdquo;,
+&ldquo;<tt>barrier</tt>&rdquo;, and
+&ldquo;<tt>fence</tt>&rdquo; relationships.
+In addition, lines&nbsp;9&#10230;16 and&nbsp;17&#10230;25 are examples of the
+&ldquo;<tt>rfe</tt>&rdquo; relationship.
+Finally, lines&nbsp;26&#10230;8 is an example of the
+&ldquo;<tt>fre</tt>&rdquo; relationship.
+
+<p>
+Referring now to the cat file, we see that lines&nbsp;8&#10230;9,
+16&#10230;17, 25&#10230;26,
+9&#10230;16, and&nbsp;17&#10230;25
+are each examples of the &ldquo;<tt>strongly-hb</tt>&rdquo;
+relationship, by virtue of them being examples of either the
+&ldquo;<tt>fence</tt>&rdquo; or &ldquo;<tt>rfe</tt>&rdquo;
+relationships.
+This in turn means that each of these relationships are examples of
+the &ldquo;<tt>hb</tt>&rdquo; base case.
+
+<p>
+Let's call 8&#10230;9 a &ldquo;<tt>transitive-fence</tt>&rdquo; and each
+of 16&#10230;17, 25&#10230;26, 9&#10230;16, and&nbsp;17&#10230;25
+an &ldquo;<tt>hb</tt>&rdquo;.
+Then the series
+8&#10230;9&#10230;16&#10230;17&#10230;25&#10230;26
+is an example of
+&ldquo;<tt>transitive-propbase</tt>&rdquo;.
+Now let's look at &ldquo;<tt>transitive-obs</tt>&rdquo;,
+ignoring the possibly-empty &ldquo;<tt>hb*</tt>&rdquo; and
+&ldquo;<tt>barrier*</tt>&rdquo; components of that relationship.
+This leaves us with
+&ldquo;<tt>(coe|fre);transitive-propbase</tt>&rdquo;.
+Now 26&#10230;8 is an &ldquo;<tt>fre</tt>&rdquo;, so given that
+8&#10230;9&#10230;16&#10230;17&#10230;25&#10230;26
+is a &ldquo;<tt>transitive-propbase</tt>&rdquo;,
+and given that the series
+26&#10230;8&#10230;9&#10230;16&#10230;17&#10230;25&#10230;26
+begins and ends in the
+same process, this series is a &ldquo;<tt>transitive-obs</tt>&rdquo;.
+Because &ldquo;<tt>transitive-obs</tt>&rdquo; can be an
+&ldquo;<tt>hb</tt>&rdquo; and &ldquo;<tt>hb</tt>&rdquo; must be acyclic,
+the cycle
+26&#10230;8&#10230;9&#10230;16&#10230;17&#10230;25&#10230;26
+is forbidden.
+
+<p>
+This is confirmed by running the command:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat C-ISA2+o-rel+acq-rel+acq-o.litmus
+</pre>
+</blockquote>
+
+<p>
+Which produces the following output:
+
+<blockquote>
+<pre>
+Test C-ISA2+o-rel+acq-rel+acq-o Allowed
+States 7
+1:r1=0; 2:r2=0; 2:r3=0;
+1:r1=0; 2:r2=0; 2:r3=1;
+1:r1=0; 2:r2=1; 2:r3=0;
+1:r1=0; 2:r2=1; 2:r3=1;
+1:r1=1; 2:r2=0; 2:r3=0;
+1:r1=1; 2:r2=0; 2:r3=1;
+1:r1=1; 2:r2=1; 2:r3=1;
+No
+Witnesses
+Positive: 0 Negative: 7
+Condition exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+Observation C-ISA2+o-rel+acq-rel+acq-o Never 0 7
+Hash=9762857b08e4db85dbbf52a7b43068e9
+</pre>
+</blockquote>
+
+The &ldquo;<tt>Never 0 7</tt>&rdquo; should be reassuring, given that
+this cycle is analogous a series of lock releases and acquires, which
+had jolly well better be fully ordered!
+
+<p>
+Let's now look at a roughly similar example:
+
+<blockquote>
+
+<a href="C-W+WRC+o-rel+acq-o+o-mb-o.litmus">Litmus Test #6</a>
+
+<pre>
+ 1 C C-W+WRC+o-rel+acq-o+o-mb-o.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *a, int *b)
+ 7 {
+ 8   WRITE_ONCE(*a, 1);
+ 9   smp_store_release(b, 1);
+10 }
+11
+12 P1(int *b, int *c)
+13 {
+14   int r1;
+15   int r2;
+16
+17   r1 = smp_load_acquire(b);
+18   r2 = READ_ONCE(*c);
+19 }
+20
+21 P2(int *c, int *a)
+22 {
+23   int r3;
+24
+25   WRITE_ONCE(*c, 1);
+26   smp_mb();
+27   r3 = READ_ONCE(*a);
+28 }
+29
+30 exists
+31 (1:r1=1 /\ 1:r2=0 /\ 2:r3=0)
+</pre>
+</blockquote>
+
+<p>
+After all three threads have completed, is the result
+shown on line&nbsp;31 possible?
+
+<p>
+Referring again to the bell file, we see that lines&nbsp;8&#10230;9
+and&nbsp;17&#10230;18
+are both examples of the &ldquo;<tt>transitive-weak-fence</tt>&rdquo;
+relationship.
+Other bell-file definitions mean that both are also examples of the
+&ldquo;<tt>weak-fence</tt>&rdquo;,
+&ldquo;<tt>transitive-fence</tt>&rdquo;,
+&ldquo;<tt>barrier</tt>&rdquo;, and
+&ldquo;<tt>fence</tt>&rdquo; relationships.
+Also, lines&nbsp;25&#10230;27 is an example of the
+&ldquo;<tt>strong-fence</tt>&rdquo; relationship, which in turn means
+that it is an example of the
+&ldquo;<tt>barrier</tt>&rdquo; and
+&ldquo;<tt>fence</tt>&rdquo; relationships.
+Finally, lines&nbsp;9&#10230;17 is an example of the
+&ldquo;<tt>rfe</tt>&rdquo; relationship and
+lines&nbsp;18&#10230;25 and&nbsp;27&#10230;8 are examples of the
+&ldquo;<tt>fre</tt>&rdquo; relationship.
+
+<p>
+Switching out attention to the cat file, we see that lines&nbsp;8&#10230;9,
+9&#10230;17, 17&#10230;18, and 25&#10230;27 are all examples of the
+&ldquo;<tt>strongly-hb</tt>&rdquo; relationship by virtue of
+being examples of either the
+&ldquo;<tt>fence</tt>&rdquo; or &ldquo;<tt>rfe</tt>&rdquo; relationships.
+However, our previous strategy using the
+&ldquo;<tt>transitive-obs</tt>&rdquo; relationship fails
+because it only allows a single &ldquo;<tt>fre</tt>&rdquo; relationship
+in a series that is required to begin and end on the same thread, and
+we instead have two &ldquo;<tt>fre</tt>&rdquo; relationships, both of
+which must be traversed to get back to the same thread.
+Therefore, our &ldquo;<tt>hb</tt>&rdquo; relationships cover only the
+series 8&#10230;9&#10230;17&#10230;18 and the series 25&#10230;27,
+with no way to connect the two.
+
+<p>
+The &ldquo;<tt>strong-prop</tt>&rdquo; relationship is another
+possibility, but it again only allows for a single
+&ldquo;<tt>fre</tt>&rdquo; relationship.
+There are no &ldquo;<tt>rmw</tt>&rdquo; relationships, so the
+&ldquo;<tt>atomic</tt>&rdquo; check cannot help, either.
+The &ldquo;<tt>rdw</tt>&rdquo; relationship requires a
+&ldquo;<tt>(fre;rfe)</tt>&rdquo; series that does not exist in this
+litmus test.
+Finally, &ldquo;<tt>obs</tt>&rdquo; allows only a single
+&ldquo;<tt>fre</tt>&rdquo; relationship in a series that begins and
+ends on the same thread.
+Therefore, the outcome <tt>r1&amp;&amp;!r2&amp;&amp;!r3</tt> really can
+happen, which will be no surprise
+to anyone who has heard that powerpc's locks do not provide global ordering.
+After all, this litmus test can be thought of as modeling
+<tt>P0()</tt> releasing a lock, <tt>P1()</tt> acquiring it, and
+<tt>P2()</tt> being an external observer checking for misordering
+of <tt>P0()</tt>'s write to <tt>a</tt> with <tt>P1()</tt>'s
+read from <tt>c</tt>.
+
+<p>
+In addition, &ldquo;<tt>fre</tt>&rdquo; relationships are non-causal,
+so it makes sense that they can play only a limited role in the forbidding
+of cycles.
+In contrast, &ldquo;<tt>rfe</tt>&rdquo; relationships are causal,
+and thus much more likely to result in forbidden cycles.
+And this can be confirmed by running the following command line:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat C-W+WRC+o-rel+acq-o+o-mb-o.litmus
+</pre>
+</blockquote>
+
+<p>
+Which results in the following output:
+
+<blockquote>
+<pre>
+Test C-W+WRC+o-rel+acq-o+o-mb-o Allowed
+States 8
+1:r1=0; 1:r2=0; 2:r3=0;
+1:r1=0; 1:r2=0; 2:r3=1;
+1:r1=0; 1:r2=1; 2:r3=0;
+1:r1=0; 1:r2=1; 2:r3=1;
+1:r1=1; 1:r2=0; 2:r3=0;
+1:r1=1; 1:r2=0; 2:r3=1;
+1:r1=1; 1:r2=1; 2:r3=0;
+1:r1=1; 1:r2=1; 2:r3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 7
+Condition exists (1:r1=1 /\ 1:r2=0 /\ 2:r3=0)
+Observation C-W+WRC+o-rel+acq-o+o-mb-o Sometimes 1 7
+Hash=8e3c5d7d5d36f2b1484ff237e8d22f91
+</pre>
+</blockquote>
+
+<p>
+However, full barriers (<tt>smp_mb()</tt>) can be used to force the
+Linux kernel to respect full non-causal ordering, and this is the
+main job of the &ldquo;<tt>cpord</tt>&rdquo; relationship.
+To see this, consider the following store-buffering litmus test:
+
+<blockquote>
+
+<a href="C-SB+o-mb-o+o-mb-o.litmus">Litmus Test #7</a>
+
+<pre>
+ 1 C C-SB+o-mb-o+o-mb-o.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *x, int *y)
+ 7 {
+ 8   int r1;
+ 9
+10   WRITE_ONCE(*x, 1);
+11   smp_mb();
+12   r1 = READ_ONCE(*y);
+13 }
+14
+15 P1(int *x, int *y)
+16 {
+17   int r2;
+18
+19   WRITE_ONCE(*y, 1);
+20   smp_mb();
+21   r2 = READ_ONCE(*x);
+22 }
+23
+24 exists
+25 (0:r1=0 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+Can the cyclic outcome &ldquo;<tt>!r1&amp;&amp;!r2</tt>&rdquo;
+called out in line&nbsp;25 really happen?
+
+<p>
+Lines&nbsp;10&#10230;12 and&nbsp;19&#10230;21 are both examples of the
+&ldquo;<tt>strong-fence</tt>&rdquo; relationship, which in turn means
+that they are also examples of the
+&ldquo;<tt>barrier</tt>&rdquo; and
+&ldquo;<tt>fence</tt>&rdquo; relationships.
+Lines&nbsp;12&#10230;19 and&nbsp;21&#10230;10 are examples of the
+&ldquo;<tt>fre</tt>&rdquo;
+relationships.
+As noted earlier, the fact that you have to go through two
+&ldquo;<tt>fre</tt>&rdquo; relationships to get back to the original
+thread means that the
+&ldquo;<tt>hb</tt>&rdquo; relationship does not apply.
+We therefore need to look to the &ldquo;<tt>cpord</tt>&rdquo; relationship.
+
+<p><a name="Quick Quiz 11"><b>Quick Quiz 11</b>:</a>
+Is there an easy way to tell which definitions have effect for a
+given litmus test?
+<br><a href="#qq11answer">Answer</a>
+
+<p>
+Omitting most of the optional elements from the
+&ldquo;<tt>strong-prop</tt>&rdquo; relationship results in the following:
+&ldquo;<tt>fre?;strong-fence</tt>&rdquo;, a relationship that has
+as members the pair of series 10&#10230;12&#10230;19 and
+19&#10230;21&#10230;10.
+Any &ldquo;<tt>strong-prop</tt>&rdquo; relationship is also a
+&ldquo;<tt>prop</tt>&rdquo; relationship and a
+&ldquo;<tt>cpord</tt>&rdquo; relationship.
+However, the &ldquo;<tt>cpord</tt>&rdquo; relationship is required to
+be acyclic, that is, no matter how you string together
+&ldquo;<tt>cpord</tt>&rdquo; relations, there must not be a cycle.
+Given that stringing together 10&#10230;12&#10230;19 and
+19&#10230;21&#10230;10 results in the cycle
+10&#10230;12&#10230;19&#10230;21&#10230;10,
+we are forced to conclude that the store-buffering
+litmus test's cyclic outcome &ldquo;<tt>!r1&amp;&amp;!r2</tt>&rdquo;
+is forbidden.
+
+<p><a name="Quick Quiz 12"><b>Quick Quiz 12</b>:</a>
+Why does &ldquo;<tt>cpord</tt>&rdquo; prohibit a cycle containing two
+&ldquo;<tt>fre</tt>&rdquo; relationships when &ldquo;<tt>hb</tt>&rdquo;
+does not?
+They are both acyclic, after all!
+<br><a href="#qq12answer">Answer</a>
+
+<h3>Cat File: RCU</h3>
+
+<p>
+The previous section showed how <tt>smp_mb()</tt> can restore
+sequential consistency.
+However, as Jade noted, <tt>synchronize_rcu()</tt> is even stronger
+still, and therefore requires even more cat-file code.
+The final portion of the cat file therefore covers RCU relationships.
+
+<p><a name="Quick Quiz 13"><b>Quick Quiz 13</b>:</a>
+Say what???
+How can anything possibly be stronger than sequential consistency???
+<br><a href="#qq13answer">Answer</a>
+
+<p>
+RCU's fragment of the cat file is as follows:
+
+<blockquote>
+<pre>
+  1 (* Propagation between strong fences *)
+  2 let basic = hb* ; cpord* ; fre? ; propbase* ; rfe?
+  3 
+  4 (* Chains that can prevent the RCU guarantee *)
+  5 let s-link = sync ; basic
+  6 let c-link = po ; crit^-1 ; po ; basic
+  7 let rcu-path0 = s-link |
+  8 	(s-link ; c-link) |
+  9 	(c-link ; s-link)
+ 10 let rec rcu-path = rcu-path0 |
+ 11 	(rcu-path ; rcu-path) |
+ 12 	(s-link ; rcu-path ; c-link) |
+ 13 	(c-link ; rcu-path ; s-link)
+ 14 
+ 15 irreflexive rcu-path as rcu
+</pre>
+</blockquote>
+
+<p>
+Line&nbsp;2 defines the &ldquo;<tt>basic</tt>&rdquo; relationship,
+which orders <tt>smp_mb()</tt>, <tt>synchronize_rcu()</tt>, and
+RCU read-side critical sections.
+The ordering of <tt>smp_mb()</tt> is handled implicitly within
+the definitions of the component relationships that have been
+unioned together to form &ldquo;<tt>basic</tt>&rdquo;.
+
+<p><a name="Quick Quiz 14"><b>Quick Quiz 14</b>:</a>
+But &ldquo;<tt>basic</tt>&rdquo; could be the empty relationship,
+so that it would directly connect what preceded it with what followed it.
+How can that be right?
+<br><a href="#qq14answer">Answer</a>
+
+<p>
+Line&nbsp;5 defines the &ldquo;<tt>s-link</tt>&rdquo;
+(<tt>synchronize_rcu()</tt> link) relationship to be an RCU
+grace period followed by some sequence of operations that provides
+ordering.
+Similarly, line&nbsp;6 defines the &ldquo;<tt>c-link</tt>&rdquo;
+(critical-section link) relationship to be an RCU read-side critical section
+followed by some sequence of operations that provides ordering.
+However, the formulation for &ldquo;<tt>c-link</tt>&rdquo; is interesting
+in that it allows any access preceding an RCU read-side critical section
+in that same thread to be used as evidence that an earlier grace period
+is ordered before the critical section, and vice versa.
+The importance of this is shown by the following litmus test:
+
+<blockquote>
+
+<a href="C-LB+o-sync-o+rl-o-o-rul+o-rl-rul-o+o-sync-o.litmus">Litmus Test #8</a>
+
+<pre>
+ 1 C C-LB+o-sync-o+rl-o-o-rul+o-rl-rul-o+o-sync-o.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *a, int *b)
+ 7 {
+ 8   int r1;
+ 9
+10   r1 = READ_ONCE(*a);
+11   synchronize_rcu();
+12   WRITE_ONCE(*b, 1);
+13 }
+14
+15 P1(int *b, int *c)
+16 {
+17   int r2;
+18
+19   rcu_read_lock();
+20   r2 = READ_ONCE(*b);
+21   WRITE_ONCE(*c, 1);
+22   rcu_read_unlock();
+23 }
+24
+25 P2(int *c, int *d)
+26 {
+27   int r3;
+28
+29   r3 = READ_ONCE(*c);
+30   rcu_read_lock();
+31   // do_something_else();
+32   rcu_read_unlock();
+33   WRITE_ONCE(*d, 1);
+34 }
+35
+36 P3(int *d, int *a)
+37 {
+38   int r4;
+39
+40   r4 = READ_ONCE(*d);
+41   synchronize_rcu();
+42   WRITE_ONCE(*a, 1);
+43 }
+44
+45 exists
+46 (0:r1=1 /\ 1:r2=1 /\ 2:r3=1 /\ 3:r4=1)
+</pre>
+</blockquote>
+
+<p>
+The normal usage of &ldquo;<tt>c-link</tt>&rdquo; is illustrated by
+<tt>P1()</tt>.
+The &ldquo;<tt>c-link</tt>&rdquo; definition could start at line&nbsp;20,
+take a &ldquo;<tt>po</tt>&rdquo; step to the <tt>rcu_read_unlock()</tt> on
+line&nbsp;13, step back to the <tt>rcu_read_lock()</tt> on line&nbsp;19,
+and finally a &ldquo;<tt>po</tt>&rdquo; step to line&nbsp;21.
+This implements the rule: &ldquo;If any part of an RCU read-side
+critical section follows anything after a given RCU grace period,
+then the entirety of that critical section follows anything preceding
+that grace period&rdquo;, where the preceding grace period is the
+one in <tt>P0()</tt>.
+
+<p>
+The more expansive usage is illustrated by <tt>P2()</tt>.
+The &ldquo;<tt>c-link</tt>&rdquo; definition could start at line&nbsp;29,
+take a &ldquo;<tt>po</tt>&rdquo; step to the
+<tt>rcu_read_unlock()</tt> on line&nbsp;32, then a
+&ldquo;<tt>crit^-1</tt>&rdquo;, step back to the <tt>rcu_read_lock()</tt>
+on line&nbsp;30, and finally a &ldquo;<tt>po</tt>&rdquo; step to
+line&nbsp;33.
+This allows &ldquo;<tt>c-link</tt>&rdquo; (in conjunction with
+&ldquo;<tt>basic</tt>&rdquo;) to link the access on
+line&nbsp;21 of <tt>P1()</tt> with the access on line&nbsp;40
+of <tt>P3()</tt>.
+
+<p>
+Without this more expansive definition of &ldquo;<tt>c-link</tt>&rdquo;,
+the questionable outcome
+<tt>r1&amp;&amp;r2&amp;&amp;r3&amp;&amp;r4</tt> is permitted, which
+it is not, as can be seen by running:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat \
+      C-LB+o-sync-o+rl-o-o-rul+o-rl-rul-o+o-sync-o.litmus
+</pre>
+</blockquote>
+
+<p>
+This gives the reassuring output:
+
+<blockquote>
+<pre>
+Test C-LB+o-sync-o+rl-o-o-rul+o-rl-rul-o+o-sync-o Allowed
+States 15
+0:r1=0; 1:r2=0; 2:r3=0; 3:r4=0;
+0:r1=0; 1:r2=0; 2:r3=0; 3:r4=1;
+0:r1=0; 1:r2=0; 2:r3=1; 3:r4=0;
+0:r1=0; 1:r2=0; 2:r3=1; 3:r4=1;
+0:r1=0; 1:r2=1; 2:r3=0; 3:r4=0;
+0:r1=0; 1:r2=1; 2:r3=0; 3:r4=1;
+0:r1=0; 1:r2=1; 2:r3=1; 3:r4=0;
+0:r1=0; 1:r2=1; 2:r3=1; 3:r4=1;
+0:r1=1; 1:r2=0; 2:r3=0; 3:r4=0;
+0:r1=1; 1:r2=0; 2:r3=0; 3:r4=1;
+0:r1=1; 1:r2=0; 2:r3=1; 3:r4=0;
+0:r1=1; 1:r2=0; 2:r3=1; 3:r4=1;
+0:r1=1; 1:r2=1; 2:r3=0; 3:r4=0;
+0:r1=1; 1:r2=1; 2:r3=0; 3:r4=1;
+0:r1=1; 1:r2=1; 2:r3=1; 3:r4=0;
+No
+Witnesses
+Positive: 0 Negative: 15
+Condition exists (0:r1=1 /\ 1:r2=1 /\ 2:r3=1 /\ 3:r4=1)
+Observation C-LB+o-sync-o+rl-o-o-rul+o-rl-rul-o+o-sync-o Never 0 15
+Hash=c792a4c620a9d5244c0bee80da2a90fa
+</pre>
+</blockquote>
+
+<p>
+In short, if anything within or preceding a given RCU read-side critical
+section follows anything after a given RCU grace period, then it is
+probably best if that entire RCU read-side critical section follows
+anything preceding the grace period, and vice versa.
+
+<p>
+Lines&nbsp;7-9 of RCU's cat-file fragment
+define &ldquo;<tt>rcu-path0</tt>&rdquo;
+(RCU path base case) relationship to be the three basic ways that
+RCU provides ordering:
+
+<ol>
+<li>	A single <tt>synchronize_rcu()</tt> invocation, which
+	in theory may be substituted for <tt>smp_mb()</tt>.
+	(In practice, good luck with instances of <tt>smp_mb()</tt>
+	in preempt-disabled regions of code, to say nothing of the
+	disastrous degradation of performance.)
+<li>	A <tt>synchronize_rcu()</tt> that is ordered before an
+	RCU read-side critical section.
+	This commonly used case guarantees that if some RCU read-side
+	critical section extends beyond the end of a grace period,
+	then all of that RCU read-side critical section happens after
+	anything preceding that grace period.
+	In other words, if any part of the critical section might happen
+	after the <tt>kfree()</tt>, all of that critical section will
+	happen after the corresponding <tt>list_del_rcu()</tt>.
+	This case groups the RCU grace period in <tt>P0()</tt>
+	and the RCU read-side critical section in <tt>P1()</tt>
+	in the example above.
+<li>	An RCU read-side critical section that is ordered before a
+	<tt>synchronize_rcu()</tt>.
+	This commonly used case guarantees that if some RCU read-side
+	critical section extends before the beginning of a grace period,
+	then all of that RCU read-side critical section happens before
+	anything following that grace period.
+	In other words, if any part of the critical section might happen
+	before the <tt>list_del_rcu()</tt>, all of that critical section will
+	happen before the corresponding the <tt>kfree()</tt>.
+	This case groups the the RCU read-side critical section in
+	<tt>P2()</tt> and RCU grace period in <tt>P3()</tt>
+	in the example above.
+</ol>
+
+<p>
+The recursive definition of &ldquo;<tt>rcu-path</tt>&rdquo; on lines&nbsp;10-13
+builds on &ldquo;<tt>rcu-path0</tt>&rdquo;.
+The &ldquo;<tt>rcu-path0</tt>&rdquo; on line&nbsp;10 supplies the base
+case.
+Line&nbsp;11's &ldquo;<tt>(rcu-path;rcu-path)</tt>&rdquo; states that
+if any two sequences of RCU grace periods and read-side critical sections
+provide ordering, then the concatenation of those two sequences also
+provides ordering, and applies to the <tt>P0()</tt>-<tt>P1()</tt>
+and <tt>P2()</tt>-<tt>P3()</tt> groups in the example above,
+thus guaranteeing that the questionable outcome
+<tt>r1&amp;&amp;r2&amp;&amp;r3&amp;&amp;r4</tt> is forbidden.
+Line&nbsp;12's &ldquo;<tt>(s-link;rcu-path;c-link)</tt>&rdquo; states
+that if some sequence of RCU grace periods and read-side critical sections
+provides ordering, then ordering is still provided when that sequence
+is preceded by <tt>synchronize_rcu()</tt> and followed by an RCU
+read-side critical section.
+Finally, line&nbsp;13's &ldquo;<tt>(c-link;rcu-path;s-link)</tt>&rdquo; states
+that if some sequence of RCU grace periods and read-side critical sections
+provides ordering, then ordering is still provided when that sequence
+is preceded by an RCU read-side critical section and followed by
+<tt>synchronize_rcu()</tt>.
+
+<p>
+Line&nbsp;15 states that &ldquo;<tt>rcu-path</tt>&rdquo; cannot loop back
+on itself, in other words, that &ldquo;<tt>rcu-path</tt>&rdquo;
+provides ordering.
+
+<p>
+Another way of thinking of &ldquo;<tt>rcu-path</tt>&rdquo; is of a counter
+and comparison, implemented recursively.
+If there are at least as many calls to <tt>synchronize_rcu()</tt>
+as there are RCU read-side critical sections in a given
+&ldquo;<tt>rcu-path</tt>&rdquo;, ordering is guaranteed, otherwise not.
+
+<p>
+Let's use this machinery to analyze the prototypical RCU-deferred-free
+scenario:
+
+<blockquote>
+
+<p>
+<a href="C-LB+rl-deref-o-rul+o-sync-o.litmus">Litmus Test #9</a>
+
+<pre>
+ 1 C C-LB+rl-deref-o-rul+o-sync-o.litmus
+ 2
+ 3 {
+ 4   a=x;
+ 5 }
+ 6
+ 7 P0(int **a)
+ 8 {
+ 9   int *r1;
+10   int r2;
+11
+12   rcu_read_lock();
+13   r1 = rcu_dereference(*a);
+14   r2 = READ_ONCE(*r1);
+15   rcu_read_unlock();
+16 }
+17
+18 P1(int **a, int *x, int *y)
+19 {
+20   WRITE_ONCE(*a, y);
+21   synchronize_rcu();
+22   WRITE_ONCE(*x, 1);  /* Emulate kfree(). */
+23 }
+24
+25 exists
+26 (0:r1=x /\ 0:r2=1)
+</pre>
+</blockquote>
+
+<p>
+The variable <tt>a</tt> initially references the variable <tt>x</tt>,
+which is initially zero.
+The <tt>P1()</tt> function sets variable <tt>y</tt> to reference
+the variable <tt>y</tt> (also initially zero), then sets the value
+of <tt>x</tt> to 1 to emulate the effects of <tt>kfree()</tt>.
+Any RCU reader accessing and dereferencing <tt>a</tt> should therefore
+see the value zero, in other words, the outcome <tt>r2</tt> should
+be forbidden.
+In other words, we would expect the cycle
+20&#10230;22&#10230;14&#10230;15&#10230;12&#10230;13&#10230;20
+to be forbidden.
+Let's check!
+
+<p>
+Lines&nbsp;12&#10230;15 is a
+&ldquo;<tt>crit</tt>&rdquo; relationship, while
+lines&nbsp;20&#10230;22 is a &ldquo;<tt>sync</tt>&rdquo; relationship.
+If the cycle is allowed,
+Lines&nbsp;13&#10230;20 form an &ldquo;<tt>fre</tt>&rdquo; relationship
+and lines&nbsp;22&#10230;14 form an &ldquo;<tt>rfe</tt>&rdquo; relationship.
+This means that lines&nbsp;13&#10230;20 and lines&nbsp;22&#10230;14 are also
+&ldquo;<tt>basic</tt>&rdquo; relationships.
+This means that the series 20&#10230;22&#10230;14 is a
+&ldquo;<tt>s-link</tt>&rdquo;
+relationship.
+
+<p>
+Given that lines&nbsp;14&#10230;15 and&nbsp;12&#10230;13 are
+&ldquo;<tt>po</tt>&rdquo; relationships,
+the series 14&#10230;15&#10230;12&#10230;13&#10230;20 is a
+&ldquo;<tt>c-link</tt>&rdquo; relationship.
+We therefore have an &ldquo;<tt>s-link</tt>&rdquo; relationship
+followed by a &ldquo;<tt>c-link</tt>&rdquo; (or vice versa), so
+that the series
+20&#10230;22&#10230;14&#10230;15&#10230;12&#10230;13&#10230;20
+is an &ldquo;<tt>rcu-path0</tt>&rdquo;
+relationship, which means that this same series is also an
+&ldquo;<tt>rcu-path</tt>&rdquo; relationship.
+Because it ends where it starts, on line&nbsp;20, it is reflexive,
+and thus forbidden.
+The following command confirms this:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat C-LB+rl-deref-o-rul+o-sync-o.litmus
+</pre>
+</blockquote>
+
+<p>
+This command produces the following output:
+
+<blockquote>
+<pre>
+Test C-LB+rl-deref-o-rul+o-sync-o Allowed
+States 2
+0:r1=x; 0:r2=0;
+0:r1=y; 0:r2=0;
+No
+Witnesses
+Positive: 0 Negative: 2
+Condition exists (0:r1=x /\ 0:r2=1)
+Observation C-LB+rl-deref-o-rul+o-sync-o Never 0 2
+Hash=0c483dc427960c11ac9395e4282a41d7
+</pre>
+</blockquote>
+
+<p>
+Therefore, the RCU read-side critical section in <tt>P0()</tt>
+cannot see the emulated <tt>kfree()</tt> following <tt>P1()</tt>'s
+grace period, which should be some comfort to users of RCU.
+
+<p>
+But suppose we add another RCU read-side critical section to the mix,
+in the following somewhat inane but hopefully instructive example?
+
+<blockquote>
+
+<a href="C-LB+rl-deref-o-rul+o-sync-o+rl-o-o-rlu.litmus">Litmus Test #10</a>
+
+<pre>
+ 1 C C-LB+rl-deref-o-rul+o-sync-o+rl-o-o-rlu.litmus
+ 2
+ 3 {
+ 4   a=x;
+ 5 }
+ 6
+ 7 P0(int **a)
+ 8 {
+ 9   int *r1;
+10   int r2;
+11
+12   rcu_read_lock();
+13   r1 = rcu_dereference(*a);
+14   r2 = READ_ONCE(*r1);
+15   rcu_read_unlock();
+16 }
+17
+18 P1(int **a, int *y, int *z)
+19 {
+20   WRITE_ONCE(*a, y);
+21   synchronize_rcu();
+22   WRITE_ONCE(*z, 1);
+23 }
+24
+25 P2(int *x, int *z)
+26 {
+27   int r3;
+28
+29   rcu_read_lock();
+30   r3 = READ_ONCE(*z);
+31   WRITE_ONCE(*x, 1);  /* Emulate kfree(). */
+32   rcu_read_unlock();
+33 }
+34
+35 exists
+36 (0:r1=x /\ 0:r2=1 /\ 2:r3=1)
+</pre>
+</blockquote>
+
+<p>
+Can the outcome <tt>r2</tt> happen now?
+
+<p>
+Lines&nbsp;12&#10230;15 and&nbsp;29&#10230;32 are
+&ldquo;<tt>crit</tt>&rdquo; relationships, while
+Lines&nbsp;20&#10230;22 is a &ldquo;<tt>sync</tt>&rdquo; relationship.
+Lines&nbsp;22&#10230;30 and&nbsp;31&#10230;14 are &ldquo;<tt>rfe</tt>&rdquo;
+relationships and lines&nbsp;13&#10230;20 are an &ldquo;<tt>fre</tt>&rdquo;,
+which means that all are also
+&ldquo;<tt>basic</tt>&rdquo; relationships.
+This means that the series 20&#10230;22&#10230;30 is a
+&ldquo;<tt>s-link</tt>&rdquo;
+relationship.
+
+<p>
+Given that lines&nbsp;14&#10230;15 and&nbsp;12&#10230;13 are
+&ldquo;<tt>po</tt>&rdquo; relationships,
+the series
+14&#10230;15&#10230;12&#10230;13&#10230;20 is a &ldquo;<tt>c-link</tt>&rdquo;
+relationship.
+Similarly, because lines&nbsp;30&#10230;32 and&nbsp;29&#10230;31 are
+&ldquo;<tt>po</tt>&rdquo; relationships,
+the series 30&#10230;32&#10230;29&#10230;31&#10230;14
+is also a &ldquo;<tt>c-link</tt>&rdquo;
+relationship.
+
+<p>
+We therefore have one &ldquo;<tt>c-link</tt>&rdquo; relationship
+followed by a &ldquo;<tt>s-link</tt>&rdquo; relationship, which in
+turn is followed by another &ldquo;<tt>c-link</tt>&rdquo; relationship.
+The &ldquo;<tt>c-link</tt>&rdquo; relationship
+14&#10230;15&#10230;12&#10230;13&#10230;20
+can combine with the
+&ldquo;<tt>s-link</tt>&rdquo; relationship
+20&#10230;22&#10230;30
+to form the &ldquo;<tt>rcu-path0</tt>&rdquo; relationship
+14&#10230;15&#10230;12&#10230;13&#10230;20&#10230;22&#10230;30.
+However, there is no way to add the remaining &ldquo;<tt>c-link</tt>&rdquo;
+relationship 30&#10230;32&#10230;29&#10230;31&#10230;14,
+so the cycle resulting in
+<tt>r2</tt> can in fact happen.
+This is confirmed by the command:
+
+<blockquote>
+<pre>
+herd7 -macros linux.def -bell strong-kernel.bell -cat strong-kernel.cat \
+      C-LB+rl-deref-o-rul+o-sync-o+rl-o-o-rlu.litmus
+</pre>
+</blockquote>
+
+<p>
+Which produces the output:
+
+<blockquote>
+<pre>
+Test C-LB+rl-deref-o-rul+o-sync-o+rl-o-o-rlu Allowed
+States 6
+0:r1=x; 0:r2=0; 2:r3=0;
+0:r1=x; 0:r2=0; 2:r3=1;
+0:r1=x; 0:r2=1; 2:r3=0;
+0:r1=x; 0:r2=1; 2:r3=1;
+0:r1=y; 0:r2=0; 2:r3=0;
+0:r1=y; 0:r2=0; 2:r3=1;
+Ok
+Witnesses
+Positive: 1 Negative: 5
+Condition exists (0:r1=x /\ 0:r2=1 /\ 2:r3=1)
+Observation C-LB+rl-deref-o-rul+o-sync-o+rl-o-o-rlu Sometimes 1 5
+Hash=b591d622245952a2fc8eaad233203817
+</pre>
+</blockquote>
+
+<p>
+This should be no surprise, given that we have more RCU read-side
+critical sections than we have grace periods.
+This situation underscores the need to avoid doing inane things with RCU.
+However, one nice thing about the fact that the memory model incorporates
+RCU is that such inanity can now be detected, at least when it is
+confined to relatively small code fragments.
+
+<h2>Conclusions</h2>
+
+<p>
+As far as we know, this is the first realistic formal memory model that
+includes RCU ordering properties.
+
+<p>
+We believe this to be the first realistic formal memory model of the
+Linux kernel.
+
+</p><h2>Acknowledgments</h2>
+
+<p>We owe thanks to H.&nbsp;Peter Anvin, Will Deacon, Andy Glew,
+Derek Williams, Leonid Yegoshin, and Peter Zijlstra for their
+patient explanations of their respective systems' memory models.
+We are indebted to Peter Sewell, Sumit Sarkar, and their groups
+for their seminal work formalizing many of these same memory models.
+We all owe thanks to @@@ for their help making this
+human-readable.
+We are also grateful to Michelle Rankin and Jim Wasko for their support
+of this effort.
+
+</p><p>This work represents the views of the authors and does not necessarily
+represent the views of University College London, INRIA Paris,
+Scuola Superiore Sant'Anna, Harvard University, or IBM Corporation.
+
+</p><p>Linux is a registered trademark of Linus Torvalds.
+
+</p><p>Other company, product, and service names may be trademarks or
+service marks of others.
+
+<h3><a name="Answers to Quick Quizzes">
+Answers to Quick Quizzes</a></h3>
+
+<a name="qq1answer"></a>
+<p><b>Quick Quiz 1</b>:
+Can't the compiler also reorder these accesses?
+
+
+</p><p><b>Answer</b>:
+Given the current Linux-kernel definitions of <tt>READ_ONCE()</tt>
+and <tt>WRITE_ONCE()</tt>, no.
+These two macros map to volatile accesses, which the compiler is not
+allowed to reorder with respect to each other.
+
+<p>
+However, if these macros instead mapped to non-volatile C11
+<tt>memory_order_relaxed</tt> loads and stores, then the compiler
+<i>would</i> be permitted to reorder them.
+And, as a general rule, compilers are much more aggressive about
+reordering accesses than even the most weakly ordered hardware.
+In both cases, those who don't like such code rearrangement call it
+&ldquo;weak ordering&rdquo; while those who do call it
+&ldquo;optimization&rdquo;.
+
+
+</p><p><a href="#Quick%20Quiz%201"><b>Back to Quick Quiz 1</b>.</a>
+
+<a name="qq2answer"></a>
+<p><b>Quick Quiz 2</b>:
+The <tt>rf</tt>, <tt>co</tt>, and <tt>fr</tt> terms
+in the definition of <tt>com</tt> describe write-read,
+write-write, and read-write links respectively,
+corresponding to three of the four
+<a href="coherence rules">coherence rules</a>.
+Why is there no term corresponding to the read-read rule?
+
+
+</p><p><b>Answer</b>:
+It's not needed.
+As we will see in the discussion of Litmus Test&nbsp;#4,
+a violation of the read-read coherence rule involves a
+write being &ldquo;interposed&rdquo; between two reads
+in the coherence order.
+It therefore can be described as a length-3 cycle in
+<tt>coherence-order</tt>, involving an <tt>fr</tt> link
+followed by an <tt>rf</tt> link followed by a <tt>po-loc</tt> link.
+
+
+</p><p><a href="#Quick%20Quiz%202"><b>Back to Quick Quiz 2</b>.</a>
+
+<a name="qq3answer"></a>
+<p><b>Quick Quiz 3</b>:
+But don't Itanium and SPARC RMO allow read-read reordering of
+acccesses to a single variable by a single CPU?
+How does the model handle these CPUs?
+
+
+</p><p><b>Answer</b>:
+In the case of Itanium, <tt>gcc</tt> compiles volatile reads
+(as in <tt>READ_ONCE()</tt>) as <tt>ld,acq</tt>,
+which enforces read-read ordering.
+And the Linux kernel runs SPARC in TSO mode, which prohibits
+read-read reorderings in general, including to a single variable.
+
+
+</p><p><a href="#Quick%20Quiz%203"><b>Back to Quick Quiz 3</b>.</a>
+
+<a name="qq4answer"></a>
+<p><b>Quick Quiz 4</b>:
+Given that this is about memory barriers, why
+&ldquo;<tt>instructions F[Barriers]</tt>&rdquo; instead of perhaps
+&ldquo;<tt>instructions B[Barriers]</tt>&rdquo;?
+
+
+</p><p><b>Answer</b>:
+&ldquo;Memory barriers&rdquo; are also sometimes called
+&ldquo;memory fences&rdquo;.
+This can be confusing, but both terms are used so we might
+as well get used to it.
+Besides, the &ldquo;<tt>B</tt>&rdquo; instruction class
+was already reserved for Branches.
+
+
+</p><p><a href="#Quick%20Quiz%204"><b>Back to Quick Quiz 4</b>.</a>
+
+<a name="qq5answer"></a>
+<p><b>Quick Quiz 5</b>:
+Why wouldn't &ldquo;<tt>let sync = fencerel(Sync)</tt>&rdquo;
+work just as well as the modified definition?
+
+
+</p><p><b>Answer</b>:
+The modified definition is necessary because the model needs to recognize that
+code like:
+
+<blockquote>
+<pre>
+WRITE_ONCE(*x, 1);
+synchronize_rcu();
+synchronize_rcu();
+r2 = READ_ONCE(*y);
+</pre>
+</blockquote>
+
+will insert two grace periods between the memory accesses, not just one.
+With the modified definition, there is a &ldquo;<tt>sync</tt>&rdquo;
+pair linking the
+<tt>WRITE_ONCE()</tt> to the first <tt>synchronize_rcu()</tt> as well as
+a pair linking that event to the <tt>READ_ONCE()</tt>,
+so it is possible to pass from the write to the read via two links.
+With the &ldquo;<tt>let sync = fencerel(Sync)</tt>&rdquo; definition,
+there would be no link from the <tt>WRITE_ONCE()</tt> to the
+first <tt>synchronize_rcu()</tt>.
+Consequently there would be a path from the write to the read
+involving one link, but no path involving two.
+
+
+</p><p><a href="#Quick%20Quiz%205"><b>Back to Quick Quiz 5</b>.</a>
+
+<a name="qq6answer"></a>
+<p><b>Quick Quiz 6</b>:
+This strong model is insanely complex!!!
+How can anyone be expected to understand it???
+
+
+</p><p><b>Answer</b>:
+Given that this model is set up to be as strong as reasonably possible given
+the rather wide variety of memory models that the Linux kernel runs
+on, it is actually surprisingly simple.
+Furthermore, this model has a tool that goes with it, which is more
+than can be said of <tt>memory-barriers.txt</tt>.
+
+<p>
+Nevertheless, it is quite possible that this model should be carefully
+weakened, if it turns out that doing so simplifies the model
+without invalidating any use cases.
+Any such weakening should of course be carried out with extreme caution.
+
+
+</p><p><a href="#Quick%20Quiz%206"><b>Back to Quick Quiz 6</b>.</a>
+
+<a name="qq7answer"></a>
+<p><b>Quick Quiz 7</b>:
+For what code would this distinction matter?
+
+
+</p><p><b>Answer</b>:
+One example is as follows:
+
+<blockquote>
+<pre>
+p = READ_ONCE(gp);
+do_something_with(p-&gt;a);
+</pre>
+</blockquote>
+
+<p>
+DEC Alpha would <b>not</b> provide ordering in this case, and the
+definition of &ldquo;<tt>rdep</tt>&rdquo; therefore excludes this case.
+
+
+</p><p><a href="#Quick%20Quiz%207"><b>Back to Quick Quiz 7</b>.</a>
+
+<a name="qq8answer"></a>
+<p><b>Quick Quiz 8</b>:
+Why would an operation following an address dependency get any special
+treatment?
+After all, there does not appear to be any particular ordering relationship
+in the general case.
+
+
+</p><p><b>Answer</b>:
+It turns out that Power guarantees that writes following an
+address-dependency pair are guaranteed not to be reordered before
+the load heading up the dependency pair, as can be seen from this
+<a href="PPC-LB+addrs-po.litmus">load-buffering litmus test</a>
+and its <a href="PPC-LB+addrs-po.litmus.out">output</a> (note the
+&ldquo;Never&rdquo on the last lint) and from this
+<a href="PPC-MP+lwsync+addr-po.litmus">message-passing litmus test</a>
+and its <a href="PPC-MP+lwsync+addr-po.litmus.out">output</a>.
+
+<p>
+Why would Power provide such ordering to an unrelated store?
+Because until the load completes, Power has no idea whether or not it
+is unrelated.
+If the load returns the same address that is used by the &ldquo;unrelated&rdquo;
+store, then the two stores are no longer unrelated, and the CPU must
+provide coherence ordering between them.
+But the CPU can't know what ordering requirements there might be until
+the load completes, so all later writes must wait until the load completes.
+
+<p>
+But what about loads?
+Don't they have the same coherency requirements?
+
+<p>
+Indeed they do, but the CPU can safely speculate such loads, squashing the
+speculation if it later learns that there was an unexpected address
+collision.
+For more information on this dependency/coherence corner case, please see
+section 10.5 of
+<a href="http://www.cl.cam.ac.uk/~pes20/ppc-supplemental/test7.pdf">A Tutorial Introduction to the ARM and POWER Relaxed Memory Models</a>.
+Other sections cover many other interesting corner cases.
+
+<p>
+There is also the possibility that the compiler might know all the values
+assigned to the variable loaded via <tt>rcu_dereference()</tt> or
+<tt>lockless_dereference()</tt>.
+
+
+</p><p><a href="#Quick%20Quiz%208"><b>Back to Quick Quiz 8</b>.</a>
+
+<a name="qq9answer"></a>
+<p><b>Quick Quiz 9</b>:
+Why does &ldquo;<tt>ppo</tt>&rdquo; intersect &ldquo;<tt>po-loc</tt>&rdquo;
+with &ldquo;<tt>(_*W)</tt>&rdquo;?
+Don't we need to enforce full cache coherence, not just cache coherence
+for trailing writes?
+
+
+</p><p><b>Answer</b>:
+We do need to enforce full cache coherence, but that has already been
+done, see the &ldquo;<tt>coherence-order</tt>&rdquo; relationship
+discussed earlier.
+What &ldquo;<tt>ppo</tt>&rdquo; is adding is the memory-order interactions
+between multiple variables and multiple threads.
+
+
+</p><p><a href="#Quick%20Quiz%209"><b>Back to Quick Quiz 9</b>.</a>
+
+<a name="qq10answer"></a>
+<p><b>Quick Quiz 10</b>:
+Why do <tt>rcu_dereference()</tt> and
+<tt>lockless_dereference()</tt> respect control dependencies?
+
+
+</p><p><b>Answer</b>:
+Modern hardware is not permitted to speculate stores, so any
+well-formed compiler-proof conditional will respect control
+dependencies, including those involving
+<tt>rcu_dereference()</tt> and <tt>lockless_dereference()</tt>
+as well as those involving <tt>READ_ONCE()</tt>.
+
+
+</p><p><a href="#Quick%20Quiz%2010"><b>Back to Quick Quiz 10</b>.</a>
+
+<a name="qq11answer"></a>
+<p><b>Quick Quiz 11</b>:
+Is there an easy way to tell which definitions have effect for a
+given litmus test?
+
+
+</p><p><b>Answer</b>:
+One very straightforward approach is to edit the .cat and .bell files
+to remove &ldquo;<tt>acyclic</tt>&rdquo; or
+&ldquo;<tt>irreflexive</tt>&rdquo; statements.
+For example, for the above store-buffering litmus test, removing
+the &ldquo;<tt>acyclic cpord as propagation</tt>&rdquo; allows
+the cyclic outcome.
+
+<p>
+Alternatively, you can pass the
+&ldquo;<tt>-skipcheck propagation</tt>&rdquo; argument-line argument to
+<tt>herd7</tt>.
+However, editing the .bell and .cat files to omit different elements
+can be an extremely educational activity.
+
+
+</p><p><a href="#Quick%20Quiz%2011"><b>Back to Quick Quiz 11</b>.</a>
+
+<a name="qq12answer"></a>
+<p><b>Quick Quiz 12</b>:
+Why does &ldquo;<tt>cpord</tt>&rdquo; prohibit a cycle containing two
+&ldquo;<tt>fre</tt>&rdquo; relationships when &ldquo;<tt>hb</tt>&rdquo;
+does not?
+They are both acyclic, after all!
+
+
+</p><p><b>Answer</b>:
+The difference is that &ldquo;<tt>hb</tt>&rdquo; requires that any
+path including an &ldquo;<tt>fre</tt>&rdquo; relationship begin and
+end at the same thread.
+Therefore, no matter how you string &ldquo;<tt>hb</tt>&rdquo;
+relationships together, they cannot prohibit a cycle that goes
+through two &ldquo;<tt>fre</tt>&rdquo; relationship before returning
+to the original thread, and thus cannot prohibit the store-buffering
+litmus test.
+In contrast, the &ldquo;<tt>strong-prop</tt>&rdquo; relationship that
+leads up to the &ldquo;<tt>cpord</tt>&rdquo; relationship makes no
+same-thread restriction, which means that &ldquo;<tt>cpord</tt>&rdquo;
+can forbid a cycle containing more than one &ldquo;<tt>fre</tt>&rdquo;
+relationship.
+
+
+</p><p><a href="#Quick%20Quiz%2012"><b>Back to Quick Quiz 12</b>.</a>
+
+<a name="qq13answer"></a>
+<p><b>Quick Quiz 13</b>:
+Say what???
+How can anything possibly be stronger than sequential consistency???
+
+
+</p><p><b>Answer</b>:
+Easily.
+
+<p>
+To see this, recall the store-buffering example from the previous section,
+in which <tt>smp_mb()</tt> prevented any executions that were not
+simple interleavings, in other words, it prohibits the cyclic outcome
+&ldquo;<tt>!r1&amp;&amp;!r2</tt>&rdquo;.
+If we replace the first <tt>smp_mb()</tt> with <tt>synchronize_rcu()</tt>,
+replace the second <tt>smp_mb()</tt> with with an RCU read-side
+critical section, and reverse <tt>P1()</tt>'s memory references,
+we get the following:
+
+<blockquote>
+
+<a href="C-LB+o-sync-o+rl-o-o-rul.litmus">Litmus Test #11</a>
+
+<pre>
+ 1 C C-LB+o-sync-o+rl-o-o-rul.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *a, int *b)
+ 7 {
+ 8   int r1;
+ 9
+10   r1 = READ_ONCE(*a);
+11   synchronize_rcu();
+12   WRITE_ONCE(*b, 1);
+13 }
+14
+15 P1(int *b, int *a)
+16 {
+17   int r2;
+18
+19   rcu_read_lock();
+20   r2 = READ_ONCE(*b);
+21   WRITE_ONCE(*a, 1);
+22   rcu_read_unlock();
+23 }
+24
+25 exists
+26 (0:r1=1 /\ 1:r2=1)
+</pre>
+</blockquote>
+
+<p>
+It turns out that <tt>synchronize_rcu()</tt> is so strong that it
+is able to forbid the cyclic outcome &ldquo;<tt>r1&amp;&amp;r2</tt>&rdquo;
+<i>even though</i> <tt>P1()</tt> <i>places no ordering constraints whatsoever
+on its two memory references</i>.
+
+<p>
+Now <i>that</i> is strong ordering!
+
+<p>
+There is of course no free lunch.
+On systems having more than one CPU, the overhead of
+<tt>synchronize_rcu()</tt> is orders of magnitude greater than that of
+<tt>smp_mb()</tt>.
+You get what you pay for!
+
+
+</p><p><a href="#Quick%20Quiz%2013"><b>Back to Quick Quiz 13</b>.</a>
+
+<a name="qq14answer"></a>
+<p><b>Quick Quiz 14</b>:
+But &ldquo;<tt>basic</tt>&rdquo; could be the empty relationship,
+so that it would directly connect what preceded it with what followed it.
+How can that be right?
+
+
+</p><p><b>Answer</b>:
+It is not just right, but absolutely necessary.
+This permits a pair of consecutive grace periods to do the right thing.
+For example, consider the following litmus test, where, as usual,
+<tt>a</tt>, <tt>b</tt>, and&nbsp;<tt>c</tt> are initially all zero:
+
+<blockquote>
+
+<a href="C-LB+o-sync-sync-o+rl-o-o-rul+rl-o-o-rul.litmus">Litmus Test #12</a>
+
+<pre>
+ 1 C C-LB+o-sync-sync-o+rl-o-o-rul+rl-o-o-rul.litmus
+ 2
+ 3 {
+ 4 }
+ 5
+ 6 P0(int *a, int *b)
+ 7 {
+ 8   int r1;
+ 9
+10   r1 = READ_ONCE(*a);
+11   synchronize_rcu();
+12   synchronize_rcu();
+13   WRITE_ONCE(*b, 1);
+14 }
+15
+16 P1(int *b, int *c)
+17 {
+18   int r2;
+19
+20   rcu_read_lock();
+21   r2 = READ_ONCE(*b);
+22   WRITE_ONCE(*c, 1);
+23   rcu_read_unlock();
+24 }
+25
+26 P2(int *c, int *a)
+27 {
+28   int r3;
+29
+30   rcu_read_lock();
+31   r3 = READ_ONCE(*c);
+32   WRITE_ONCE(*a, 1);
+33   rcu_read_unlock();
+34 }
+35
+36 exists
+37 (0:r1=1 /\ 1:r2=1 /\ 2:r3=1)
+</pre>
+</blockquote>
+
+<p>
+If &ldquo;<tt>basic</tt>&rdquo; did not permit an empty relationship,
+the pair of <tt>synchronize_rcu()</tt> invocations on lines&nbsp;4 and&nbsp;5
+would not be serialized, but would instead effectively merge into a
+single <tt>synchronize_rcu()</tt>.
+Thus, the possibility of an empty &ldquo;<tt>basic</tt>&rdquo; is
+absolutely required to forbid the undesirable outcome
+<tt>r1&amp;&amp;r2&amp;&amp;r3</tt>.
+
+
+</p><p><a href="#Quick%20Quiz%2014"><b>Back to Quick Quiz 14</b>.</a>
+
+
+</p><p>
+           
+</div> <!-- ArticleText -->
+<p><a name="Comments"></a>
+
+
+</div><!-- Printable -->
+</td> <!-- MC -->
+</tr></table></td>
+</tr></table><!-- endpage -->
+            
+        </body></html>
+        

@@ -1,0 +1,903 @@
+<!-- DO NOT HAND EDIT. -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+        <html>
+        <head><title>A Weak Formal Model of Linux-Kernel Memory Ordering[LWN.net]</title>
+        <meta HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+	<META NAME="robots" CONTENT="noindex">
+        <link rel="icon" href="/images/favicon.png" type="image/png">
+        <link rel="alternate" type="application/rss+xml" title="LWN.net headlines" href="http://lwn.net/headlines/newrss">
+<link rel="alternate" type="application/rss+xml" title="Comments posted to this article" href="http://lwn.net/headlines/418853/">
+        <link rel="stylesheet" href="/CSS/lwn">
+<link rel="stylesheet" href="/CSS/nosub">
+
+        
+
+        </head>
+        <body bgcolor="#ffffff" link="Blue" VLINK="Green" alink="Green">
+<h1>A Weak Formal Model of Linux-Kernel Memory Ordering</h1>
+<table class="Page">
+<tr>
+<td><table><tr>
+<td class="MidColumn">
+           <div class="Printable">
+<div class="ArticleText">
+<div class="GAByline">
+           <p>January 24, 2017</p>
+           <p>This article was contributed by Jade Alglave,
+	   Paul E. McKenney, Alan Stern, Luc Maranget, and Andrea Parri</p>
+           </div>
+
+
+<h2>Introduction</h2>
+
+<p>
+This article describes the weak model in terms of its differences from
+the strong model.
+Note that this weak model is not based on any sort of operational
+model, but was instead constructed from the
+<a href="StrongModel.html">strong model</a>
+by removing the following things that didn't seem to be important
+for the Linux kernel:
+
+<ol>
+<li>	<a href="#C11 Release Sequences">C11 Release Sequences</a>.
+<li>	<a href="#Preserved Program Order">Preserved Program Order</a>.
+<li>	<a href="#Cumulativity">Cumulativity</a>.
+<li>	<a href="#Coherence Point and RCU">Coherence Point and RCU</a>.
+</ol>
+
+<p>
+This is followed by the inevitable
+<a href="#Answers to Quick Quizzes">answers to the quick quizzes</a>.
+
+<h2><a name="C11 Release Sequences">C11 Release Sequences</a></h2>
+
+<p>
+Release sequences are an interesting part of the C11 memory model, but
+we don't know of any Linux-kernel use cases, so the weak model omits them.
+The following unified diff from the strong to the weak model implements
+this omission:
+
+<blockquote>
+<pre>
+ 1 @@ -32,10 +32,6 @@
+ 2  let propagation-fence = strong-fence | wmb | po-relass
+ 3  let ordering-fence = propagation-fence | exec-order-fence
+ 4
+ 5 -(* Determine the release sequences *)
+ 6 -let rel-seq = [ReleaseAssign] ; coi? ; (rf ; rmw)*
+ 7 -let po-rel-seq = po ; rel-seq
+ 8 -
+ 9  (* On Alpha, rd-dep-fence makes addr, dep-rfi, and rdw strong *)
+10  let dep = addr | data
+11  let dep-rfi = dep ; rfi
+</pre>
+</blockquote>
+
+<p>
+The difference is illustrated by the following litmus test:
+
+<blockquote>
+<a id="litmus1" href="C-relseq.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#1</a>
+<pre>
+  1 C C-relseq.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   WRITE_ONCE(*x, 1);
+  9   smp_store_release(y, 1);
+ 10   WRITE_ONCE(*y, 2);
+ 11 }
+ 12
+ 13 P1(int *y)
+ 14 {
+ 15   r1 = xchg_relaxed(y, 3);
+ 16 }
+ 17
+ 18 P2(int *x, int *y)
+ 19 {
+ 20   r2 = READ_ONCE(*y);
+ 21   smp_rmb();
+ 22   r3 = READ_ONCE(*x);
+ 23 }
+ 24
+ 25 exists (1:r1=2 /\ 2:r2=3 /\ 2:r3=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus1" href="C-relseq.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#1 (strong model)</a>
+<pre>
+ 1 Test C-relseq Allowed
+ 2 States 16
+ 3 1:r1=0; 2:r2=0; 2:r3=0;
+ 4 1:r1=0; 2:r2=0; 2:r3=1;
+ 5 1:r1=0; 2:r2=1; 2:r3=1;
+ 6 1:r1=0; 2:r2=2; 2:r3=1;
+ 7 1:r1=0; 2:r2=3; 2:r3=0;
+ 8 1:r1=0; 2:r2=3; 2:r3=1;
+ 9 1:r1=1; 2:r2=0; 2:r3=0;
+10 1:r1=1; 2:r2=0; 2:r3=1;
+11 1:r1=1; 2:r2=1; 2:r3=1;
+12 1:r1=1; 2:r2=2; 2:r3=1;
+13 1:r1=1; 2:r2=3; 2:r3=1;
+14 1:r1=2; 2:r2=0; 2:r3=0;
+15 1:r1=2; 2:r2=0; 2:r3=1;
+16 1:r1=2; 2:r2=1; 2:r3=1;
+17 1:r1=2; 2:r2=2; 2:r3=1;
+18 1:r1=2; 2:r2=3; 2:r3=1;
+19 No
+20 Witnesses
+21 Positive: 0 Negative: 16
+22 Condition exists (1:r1=2 /\ 2:r2=3 /\ 2:r3=0)
+23 Observation C-relseq Never 0 16
+24 Hash=e91cd6a4ee3993b84e2c28cb21588172
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus1" href="C-relseq.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#1</a>
+<pre>
+ 1 Test C-relseq Allowed
+ 2 States 21
+ 3 1:r1=0; 2:r2=0; 2:r3=0;
+ 4 1:r1=0; 2:r2=0; 2:r3=1;
+ 5 1:r1=0; 2:r2=1; 2:r3=1;
+ 6 1:r1=0; 2:r2=2; 2:r3=0;
+ 7 1:r1=0; 2:r2=2; 2:r3=1;
+ 8 1:r1=0; 2:r2=3; 2:r3=0;
+ 9 1:r1=0; 2:r2=3; 2:r3=1;
+10 1:r1=1; 2:r2=0; 2:r3=0;
+11 1:r1=1; 2:r2=0; 2:r3=1;
+12 1:r1=1; 2:r2=1; 2:r3=1;
+13 1:r1=1; 2:r2=2; 2:r3=0;
+14 1:r1=1; 2:r2=2; 2:r3=1;
+15 1:r1=1; 2:r2=3; 2:r3=0;
+16 1:r1=1; 2:r2=3; 2:r3=1;
+17 1:r1=2; 2:r2=0; 2:r3=0;
+18 1:r1=2; 2:r2=0; 2:r3=1;
+19 1:r1=2; 2:r2=1; 2:r3=1;
+20 1:r1=2; 2:r2=2; 2:r3=0;
+21 1:r1=2; 2:r2=2; 2:r3=1;
+22 1:r1=2; 2:r2=3; 2:r3=0;
+23 1:r1=2; 2:r2=3; 2:r3=1;
+24 Ok
+25 Witnesses
+26 Positive: 1 Negative: 20
+27 Condition exists (1:r1=2 /\ 2:r2=3 /\ 2:r3=0)
+28 Observation C-relseq Sometimes 1 20
+29 Hash=e91cd6a4ee3993b84e2c28cb21588172
+</pre>
+</blockquote>
+
+<p>
+An additional adjustment will be required later in the model to account
+for the fact that <tt>po-rel-seq</tt> is no longer defined.
+This will be covered
+<a href="#Cumulativity">in a later section</a>.
+
+<h2><a name="Preserved Program Order">Preserved Program Order</a></h2>
+
+<p>
+The weak model weakens preserved program order (<tt>ppo</tt>)
+by eliminating the <tt>atomicpo</tt>, <tt>po-loc</tt>,
+<tt>addrpo</tt>, <tt>rd-rdw</tt>, <tt>detour</tt>,
+and <tt>rdw</tt> constraints, as shown in this diff:
+
+<blockquote>
+<pre>
+ 1 @@ -61,45 +57,32 @@
+ 2  let nco = co &amp; (NOW*W)
+ 3  let ncoe = nco &amp; ext
+ 4
+ 5 -let strong-ppo = rd-addr-dep-rfi | ordering-fence | atomicpo |
+ 6 -    ((dep | ctrl | addrpo) &amp; (R*W))
+ 7 -let Alpha-strong-ppo = strong-ppo | rd-rdw | detour |
+ 8 -    (po-loc &amp; ((M\OW\OR)*W))
+ 9 +let strong-ppo = rd-addr-dep-rfi | ordering-fence |
+10 +    ((dep | ctrl) &amp; (R*W))
+11 +let Alpha-strong-ppo = strong-ppo
+12  let ARM-strong-ppo = strong-ppo | addr | dep-rfi
+13 -let ppo = Alpha-strong-ppo | ARM-strong-ppo | rdw
+14 +let ppo = Alpha-strong-ppo | ARM-strong-ppo
+</pre>
+</blockquote>
+
+<p>
+The effect of the omission of <tt>atomicpo</tt> is illustrated by this
+litmus test:
+
+<blockquote>
+<a id="litmus2" href="C-atomicpo.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#2</a>
+<pre>
+  1 C C-atomicpo.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   WRITE_ONCE(*y, 1);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*x, 1);
+ 11 }
+ 12
+ 13 P1(int *x, int *y)
+ 14 {
+ 15   r1 = xchg_relaxed(x, 1);
+ 16   r2 = xchg_relaxed(y, 1);
+ 17 }
+ 18
+ 19 exists (1:r1=1 /\ 1:r2=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus2" href="C-atomicpo.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#2 (strong model)</a>
+<pre>
+ 1 Test C-atomicpo Allowed
+ 2 States 3
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (1:r1=1 /\ 1:r2=0)
+10 Observation C-atomicpo Never 0 3
+11 Hash=b4787be5f3d176615a5bd263d200c61d
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus2" href="C-atomicpo.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#2</a>
+<pre>
+ 1 Test C-atomicpo Allowed
+ 2 States 4
+ 3 1:r1=0; 1:r2=0;
+ 4 1:r1=0; 1:r2=1;
+ 5 1:r1=1; 1:r2=0;
+ 6 1:r1=1; 1:r2=1;
+ 7 Ok
+ 8 Witnesses
+ 9 Positive: 1 Negative: 3
+10 Condition exists (1:r1=1 /\ 1:r2=0)
+11 Observation C-atomicpo Sometimes 1 3
+12 Hash=b4787be5f3d176615a5bd263d200c61d
+</pre>
+</blockquote>
+
+<p><a name="Quick Quiz 1"><b>Quick Quiz 1</b>:</a>
+Why would hardware serialize read-modify-write atomic operations?
+<br><a href="#qq1answer">Answer</a>
+
+<p>
+The effect of the omission of <tt>rd-rdw</tt> is illustrated by this
+litmus test:
+
+<blockquote>
+<a id="litmus3" href="C-rdw.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#3</a>
+<pre>
+  1 C C-rdw
+  2
+  3 {
+  4 int *x = &amp;u;
+  5 int *y = &amp;u;
+  6 }
+  7
+  8 P0(int **x, int **y, int *z)
+  9 {
+ 10   WRITE_ONCE(*z, 1);
+ 11   smp_mb();
+ 12   WRITE_ONCE(*y, x);
+ 13 }
+ 14
+ 15 P1(int **x, int **y)
+ 16 {
+ 17   int *r1;
+ 18   int r2;
+ 19   int *r3;
+ 20   int r4;
+ 21
+ 22   r1 = lockless_dereference(*y);
+ 23   r2 = READ_ONCE(*r1);
+ 24   r3 = lockless_dereference(*x);
+ 25   r4 = READ_ONCE(*r3);
+ 26 }
+ 27
+ 28 P2(int **x, int *z)
+ 29 {
+ 30   WRITE_ONCE(*x, z);
+ 31 }
+ 32
+ 33 exists (1:r1=x /\ 1:r2=u /\ 1:r3=z /\ 1:r4=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus3" href="C-rdw.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#3 (strong model)</a>
+<pre>
+ 1 Test C-rdw Allowed
+ 2 States 7
+ 3 1:r1=u; 1:r2=0; 1:r3=u; 1:r4=0;
+ 4 1:r1=u; 1:r2=0; 1:r3=z; 1:r4=0;
+ 5 1:r1=u; 1:r2=0; 1:r3=z; 1:r4=1;
+ 6 1:r1=x; 1:r2=u; 1:r3=u; 1:r4=0;
+ 7 1:r1=x; 1:r2=u; 1:r3=z; 1:r4=1;
+ 8 1:r1=x; 1:r2=z; 1:r3=z; 1:r4=0;
+ 9 1:r1=x; 1:r2=z; 1:r3=z; 1:r4=1;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (1:r1=x /\ 1:r2=u /\ 1:r3=z /\ 1:r4=0)
+14 Observation C-rdw Never 0 7
+15 Hash=f043c902021117322a4e168a27c60da9
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus3" href="C-rdw.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#3</a>
+<pre>
+ 1 Test C-rdw Allowed
+ 2 States 8
+ 3 1:r1=u; 1:r2=0; 1:r3=u; 1:r4=0;
+ 4 1:r1=u; 1:r2=0; 1:r3=z; 1:r4=0;
+ 5 1:r1=u; 1:r2=0; 1:r3=z; 1:r4=1;
+ 6 1:r1=x; 1:r2=u; 1:r3=u; 1:r4=0;
+ 7 1:r1=x; 1:r2=u; 1:r3=z; 1:r4=0;
+ 8 1:r1=x; 1:r2=u; 1:r3=z; 1:r4=1;
+ 9 1:r1=x; 1:r2=z; 1:r3=z; 1:r4=0;
+10 1:r1=x; 1:r2=z; 1:r3=z; 1:r4=1;
+11 Ok
+12 Witnesses
+13 Positive: 1 Negative: 7
+14 Condition exists (1:r1=x /\ 1:r2=u /\ 1:r3=z /\ 1:r4=0)
+15 Observation C-rdw Sometimes 1 7
+16 Hash=f043c902021117322a4e168a27c60da9
+</pre>
+</blockquote>
+
+<p>
+The effect of the omission of <tt>po-loc</tt> is illustrated by this
+litmus test:
+
+<blockquote>
+<a id="litmus4" href="C-po-loc.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#4</a>
+<pre>
+  1 C C-po-loc
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   int r0;
+  9   int r1;
+ 10
+ 11   r0 = READ_ONCE(*y);
+ 12   smp_rmb();
+ 13   r1 = READ_ONCE(*x);
+ 14   WRITE_ONCE(*x, 1);
+ 15 }
+ 16
+ 17 P1(int *x, int *y)
+ 18 {
+ 19   int r2;
+ 20
+ 21   r2 = READ_ONCE(*x);
+ 22   WRITE_ONCE(*y, r2);
+ 23 }
+ 24
+ 25 exists (0:r0=1)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus4" href="C-po-loc.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#4 (strong model)</a>
+<pre>
+ 1 Test C-po-loc Allowed
+ 2 States 1
+ 3 0:r0=0;
+ 4 No
+ 5 Witnesses
+ 6 Positive: 0 Negative: 3
+ 7 Condition exists (0:r0=1)
+ 8 Observation C-po-loc Never 0 3
+ 9 Hash=a11fb621142d409791210d12be417e35
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus4" href="C-po-loc.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#4</a>
+<pre>
+ 1 Test C-po-loc Allowed
+ 2 States 2
+ 3 0:r0=0;
+ 4 0:r0=1;
+ 5 Ok
+ 6 Witnesses
+ 7 Positive: 1 Negative: 3
+ 8 Condition exists (0:r0=1)
+ 9 Observation C-po-loc Sometimes 1 3
+10 Hash=a11fb621142d409791210d12be417e35
+</pre>
+</blockquote>
+
+<p>
+The effect of the omission of <tt>addrpo</tt> is illustrated by this
+litmus test:
+
+<blockquote>
+<a id="litmus5" href="C-addrpo.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#5</a>
+<pre>
+  1 C C-addrpo
+  2
+  3 {
+  4 int u = 0;
+  5 int v = 1;
+  6 int *x = u;
+  7 }
+  8
+  9 P0(int **x, int *y)
+ 10 {
+ 11   int *r0;
+ 12   int r1;
+ 13
+ 14   r0 = lockless_dereference(*x);
+ 15   r1 = READ_ONCE(*r0);
+ 16   WRITE_ONCE(*y, 1);
+ 17 }
+ 18
+ 19 P1(int **x, int *y, int *v)
+ 20 {
+ 21   int r2;
+ 22
+ 23   r2 = READ_ONCE(*y);
+ 24   if (r2 != 0)
+ 25     WRITE_ONCE(*x, v);
+ 26 }
+ 27
+ 28 exists (0:r1=1)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus5" href="C-addrpo.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#5 (strong model)</a>
+<pre>
+ 1 Test C-addrpo Allowed
+ 2 States 1
+ 3 0:r1=0;
+ 4 No
+ 5 Witnesses
+ 6 Positive: 0 Negative: 2
+ 7 Condition exists (0:r1=1)
+ 8 Observation C-addrpo Never 0 2
+ 9 Hash=9d214f4ecf25f0dc4aec431700fe56ea
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus5" href="C-addrpo.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#5</a>
+<pre>
+ 1 Test C-addrpo Allowed
+ 2 States 2
+ 3 0:r1=0;
+ 4 0:r1=1;
+ 5 Ok
+ 6 Witnesses
+ 7 Positive: 1 Negative: 2
+ 8 Condition exists (0:r1=1)
+ 9 Observation C-addrpo Sometimes 1 2
+10 Hash=9d214f4ecf25f0dc4aec431700fe56ea
+</pre>
+</blockquote>
+
+<p>
+The omission of <tt>rdw</tt> and <tt>detour</tt> are more subtle and
+are difficult to illustrate with C code, which is one reason we felt
+confident about omitting them from the weak model.
+
+<h2><a name="Cumulativity">Cumulativity</a></h2>
+
+<p>
+The weak model requires less hardware support for cumulativity than does
+the strong model:
+
+<blockquote>
+<pre>
+ 1  let rfe-ppo = strong-ppo | (ARM-strong-ppo ; ppo* ; Alpha-strong-ppo)
+ 2 -let po-relass-acq-hb = po ; (rfe &amp; (ReleaseAssign*Acquire)) ; rfe-ppo
+ 3
+ 4 -(* Release paired with Acquire is both A- and B-cumulative *)
+ 5 -let AB-cum-hb = strong-fence | po-relass-acq-hb
+ 6 -let A-cum-hb = AB-cum-hb | po-relass | po-rel-seq
+ 7 -let B-cum-hb = AB-cum-hb | wmb
+ 8 +(* strong-fence and release/assign are A-cumulative; wmb is not. *)
+ 9 +let propbase = wmb | (rfe? ; strong-fence) | (rfe? ; po-relass)
+10
+11 +let short-obs = ((ncoe|fre) ; propbase+ ; rfe) &amp; int
+12  let hb0 = (ppo* ; Alpha-strong-ppo) | (rfe ; rfe-ppo)
+13 -let propbase0 = propagation-fence | (rfe? ; A-cum-hb)
+14 -
+15 -let rec B-cum-propbase = (B-cum-hb ; hb* ) |
+16 -    (rfe? ; AB-cum-hb ; hb* )
+17 -    and propbase = propbase0 | B-cum-propbase
+18 -    and short-obs = ((ncoe|fre) ; propbase+ ; rfe) &amp; int
+19 -    and obs = short-obs |
+20 -    ((hb* ; (ncoe|fre) ; propbase* ; B-cum-propbase ; rfe) &amp; int)
+21 -    and hb = hb0 | (obs ; rfe-ppo)
+22 +let hb = hb0 | (short-obs ; rfe-ppo)
+23
+24 -acyclic hb as happens-before
+25 +acyclic hb as temporal
+26  irreflexive (short-obs ; Alpha-strong-ppo) as observation
+</pre>
+</blockquote>
+
+<p>
+In particular, the weak model does not provide B-cumulativity for
+<tt>smp_wmb()</tt> or for release-acquire sequences.
+However, it does provide A-cumulativity for strong barriers and for
+release-acquire sequences.
+As can be seen above, this has the advantage of greatly simplifying
+the <tt>hb</tt> relation.
+
+<p>
+The effect of the omission of B-cumulativity for <tt>smp_wmb()</tt>
+is illustrated by this litmus test:
+
+<blockquote>
+<a id="litmus6" href="C-wmb-is-B-cumulative.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#6</a>
+<pre>
+  1 C C-wmb-is-B-cumulative.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   WRITE_ONCE(*x, 1);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*y, 1);
+ 11 }
+ 12
+ 13 P1(int *y, int *z)
+ 14 {
+ 15   r1 = READ_ONCE(*y);
+ 16   WRITE_ONCE(*z, r1);
+ 17 }
+ 18
+ 19 P2(int *x, int *z)
+ 20 {
+ 21   r2 = READ_ONCE(*z);
+ 22   smp_rmb();
+ 23   r3 = READ_ONCE(*x);
+ 24 }
+ 25
+ 26 exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus6" href="C-wmb-is-B-cumulative.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#6 (strong model)</a>
+<pre>
+ 1 Test C-wmb-is-B-cumulative Allowed
+ 2 States 5
+ 3 1:r1=0; 2:r2=0; 2:r3=0;
+ 4 1:r1=0; 2:r2=0; 2:r3=1;
+ 5 1:r1=1; 2:r2=0; 2:r3=0;
+ 6 1:r1=1; 2:r2=0; 2:r3=1;
+ 7 1:r1=1; 2:r2=1; 2:r3=1;
+ 8 No
+ 9 Witnesses
+10 Positive: 0 Negative: 7
+11 Condition exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+12 Observation C-wmb-is-B-cumulative Never 0 7
+13 Hash=50e5fc4aa803470487c5d3d26abf5b04
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus6" href="C-wmb-is-B-cumulative.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#6</a>
+<pre>
+ 1 Test C-wmb-is-B-cumulative Allowed
+ 2 States 6
+ 3 1:r1=0; 2:r2=0; 2:r3=0;
+ 4 1:r1=0; 2:r2=0; 2:r3=1;
+ 5 1:r1=1; 2:r2=0; 2:r3=0;
+ 6 1:r1=1; 2:r2=0; 2:r3=1;
+ 7 1:r1=1; 2:r2=1; 2:r3=0;
+ 8 1:r1=1; 2:r2=1; 2:r3=1;
+ 9 Ok
+10 Witnesses
+11 Positive: 1 Negative: 7
+12 Condition exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+13 Observation C-wmb-is-B-cumulative Sometimes 1 7
+14 Hash=50e5fc4aa803470487c5d3d26abf5b04
+</pre>
+</blockquote>
+
+<p>
+Similarly, the effect of the omission of B-cumulativity for release-acquire
+chains is illustrated by this litmus test:
+
+<blockquote>
+<a id="litmus7" href="C-release-acquire-is-B-cumulative.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#7</a>
+<pre>
+  1 C C-release-acquire-is-B-cumulative.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *x, int *y)
+  7 {
+  8   WRITE_ONCE(*x, 1);
+  9   smp_store_release(y, 1);
+ 10 }
+ 11
+ 12 P1(int *y, int *z)
+ 13 {
+ 14   r1 = smp_load_acquire(y);
+ 15   WRITE_ONCE(*z, 1);
+ 16 }
+ 17
+ 18 P2(int *x, int *z)
+ 19 {
+ 20   r2 = READ_ONCE(*z);
+ 21   smp_rmb();
+ 22   r3 = READ_ONCE(*x);
+ 23 }
+ 24
+ 25 exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus7" href="C-release-acquire-is-B-cumulative.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#7 (strong model)</a>
+<pre>
+ 1 Test C-release-acquire-is-B-cumulative Allowed
+ 2 States 7
+ 3 1:r1=0; 2:r2=0; 2:r3=0;
+ 4 1:r1=0; 2:r2=0; 2:r3=1;
+ 5 1:r1=0; 2:r2=1; 2:r3=0;
+ 6 1:r1=0; 2:r2=1; 2:r3=1;
+ 7 1:r1=1; 2:r2=0; 2:r3=0;
+ 8 1:r1=1; 2:r2=0; 2:r3=1;
+ 9 1:r1=1; 2:r2=1; 2:r3=1;
+10 No
+11 Witnesses
+12 Positive: 0 Negative: 7
+13 Condition exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+14 Observation C-release-acquire-is-B-cumulative Never 0 7
+15 Hash=05d2a37a17c72e47142a9dee610d1ba3
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus7" href="C-release-acquire-is-B-cumulative.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#7</a>
+<pre>
+ 1 Test C-release-acquire-is-B-cumulative Allowed
+ 2 States 8
+ 3 1:r1=0; 2:r2=0; 2:r3=0;
+ 4 1:r1=0; 2:r2=0; 2:r3=1;
+ 5 1:r1=0; 2:r2=1; 2:r3=0;
+ 6 1:r1=0; 2:r2=1; 2:r3=1;
+ 7 1:r1=1; 2:r2=0; 2:r3=0;
+ 8 1:r1=1; 2:r2=0; 2:r3=1;
+ 9 1:r1=1; 2:r2=1; 2:r3=0;
+10 1:r1=1; 2:r2=1; 2:r3=1;
+11 Ok
+12 Witnesses
+13 Positive: 1 Negative: 7
+14 Condition exists (1:r1=1 /\ 2:r2=1 /\ 2:r3=0)
+15 Observation C-release-acquire-is-B-cumulative Sometimes 1 7
+16 Hash=05d2a37a17c72e47142a9dee610d1ba3
+</pre>
+</blockquote>
+
+<h2><a name="Coherence Point and RCU">Coherence Point and RCU</a></h2>
+
+<p>
+The changes to the coherence-point and RCU portions of the weak memory
+model are primarily side effects of earlier changes:
+
+<blockquote>
+<pre>
+ 1 -let strong-prop = fre? ; propbase* ; rfe? ; strong-fence ; hb* ; obs?
+ 2 -let prop = (propbase &amp; (W*W)) | strong-prop
+ 3 -let cpord = nco | prop
+ 4 +let strong-prop = fre? ; propbase* ; rfe? ; strong-fence ; hb* ; short-obs?
+ 5 +let cpord = nco | strong-prop
+ 6
+ 7  acyclic cpord as propagation
+ 8
+ 9
+10  (* Propagation between strong fences *)
+11 -let rcu-order = hb* ; obs? ; cpord* ; fre? ; propbase* ; rfe?
+12 +let rcu-order = hb* ; short-obs? ; cpord* ; fre? ; propbase* ; rfe?
+13
+14  (* Chains that can prevent the RCU grace-period guarantee *)
+15  let gp-link = sync ; rcu-order
+</pre>
+</blockquote>
+
+<p>
+However, one important difference is illustrated by the following
+litmus test:
+
+<blockquote>
+<a id="litmus8" href="C-2+2W+o-wmb-o+o-wmb-o.litmus">Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#8</a>
+<pre>
+  1 C C-2+2W+o-wmb-o+o-wmb-o.litmus
+  2
+  3 {
+  4 }
+  5
+  6 P0(int *a, int *b)
+  7 {
+  8   WRITE_ONCE(*a, 2);
+  9   smp_wmb();
+ 10   WRITE_ONCE(*b, 1);
+ 11 }
+ 12
+ 13 P1(int *a, int *b)
+ 14 {
+ 15   WRITE_ONCE(*b, 2);
+ 16   smp_wmb();
+ 17   WRITE_ONCE(*a, 1);
+ 18 }
+ 19
+ 20 exists
+ 21 (b=2 /\ a=2)
+</pre>
+</blockquote>
+
+<p>
+The strong model forbids this outcome:
+
+<blockquote>
+<a id="litmus8" href="C-2+2W+o-wmb-o+o-wmb-o.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#8 (strong model)</a>
+<pre>
+ 1 Test C-2+2W+o-wmb-o+o-wmb-o Allowed
+ 2 States 3
+ 3 a=1; b=1;
+ 4 a=1; b=2;
+ 5 a=2; b=1;
+ 6 No
+ 7 Witnesses
+ 8 Positive: 0 Negative: 3
+ 9 Condition exists (b=2 /\ a=2)
+10 Observation C-2+2W+o-wmb-o+o-wmb-o Never 0 3
+11 Hash=8264db947f1b73b8be16f98dd6bf1634
+</pre>
+</blockquote>
+
+<p>
+But the weak model allows it, as required:
+
+<blockquote>
+<a id="litmus8" href="C-2+2W+o-wmb-o+o-wmb-o.litmus"> Outcome for Weak&nbsp;Model&nbsp;Litmus&nbsp;Test&nbsp;#8</a>
+<pre>
+ 1 Test C-2+2W+o-wmb-o+o-wmb-o Allowed
+ 2 States 4
+ 3 a=1; b=1;
+ 4 a=1; b=2;
+ 5 a=2; b=1;
+ 6 a=2; b=2;
+ 7 Ok
+ 8 Witnesses
+ 9 Positive: 1 Negative: 3
+10 Condition exists (b=2 /\ a=2)
+11 Observation C-2+2W+o-wmb-o+o-wmb-o Sometimes 1 3
+12 Hash=8264db947f1b73b8be16f98dd6bf1634
+</pre>
+</blockquote>
+
+<p>
+The weak model does not require hardware support for this
+&ldquo;2+2W&rdquo; litmus test because we never have found a use case
+that isn't better served by some other pattern.
+
+</p><h2>Acknowledgments</h2>
+
+<p>We owe thanks to H.&nbsp;Peter Anvin, Will Deacon, Andy Glew,
+Derek Williams, Leonid Yegoshin, and Peter Zijlstra for their
+patient explanations of their respective systems' memory models.
+We are indebted to Peter Sewell, Sumit Sarkar, and their groups
+for their seminal work formalizing many of these same memory models.
+We all owe thanks to @@@
+for their help making this human-readable.
+We are also grateful to Jim Wasko for their support of this effort.
+
+</p><p>This work represents the views of the authors and does not necessarily
+represent the views of University College London, INRIA Paris,
+Scuola Superiore Sant'Anna, Harvard University, or IBM Corporation.
+
+</p><p>Linux is a registered trademark of Linus Torvalds.
+
+</p><p>Other company, product, and service names may be trademarks or
+service marks of others.
+
+<h3><a name="Answers to Quick Quizzes">
+Answers to Quick Quizzes</a></h3>
+
+<a name="qq1answer"></a>
+<p><b>Quick Quiz 1</b>:
+Why would hardware serialize read-modify-write atomic operations?
+
+
+</p><p><b>Answer</b>:
+In theory, a give CPU could carry out multiple read-modify-write atomic
+operations to different variables concurrently, and perhaps some actually
+do this.
+However, many CPUs either define their atomic operations to be fully ordered
+with each other, or have special resources used by these operations.
+For example, some CPUs have used locked bus operations, while others have
+special per-CPU reservation bits.
+So the strong model serializes read-modify-write operations to allow
+for current hardware, while the weak model allows them to be reordered
+to allow for possible future hardware.
+
+
+</p><p><a href="#Quick%20Quiz%201"><b>Back to Quick Quiz 1</b>.</a>
+
+
+</p><p>
+           
+</div> <!-- ArticleText -->
+<p><a name="Comments"></a>
+
+
+</div><!-- Printable -->
+</td> <!-- MC -->
+</tr></table></td>
+</tr></table><!-- endpage -->
+            
+        </body></html>
+        
