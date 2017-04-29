@@ -198,6 +198,10 @@
 
 - Memory barrier only enforce ordering among multiple memory references: They do absolutely nothing to expedite the propogation of data from one part of the system to another. This leads to **a quick rule of thumb**:  You do not need memory barriers unless you are using more than one variable to communicate between multiple threads.
 
+- Read memory barrier acts only on instructions that read from memory. Write memory barrier acts only on instructions that write to memory.
+
+- `smp_xxx()` has effect only on MP, but no effect on UP. On UP,use `mb()`, `rmb()` and `wmb()` instead
+
 - The GCC extension`__sync_synchronize()` primitive issues a "memory barrier", which constrains **both the compiler's and the CPU's ability** to reorder operations. The `barrier()`in Linux kernel only constrain compiler's ability to reorder operation. `READ_ONCE()` prevents compilers from optimizing away a given memory read, and `WRITE_ONCE()` prevents them from optimizing away a given memory write:
 
   ```c
@@ -259,7 +263,22 @@ From wikipedia, [concurrent data structure](https://en.wikipedia.org/wiki/Concur
 
 - **Linearizability**: 
 
-  Each method call should appear to take effect instantaneously at some moment between its invocation and response.  see [this talk outline](http://fpl.cs.depaul.edu/jriely/papers/2014-qqc-talk.pdf)
+  Each method call should appear to take effect instantaneously at some moment between its invocation and response. i.e for every invocation, exists a *linearization point* such that:
+
+  - linearizatino point is between call and return
+  - real-time order corresponds to some sequential execution
+
+  see [this talk outline](http://fpl.cs.depaul.edu/jriely/papers/2014-qqc-talk.pdf)
+
+  Other definition:
+
+  > In [concurrent programming](https://en.wikipedia.org/wiki/Concurrent_programming), an operation (or set of operations) is **atomic**, **linearizable**, **indivisible** or **uninterruptible** if it appears to the rest of the system to occur instantaneously
+
+  From the above two definition, you should note the essence of Linearizability: a method call instantaneously takes effect. In other words, it should take effect as it is. 
+
+  Note that there are differences between linearizability of history and linearizability of object. See this great [wikipedia](https://en.wikipedia.org/wiki/Linearizability) article for explanation.
+
+  The word **atomic** and **linearizable** are treated as the same in this context. When talking about linearizability of hardwares/compilers, we are considering whether it can make some operations(*e.g* add, sub) atomic.
 
 
 

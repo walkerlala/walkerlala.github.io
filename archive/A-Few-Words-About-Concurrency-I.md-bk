@@ -550,9 +550,9 @@ Let's see how those operating systems (e.g. Linux, BSD, Haiku) implement locks. 
 
 #### Synchronization and Mutual Exclusion
 
-There are lots of methods for avoiding race condition. For example, for single variable, we can use atomic operation. For more complicated scenario, we can use **spinlocks**, **semaphore**, **monitors** and other IPC^[3]^ mechanisms that are suitable for implementing *synchronization* and *mutual exclusion* between processes.
+There are lots of methods for avoiding race condition. For example, for single variable, we can use atomic operation^[22]^. For more complicated scenario, we can use **spinlocks**, **semaphore**, **monitors** and other IPC^[3]^ mechanisms that are suitable for implementing *synchronization* and *mutual exclusion* between processes.
 
-The later one (lock, semaphore, etc.) is more general. In summary, their purposes can be classified into two classes: *Synchronization* and *Mutual Exclusion*. However, note that these two terms are often mixed together because they have similar meanings in many contexts. Indeed, sometimes synchronization can be achieved using mutual exclusion techniques. If you really can't distinguish these two concepts, it is probably fine to ignore the differences and treat them as a whole.
+The later one (lock, semaphore, etc.) is more general. In summary, their purposes can be classified into two classes: *Synchronization* and *Mutual Exclusion*. However, note that these two terms are often mixed together because they have similar meanings in many contexts. Indeed, sometimes synchronization can be achieved using mutual exclusion techniques. If you really can't distinguish these two concepts, it is probably fine to ignore the differences and treat them as a whole^[23]^.
 
 #### Lock, Spinlock, Semaphore, Mutex ... All The Same Things ?
 
@@ -1637,6 +1637,10 @@ These finish our discussino of FreeBSD's spinlock and block lock. Feel free to l
 21. In JAVA, these can be achieved by declaring the variable `turn` as **volatile** and changing the while condition from `while(flag[1-self] && turn = 1-self) ;` to `while(turn = 1-self && flag[1-self]) ;`, as JAVA automatically insert memory barrier instruction after a write to a volatile keyword(?) (which implies that we only have to ensure *all the changes done to non-volatile attributes in one thread are before (in "program-order") a write to a volatile variable*. See the [Java Spec](https://docs.oracle.com/javase/specs/) for details (search for the *happen before relation*). 
 
     In C/C++, an explicit memory barrier is needed. See [here](http://virgon.org/peterson-lock.html) for more info.
+
+22. Actually, atomic operation is a special case of "Transaction Memory"
+
+23. Some treat mutual exclusion as a special case of synchronization. Readers are encouraged to prove this through reading and their own understanding of English. After all, it doesn't matter that much ![alt text](../img/icons/png/happy-4.png)
 
 </div>
 
