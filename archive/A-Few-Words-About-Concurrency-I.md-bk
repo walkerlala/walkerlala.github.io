@@ -544,9 +544,9 @@ Now you get the idea: **to yield successfully, use locks to protect the internal
 
 So, with some OS supports, we can  have a yield implementation that is free from the race conditions listed above. We successfully avoid *busy waiting* when the locks cannot be acquired. Instead, the process is put into a wait queue and sleep until other process holding the lock wakes it up. In many situations, that is more efficient than a spinlock. And, as you will see in the following sectionis, this pseudo implementation mimics many real world *semaphore/mutex* implementations.
 
-### \#5, Real World Locks ![alt text](../img/icons/png/linux-penguin.png)![alt text](../img/icons/png/freebsd-boy.png)![alt text](../img/icons/png/haiku-leaf.png)
+### \#5, Real World Locks ![alt text](../img/icons/png/linux-penguin.png)![alt text](../img/icons/png/freebsd-boy.png)
 
-Let's see how those operating systems (e.g. Linux, BSD, Haiku) implement locks. Before we look into the code, I would like to talk about some concepts first to lay a foundation.
+Let's see how those operating systems (e.g. Linux, BSD) implement locks. Before we look into the code, I would like to talk about some concepts first to lay a foundation.
 
 #### Synchronization and Mutual Exclusion
 
@@ -1568,14 +1568,6 @@ The corresponding unlock part is defined as a macro in [sys/mutex.h](http://fxr.
 Locking for internal data structure manipulation is achieved by `turnstile_chain_lock()` and `turnstile_chain_unlock()` respectively. The wakeup is achieved by `turnstile_broadcase()`.
 
 These finish our discussino of FreeBSD's spinlock and block lock. Feel free to leave comments below ![alt text](../img/icons/png/happy-4.png)
-
-#### $Haiku$ ![alt text](../img/icons/png/rsz_haiku-three-leaves.png)
-
-[Haiku](https://www.haiku-os.org/) is an open source operating system with a nice design and a user friendly interface. It stems from the BeOS in the 2000s. I currently involved in a [GSoC](https://developers.google.com/open-source/gsoc/) project for Haiku. So, let's see what Haiku-related contents I can add here.
-
-#### Locking in Haiku
-
-(to be finished...)
 
 ###### ![alt text](../img/icons/svg/search.svg) Notes
 
