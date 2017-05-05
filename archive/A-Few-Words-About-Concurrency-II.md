@@ -10,9 +10,11 @@ By [definition](https://en.wikipedia.org/wiki/Memory_model_(programming)), a **m
 int a = 0;
 int b = 0;
 
-//thread 1
-void T1(){
-}
+//thread 1          //thread 2
+void T1(){          void T2(){
+  a = 1;              while(0 == b) ; //loop infinitely if b==0
+  b = 1;              assert(1 == a);
+}                   }
 ```
 
 
