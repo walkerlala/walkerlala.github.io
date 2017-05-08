@@ -242,11 +242,9 @@ From wikipedia, [concurrent data structure](https://en.wikipedia.org/wiki/Concur
 
   (Conceptually, there is a single global memory and a switch that connects an arbitrary processor to memory at any time step. Each processor issues memory operations in program order and the switch provides the global serialization among all memory operations)
 
-  A great paper which erase my confusion on this topic can be found [here](ftp://gatekeeper.dec.com/pub/DEC/WRL/research-reports/WRL-TR-95.7.pdf)
+  A great paper which erase my confusion on this topic can be found [here](ftp://gatekeeper.dec.com/pub/DEC/WRL/research-reports/WRL-TR-95.7.pdf) $\blacksquare$
 
-   $$\blacksquare$$
-
-- **Quiescent consistency**: An execution of a concurrent program is *quiescently consistent* if the method calls can be correctly arranged retaining the mutual order of calls separated by *quiescence*, **a period of time where no method is being called in any thread**. It requires **non-overlapping** operations to appear to take effect in their **real-time order**, but **overlapping operations might be reordered** $$\blacksquare$$
+- **Quiescent consistency**: An execution of a concurrent program is *quiescently consistent* if the method calls can be correctly arranged retaining the mutual order of calls separated by *quiescence*, **a period of time where no method is being called in any thread**. It requires **non-overlapping** operations to appear to take effect in their **real-time order**, but **overlapping operations might be reordered** $\blacksquare​$
 
   Let's use a example to illustrate the differences between sequential consistency and quiescent consistency:
 
