@@ -12,6 +12,11 @@
 ###
     "blog":
         [
+        {  "title": "A Few Words About Concurrency (Part II)",
+            "location": "./archive/A-Few-Words-About-Concurrency-II.html",
+            "time": "2017-05-08",
+            "summary": "In the first one of this series I wrote about locking. In this essay, I would like to talk about memory model."
+        },
         {  "title": "A Few Words About Concurrency (Part I)",
             "location": "./archive/A-Few-Words-About-Concurrency-I.html",
             "time": "2017-04-25",
@@ -45,6 +50,11 @@
     "archive":
     {"blog": 
         [
+        {  "title": "A Few Words About Concurrency (Part II)",
+            "location": "./archive/A-Few-Words-About-Concurrency-II.html",
+            "time": "2017-05-08",
+            "summary": "In the first one of this series I wrote about locking. In this essay, I would like to talk about memory model."
+        },
         {  "title": "locking interrupt issues",
             "location": "./archive/locking-interrupt-issues.html",
             "time": "2017-04-24"
