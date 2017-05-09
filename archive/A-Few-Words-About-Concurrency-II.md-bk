@@ -82,7 +82,7 @@ There is a informal memory model for x86^[1]^:
 - Loads and stores are *not* reordered with locked instructions.
 - Loads **may** be reordered with older stores to different locations
 
-x86's memory model is a [strong memory model](http://preshing.com/20120930/weak-vs-strong-memory-models/), but it is not [sequential consistent](https://en.wikipedia.org/wiki/Sequential_consistency), which simply means that there are still lots of instruction re-ordering in the x86 world, as illustrated in the first example above. Worse, [Intel's x86 reference](http://www.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html) doesn't give any formal model for its CPUs, with only some set of rules stating "under what condition what instructions would do what". This make reasoning and automatic-proving difficult. Some prof. in the Cambridge University have proposed a well-proved memory model call [TSO](https://www.cl.cam.ac.uk/~pes20/weakmemory/cacm.pdf) for x86. You might find their [researches](https://www.cl.cam.ac.uk/~pes20/weakmemory/) interesting.
+x86's memory model is a [strong memory model](http://preshing.com/20120930/weak-vs-strong-memory-models/), but it is not [sequential consistent](https://en.wikipedia.org/wiki/Sequential_consistency), which simply means that there are still lots of instruction re-ordering in the x86 world, as illustrated in the first example above. You can find in section 8.2 of [Intel's x86 reference](https://www-ssl.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-vol-3a-part-1-manual.html) a more detailed description.
 
 #### $\blacksquare$ Memory Barrier to Rescue
 
@@ -412,7 +412,7 @@ That finishes our discussion of memory model. We talked about the reason why we 
 
 -------
 
-1. I quote it from [here](https://bartoszmilewski.com/2008/11/05/who-ordered-memory-fences-on-an-x86/). You can also find it in [Intel's x86 manual](http://www.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html).
+1. I quote it from [here](https://bartoszmilewski.com/2008/11/05/who-ordered-memory-fences-on-an-x86/). You can also find it in [Intel's x86 manual](https://www-ssl.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-vol-3a-part-1-manual.html).
 2. The quote was a tradition English saying from [here](http://preshing.com/20120625/memory-ordering-at-compile-time/).
 3. Some argue that memory barrier do **nothing** with data propogation from one part of the system to other part. That is quite true, because [the Alpha processor is an exception for this rule](https://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html). But for other processor, data propogation can be forced by memory barriers.
 4. You can see full semantics of these instruction in these page: [lfence](http://x86.renejeschke.de/html/file_module_x86_id_155.html), [sfence](http://x86.renejeschke.de/html/file_module_x86_id_289.html), [mfence.](http://x86.renejeschke.de/html/file_module_x86_id_170.html)
