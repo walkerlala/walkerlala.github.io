@@ -23,22 +23,22 @@
             "summary": "Concurrency has always been a big topic ever since the 1960s. I learned about this topic from my Operating System courses one year ago but never feel confident to tell any other people that I really understand it. I do have some insights into this topic and have read a few books/articles related to it. However, the more I read and know about it, the more it seems to be left unknown. I suppose this is probably the reason for the old saying \"the consequence of knowing too much\".  Nevertheless, I want to summarize and present some \"cases\" that I find really interesting these days as I read and think. I will try to show you how we can  get into the \"dark\" side of those techniques, with some necessary theories. Specifically, in this essay, I would try show you how to implement a lock in the kernel, and what techniques and theories are required."
         },
         {  "title": "What If Two Processes Write to the Same File Simultaneously",
-            "location": "./archive/2017-02-17-what-if-write-to-the-same-file.html",
+            "location": "./archive/what-if-write-to-the-same-file.html",
             "time": "2017-02-17",
             "summary": "What if your open the same file in several processes and you write to it simultaneously? What is the result? Do these process share the same file offset when they try to write? What about writing to the same file in the same process using different threads?(Take Linux for example.)"
         },
         { "title": "Thinking cross entropy",
-            "location": "./archive/2017-01-12-thinking-cross-entropy.html",
+            "location": "./archive/thinking-cross-entropy.html",
             "time": "2016-12-30",
             "summary": "I discover that the concept of cross entropy is used widely than many people think. In this essay, I want to talk about some of my thoughts about cross entropy."
         },
         {  "title": "Gradient descent of 4 Layers FNN",
-            "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
+            "location": "./archive/NN-four-layer-gradient-descent.html",
             "time": "2016-12-30", 
             "summary": "Derivation of gradient descent of a 4 layers FNN for my Machine Learning course"
         },
         {  "title": "A Recurrent Neural Network Tutorial",
-            "location": "./archive/2016-12-12-rnn-explain-impl.html",
+            "location": "./archive/rnn-explain-impl.html",
             "time": "2016-12-12",
             "summary": "What exactly is Recurrent Neural Network(RNN) and how to use/implement is"
         }
@@ -64,19 +64,19 @@
             "time": "2017-04-25"
         },
         {  "title": "What If Two Processes Write to the Same File Simultaneously",
-            "location": "./archive/2017-02-17-what-if-write-to-the-same-file.html",
+            "location": "./archive/what-if-write-to-the-same-file.html",
             "time": "2017-02-17"
         },
         { "title": "Thinking cross entropy",
-            "location": "./archive/2017-01-12-thinking-cross-entropy.html",
+            "location": "./archive/thinking-cross-entropy.html",
             "time": "2016-12-30"
         },
         {  "title": "Gradient descent of 4 Layers FNN",
-            "location": "./archive/2016-12-31-NN-four-layer-gradient-descent.html",
+            "location": "./archive/NN-four-layer-gradient-descent.html",
             "time": "2016-12-30"
         },
         {  "title": "A Recurrent Neural Network Tutorial",
-            "location": "./archive/2016-12-12-rnn-explain-impl.html",
+            "location": "./archive/rnn-explain-impl.html",
             "time": "2016-12-12"
         },
         {  "title": "RNN Immediate Partial Derivative",

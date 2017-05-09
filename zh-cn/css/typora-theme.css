@@ -1173,7 +1173,12 @@ body {
 #write > ul:first-child, #write > ol:first-child { margin-top: 30px; }
 body > :first-child { margin-top: 0px !important; }
 body > :last-child { margin-bottom: 0px !important; }
-a { color: rgb(65, 131, 196); }
+a {
+    /* color: rgb(65, 131, 196); */
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted;
+}
 h1, h2, h3, h4, h5, h6 { position: relative; margin-top: 1rem; margin-bottom: 1rem; font-weight: bold; line-height: 1.4; cursor: text; }
 h1:hover a.anchor, h2:hover a.anchor, h3:hover a.anchor, h4:hover a.anchor, h5:hover a.anchor, h6:hover a.anchor { text-decoration: none; }
 h1 tt, h1 code { font-size: inherit; }

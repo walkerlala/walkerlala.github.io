@@ -23,17 +23,17 @@
             "summary": "C++的类成员函数模板能否被声明为virtual的？\n\n 偶然在SO上看到这个问题。我想，需要对C++的一整套机制(对象模型、模板、链接模型)有深入了解才能回答这个问题吧。"
         },
         { "title": "关于 static 关键字的思考",
-            "location": "./archive/2017-02-24-some-notes-about-cpp-static-keyword.html",
+            "location": "./archive/some-notes-about-cpp-static-keyword.html",
             "time": "2017-02-24",
             "summary": "唔...以前写过这个话题，但是不完善，改一改。\n\n 关于 static 的作用就不赘述了(文件域的static, 函数内的static, 类里面的static ...)，可以参考[1]，这里只想说C++里面的静态成员变量和静态成员函数的一些gotcha。"
         },
         { "title": "C++11右值引用与移动语义",
-            "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
+            "location": "./archive/cpp-universal-ref-move-zh-cn.html",
             "time": "2017-01-28",
             "summary": "唔...其实这个话题很广，之所以想写这个，是因为最近用C++写了很多东西，也用到了很多C++11的新特性，包括这个Rvalue Reference，觉得这个东西对理解C++11太重要了。以前我就跟别人说，C++11那一套，把`std::move()`和`std::forward()`这两个函数的实现弄懂了就差不多了，因为在弄懂这个的过程中，你会把C++11所引入的一系列新概念都给弄明白了。"
         },
         { "title": "C++11 Value Category",
-            "location": "./archive/2017-01-28-cpp-value-category-zh-cn.html",
+            "location": "./archive/cpp-value-category-zh-cn.html",
             "time": "2017-01-28",
             "summary": "我以前觉得这个话题实在太难理解了，感觉这一切都是那些数学家/语言学家弄出来的鸡肋，但是后来换了一种思路之后就发现一切都变得豁然开朗了：先大概了解它是什么，然后为什么发生(存在)，然后再回头想想它是什么。"
         }
@@ -56,15 +56,15 @@
                 "summary": "C++的类成员函数模板能否被声明为virtual的？\n\n 偶然在SO上看到这个问题。我想，需要对C++的一整套机制(对象模型、模板、链接模型)有深入了解才能回答这个问题吧。"
             },
             { "title": "关于 static 关键字的思考",
-                "location": "./archive/2017-02-24-some-notes-about-cpp-static-keyword.html",
+                "location": "./archive/some-notes-about-cpp-static-keyword.html",
                 "time": "2017-02-24"
             },
             { "title": "C++11右值引用与移动语义",
-                "location": "./archive/2017-01-28-cpp-universal-ref-move-zh-cn.html",
+                "location": "./archive/cpp-universal-ref-move-zh-cn.html",
                 "time": "2017-01-28" 
             },
             { "title": "C++11 Value Category",
-                "location": "./archive/2017-01-28-cpp-value-category-zh-cn.html",
+                "location": "./archive/cpp-value-category-zh-cn.html",
                 "time": "2017-01-28"
             }
             ]
