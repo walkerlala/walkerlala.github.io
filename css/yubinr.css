@@ -191,6 +191,10 @@ td{
     padding: 4px 2px 4px 8px;
 }
 
+em {
+    font-style:  italic;
+}
+
 th{
     border-width: 1;
     border-style: solid;
