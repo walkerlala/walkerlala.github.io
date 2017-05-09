@@ -59,7 +59,7 @@ if(typeof(String.prototype.trim) === "undefined")
         return String(this).replace(/^\s+|\s+$/g, '');
     };
 }
-$.get("archive/exported", function(data, status){
+$.get("archive/000-exported", function(data, status){
       if(status == "success"){
           var lines = data.split("\n");
           var newlines = [];
