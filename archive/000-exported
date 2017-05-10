@@ -12,11 +12,6 @@
 ###
     "blog":
         [
-        {  "title": "This Is A Test To Showcase Blog Automation",
-            "location": "./archive/this-is-a-test.html",
-            "time": "2017-05-08",
-            "summary": "In the first one of this series I wrote about locking. In this essay, I would like to talk about memory model."
-        },
         {  "title": "A Few Words About Concurrency (Part II)",
             "location": "./archive/A-Few-Words-About-Concurrency-II.html",
             "time": "2017-05-08",
