@@ -342,11 +342,11 @@ Rather, as they are quite similar, I am not so willing to post the same material
 
 ### \#4, Memory Consistency Model
 
-Let's now turn to some more general topic: *memory consistency model*. When talking about *memory consistency model*, our domain is not only multiprocessors systems or systems with many cores, but also other related topics such as distributed system with thousands of machines running at the same time.(I will, however, prefer to use multiprocessors systems as examples ![alt text](../img/icons/png/happy-4.png))
+Let's now turn to some more general topic: *memory consistency model*. When talking about *memory consistency model*, our domain is not only multiprocessors systems or systems with many cores, but also other related topics such as distributed system with thousands of machines running at the same time (I will, however, prefer to use multiprocessors systems as examples ![alt text](../img/icons/png/happy-4.png))
 
 Imagine lots of processors are running our programs at the same time. How can we reason our programs and make them correct? What kind of system can guarantee that this line of code will be always run before the other and that will never be re-ordered?
 
-Through decades of development, a concept called *memory consistency* has been proposed, which specifies **the the ordering of operations to multiple locations with regards to all processors (or, every part of the system)**. Again, it is a *contract* which guarantees that if programmers follow specific rules, memory will be *consistent* and the result of memory operations will be predictable.
+Through decades of development, a concept called *memory consistency* has been proposed, which specifies **the ordering of operations to multiple (memory) locations with regards to all processors (or, every part of the system)**. Again, it is a *contract* which guarantees that if programmers follow specific rules, memory will be *consistent* and the result of memory operations will be predictable.
 
 For example, imagine the following execution flow:
 
@@ -374,17 +374,17 @@ By sequential consistency, it means that the result of any execution is the same
 
 It can be easily demonstrated by the figure below:
 
-![alt text](../img/sequential-consistency-illustration.png)
+<div align="center">![alt text](../img/sequential-consistency-illustration.png)</div>
 
-Conceptually, there is a single global memory and a switch that connects an arbitrary processor to memory at any time step. Each processor issues memory operations in **program order** and the switch provides the global serialization among all memory operations.
+Conceptually, there is a single global memory and a "switch" that connects an arbitrary processor to memory at any time step. Each processor issues memory operations in **program order** and the switch provides the global serialization among all memory operations.
 
-Back to the previous *consistency model execution flow* example above, being *sequential consistent* means that the order of program on every processor is preserved, but the order between processors are undefined. Therefore,  this kind of execution flow is allowed:
+Back to the previous *consistency model execution flow* example above, being *sequential consistent* means that the order of program **onalthough every single processor** is preserved, but the order **between processors** are undefined. Therefore,  this kind of execution flow is allowed:
 
 ```
 A1, B1, A2, C1, B2
 ```
 
-because the **program order** on every processor is preserved. However, this kind of execution flow is not allowed:
+because the **program order** on every single processor is preserved. However, this kind of execution flow is not allowed:
 
 ```
 B1, A1, C1, A2, B2
@@ -400,13 +400,182 @@ Sequential consistency seems to be a very good properties. However, it is too st
 
 By *quiescent consistent*, it means that only the mutual order separated by a *quiescent point* is preserved. Take the *consistency model execution flow* above as an example: *C1* is separated by a *quiescent point* from *A1 & B1 & A2 & B2*. As a result, the order between *C1* and *A1 & B1 & A2 & B2* is preserved, but the order inside *A1 & B1 & A2 & B2* is undefined.
 
+#### $\blacksquare$ Linearizability
+
+Now we come to the real tough part of memory model ... welcome to the messy concurrent world !!! ![alt text](../img/icons/png/happy-4.png)
+
+First of all, if you get stuck by any material below, remind yourself that *linearizability* is pretty much the same as *atomicity* (although *atomicity* is not a strict terminology in mathematically^[10]^).
+
+![alt text](../img/icons/svg/zap.svg) **History of Concurrent System**
+
+To understand the concept of Linearizability, we first introduce the notion of *history*:
+
+An execution of a concurrent system results in a *history*, an ordered sequence of completed operations. In other word, a *history* is a sequence of method *invocations* and *responses* (or "*method call*" and "*method return*") on an shared object by a set of threads/processes. Methods *invocations* and *responses* take place instantaneously, but there is **delay** between an invocation and response, that is, every method call takes some time to finish:
+
+<div align="center">![alt text](../img/method-invocations.png)</div>
+
+In concurrent system, a history will look like this, with *invocations* and *responses* interleaved with each other:
+
+```
+A: method a invocation
+A: method a response
+B: method b invocation
+A: method c invocation
+B: method b response
+A: method c response
+```
+
+A and B are threads/processors.
+
+![alt text](../img/icons/svg/zap.svg) **Problems With Concurrent Execution**
+
+In concurrent system, there are some problems:
+
+> how can we reason about our system with so many method calls interleaving together:
+
+For example, in an execution history like this:
+
+<div align="center">![alt text](../img/method-invocations-interleave.png)</div>
+
+With so many methods interleaving together, the system might become **inconsistent** because some method calls take place when others are still executing, and they are **MANIPULATING THE SAME OBJECT !!!**.
+
+As a result, we need a *consistency model* which can **guarantee** that every method call takes place *instantaneously* without any delay between its invocation and response. That is, every method is *atomic*. Using the *history* representation above, that equivalently means every invocation is immediately followed by its corresponding response:
+
+```
+A: method a invocation
+A: method a response
+B: method b invocation
+B: method b response
+A: method c invocation
+A: method c response
+```
+
+![alt text](../img/icons/svg/zap.svg) **Linearizable History**
+
+To solve the problem above, we introduce the concept of *Linearizability*.
+
+Firstly, we define the notion of *sequential history*:
+
+> A *sequential* history is one in which all invocations have immediate responses
+
+The example above is obviously a  sequential history. And then, we define *linearizable history*:
+
+> A history *linearizable* if we can reorder it such that
+>
+> 1. its invocations and responses can be reordered to yield a sequential history;
+> 2. if a response preceded an invocation in the original history, it must still precede it in the sequential reordering.
+> 3. that sequential history is correct according to the sequential definition of the object;
+
+
+
+Let's look at some examples:
+
+###### \#\#\#\# Example 1, A Linearizable History
+
+```
+B: r.write(1) invocation
+A: r.read()   invocation
+C: r.write(2) invocation
+A: r.read()   response with 1
+B: r.write(1) response with nothing
+C: r.write(2) response with nothing
+```
+
+This history can be reordered to be a *sequential history* :
+
+```
+B: r.write(1) invocation
+B: r.write(1) response with nothing
+A: r.read()   invocation
+A: r.read()   response with 1
+C: r.write(2) invocation
+C: r.write(2) response with nothing
+```
+
+which satisfies the 1., 2. and 3. requirements in the definition of *linearizable history* above.
+
+###### \#\#\#\# Example 1, A Non-Linearizable History
+
+```
+A: r.enque(x) invocation
+A: r.enque(x) response
+B: r.enque(y) invocation
+A: r.deque()  invocation
+B: r.enque(y) response with nothing
+A: r.deque()  response with y
+```
+
+This history is not linearizable because it **violates** the semantic of a FIFO queue. It can be reordered to a *sequential history* as follow:
+
+```
+A: r.enque(x) invocation
+A: r.enque(x) response
+B: r.enque(y) invocation
+B: r.enque(y) response with nothing
+A: r.deque()  invocation
+A: r.deque()  response with y
+```
+
+but this sequential history **violates** the semantic of a FIFO queue. Therefore, this history is non-linearizable.
+
+<hr>
+
+You see, if *histories* on a concurrent system are all guaranteed to be *linearizable*, the behavior of the system is much more easier to reason about, because you can be sure that none of the method calls will interleave together (thus making the system *consistent*) and semantics of objects are well-preserved.
+
+![alt text](../img/icons/svg/zap.svg) **Linearizable Object**
+
+An object (as opposed to a history) is linearizable if all valid histories of its use can be linearized. Note that this is a much harder assertion to prove.
+
+![alt text](../img/icons/svg/zap.svg) **An Alternative Definition of Linearizability (with Linearizability Point)**
+
+You may have encountered an alternative definition of *linearizability* using the notion of *linearizability point*. With the notion of *linearizability point*, we can define *linearizability* as follow:
+
+1. All function calls have a *linearization point* at some instant between their invocation and their response.
+2. All functions appear to occur instantly at their linearization point, behaving as specified by the sequential definition.
+
+Take the above example:
+
+<div align="center">![alt text](../img/method-invocations-linearization-point-I.png)</div>
+
+A *history* of this system might be:
+
+```
+processor_3: method call a invocation
+processor_1: method call c invocation
+processor_2: method call b invocation
+processor_3: method call a response
+processor_1: method call c response
+processor_2: method call b response
+```
+
+and that can be *linearize* to:
+
+```
+processor_3: method call a invocation
+processor_3: method call a response
+processor_1: method call c invocation
+processor_1: method call c response
+processor_2: method call b invocation
+processor_2: method call b response
+```
+
+Effectively, that is equivalent to the following mapping:
+
+<div align="center">![alt text](../img/method-invocations-linearization-point-II.png)</div>
+
+
+
+As the use of *linearization point* make the it easier to understand *linearizability*, it is used in many literature.
+
 #### $\blacksquare$ Why We Need It
 
-The reason why we need this seemingly useless concepts is that we need to have a solid foundation to describe the behavior of a multiprocessor/multicore/distributed system and the interaction between every part of it, just as we need a formal memory model (think [TSO](https://www.cl.cam.ac.uk/~pes20/weakmemory/cacm.pdf) for x86) to formally describe the behavior of CPUs such that we can reason our programs, especially those large scale ones. Let's see whether we can make it clear in the future posts.
+The reason why we need these seemingly useless concepts is that we need to have a solid foundation to describe behaviors of a multiprocessor/multicores/distributed system and the interaction between every  part of it, just as we need a formal memory model (think [TSO](https://www.cl.cam.ac.uk/~pes20/weakmemory/cacm.pdf) for x86) to formally describe the behavior of CPUs such that we can reason our programs, especially those large scale ones. Let's see whether we can make it clear in the future posts, maybe with more examples ![alt text](../img/icons/png/happy-4.png)
 
 ### \#5 Conclusion
 
-That finishes our discussion of memory model. We talked about the reason why we need memory models, at both hardware level and programming languages level, with each of them detailedly discussed. We also make a few discussion on a related topic *memory consistency model* (a rather simper one actually^[10]^), hoping to bring all these things together. In the future, let's see whether we can bring more about how a memory model is used and unified in an operating system (e.g Linux now has a pretty complete memory model), and, of course, finish the C/++ part ![alt text](../img/icons/png/happy-4.png)
+That finishes our discussion of memory model. We talked about the reason why we need memory models, at both hardware level and programming languages level, with each of them detailedly discussed. We also make a few discussion on a related topic "*memory consistency model*" , hoping to bring all these things together. In the future, let's see whether we can bring more about how a memory model is used and unified in an operating system (e.g Linux now has a pretty complete memory model), and, of course, finish the C/++ part ![alt text](../img/icons/png/happy-4.png)
+
+In writing this essay I read lots of materials. A [tutorial](./misc/MemoryModel/Shared-Memory-Consistency-Models-A-Tutorial.pdf) from *Sarita V. Adve* and *Kourosh Gharachorloo* helps me understand some concepts of memory model (especially *sequential consistency*). A [PPT outline](./misc/MemoryModel/2014-qqc-talk) and from *James Riely*, together with [a homework solution](./misc/MemoryModel/linearizability_solution.pdf) from *Torsten Hoefler* and *Markus Püschel*, help me be clearer about the notion of linearizability.  Thanks.
 
 ###### ![alt text](../img/icons/svg/search.svg) Notes
 
@@ -416,9 +585,9 @@ That finishes our discussion of memory model. We talked about the reason why we 
 2. The quote was a tradition English saying from [here](http://preshing.com/20120625/memory-ordering-at-compile-time/).
 3. Some argue that memory barrier do **nothing** with data propogation from one part of the system to other part. That is quite true, because [the Alpha processor is an exception for this rule](https://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html). But for other processor, data propogation can be forced by memory barriers.
 4. You can see full semantics of these instruction in these page: [lfence](http://x86.renejeschke.de/html/file_module_x86_id_155.html), [sfence](http://x86.renejeschke.de/html/file_module_x86_id_289.html), [mfence.](http://x86.renejeschke.de/html/file_module_x86_id_170.html)
-5. I heard it from someone, but I forget where the source is.
+5. I heard it from someone, but I forget where the source is.although
 6. Many thanks to [this javaworld article](http://www.javaworld.com/article/2074979/java-concurrency/double-checked-locking--clever--but-broken.html).
 7. See this [doc](http://elixir.free-electrons.com/linux/v4.0/source/Documentation/volatile-considered-harmful.txt) in the Linux Kernel Document.
 8. Some will argue that nearly all of those optimization stuff exist in the JVM, which is not compiler and more or less like a machine. I would suggest we all treat them at the programming languages level...
 9. You can find full description of Java's Memory Model in [the Java Languages Specification](https://docs.oracle.com/javase/specs/). To have a easier starting point, you can start from [this FAQ page](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html) and find references [here](https://www.cs.umd.edu/users/pugh/java/memoryModel/). If, after scanning those pages, you are still interested in concurrent programming in Java, you may want to see [this](https://docs.oracle.com/javase/tutorial/essential/concurrency/index.html) docs/tutorial which contain lots of material on this topic.
-10. We left out many material on this topic, such as *Linearizability*. You can find a very instructional material [here](./misc/shared-memory-consistency-model-tutorial.pdf).
+10. That is because definitions of *atomic* are usually vague and do not specific clearly when an operation is considered to begin and end.
