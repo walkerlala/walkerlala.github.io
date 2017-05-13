@@ -336,9 +336,9 @@ For further material of Java's memory model (e.g complete memory model specifica
 
 Before C11/C++11, the C/C++ languages have no memory model, meaning that all those memory model related issues is platform-dependently and in many case directly related to hardware. After C11/C++11, there are official memory model in the language specifications.
 
-You may start from [this point](http://en.cppreference.com/w/cpp/language/memory_model).
+What memory model means for Java also applies to C/C++.
 
-(more to be added here...)
+Rather, as they are quite similar, I am not so willing to post the same material here. You can start from [this thread](https://stackoverflow.com/questions/6319146/c11-introduced-a-standardized-memory-model-what-does-it-mean-and-how-is-it-g?rq=1) to get more info about [C/C++'s memory model](http://en.cppreference.com/w/cpp/language/memory_model). Or, if you can help add something here, you can [contact me](mailto:ablacktshirt@gmail.com). Thanks. ![alt text](../img/icons/png/happy-4.png)
 
 ### \#4, Memory Consistency Model
 
