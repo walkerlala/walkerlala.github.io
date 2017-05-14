@@ -572,7 +572,7 @@ a:active, a:hover {
 	position: relative;
 	padding-bottom: 70px;
 	white-space: pre-wrap;
-	overflow-x: auto;
+	/*overflow-x: auto;*/ /*MODIFIED*/
 }
 
 .for-image #write {
@@ -1210,7 +1210,6 @@ ul:last-child, ol:last-child { margin-bottom: 0px; }
 blockquote { border-left: 4px solid rgb(221, 221, 221); padding: 0px 15px; color: rgb(119, 119, 119); }
 blockquote blockquote { padding-right: 0px; }
 table { padding: 0px; word-break: initial; }
-#write { overflow-x: auto; }
 table tr { border-top: 1px solid rgb(204, 204, 204); background-color: white; margin: 0px; padding: 0px; }
 table tr:nth-child(2n) { background-color: rgb(248, 248, 248); }
 table tr th { font-weight: bold; border: 1px solid rgb(204, 204, 204); text-align: left; margin: 0px; padding: 6px 13px; }
