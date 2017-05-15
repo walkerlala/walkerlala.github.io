@@ -577,7 +577,7 @@ The reason why we need these seemingly useless concepts is that we need to have 
 
 That finishes our discussion of memory model. We talked about the reason why we need memory models, at both hardware level and programming languages level, with each of them detailedly discussed. We also make a few discussion on a related topic "*memory consistency model*" , hoping to bring all these things together. In the future, let's see whether we can add more about how a memory model is used and unified in an operating system (e.g Linux now has a pretty complete memory model), and, of course, finish the C/++ part ![alt text](../img/icons/png/happy-4.png)
 
-###### \# Acknowledgement
+### \#6, Acknowledgement
 
 In writing this essay I read lots of materials. A [tutorial](./misc/MemoryModel/Shared-Memory-Consistency-Models-A-Tutorial.pdf) from *Sarita V. Adve* and *Kourosh Gharachorloo* helps me understand some concepts of memory model (especially *sequential consistency*). A [PPT outline](./misc/MemoryModel/2014-qqc-talk) and from *James Riely*, together with [a homework solution](./misc/MemoryModel/linearizability_solution.pdf) from *Torsten Hoefler* et. al and a [Wikipedia article](https://en.wikipedia.org/wiki/Linearizability), help me be clearer about the notion of linearizability.  Thanks.
 
@@ -591,7 +591,7 @@ In writing this essay I read lots of materials. A [tutorial](./misc/MemoryModel/
 4. You can see full semantics of these instruction in these page: [lfence](http://x86.renejeschke.de/html/file_module_x86_id_155.html), [sfence](http://x86.renejeschke.de/html/file_module_x86_id_289.html), [mfence.](http://x86.renejeschke.de/html/file_module_x86_id_170.html)
 5. I heard it from someone, but I forget where the source is.although
 6. Many thanks to [this javaworld article](http://www.javaworld.com/article/2074979/java-concurrency/double-checked-locking--clever--but-broken.html).
-7. See this [doc](http://elixir.free-electrons.com/linux/v4.0/source/Documentation/volatile-considered-harmful.txt) in the Linux Kernel Document.
+7. *volatile* in C/C++ does NOT enforce memory barrier as in Java. Rather, it is used in *code* to force access (otherwise compiler might optimize that access away, without being aware of the context in concurrent code). See this [doc](http://elixir.free-electrons.com/linux/v4.0/source/Documentation/volatile-considered-harmful.txt) in the Linux Kernel Document.
 8. Some will argue that nearly all of those optimization stuff exist in the JVM, which is not compiler and more or less like a machine. I would suggest we all treat them at the programming languages level...
 9. You can find full description of Java's Memory Model in [the Java Languages Specification](https://docs.oracle.com/javase/specs/). To have a easier starting point, you can start from [this FAQ page](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html) and find references [here](https://www.cs.umd.edu/users/pugh/java/memoryModel/). If, after scanning those pages, you are still interested in concurrent programming in Java, you may want to see [this](https://docs.oracle.com/javase/tutorial/essential/concurrency/index.html) docs/tutorial which contain lots of material on this topic.
 10. That is because definitions of *atomic* are usually vague and do not specific clearly when an operation is considered to begin and end.
