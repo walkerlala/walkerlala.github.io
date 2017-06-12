@@ -52,15 +52,15 @@
             [
             {  "title": "P/NP & Turing machine",
                 "location": "./archive/computational-complexity.html",
-                "time": "2017-06-11",
+                "time": "2017-06-11"
             },
             {  "title": "Oh My Pointer to Pointer",
                 "location": "./archive/oh-my-pointer-to-pointer.html",
-                "time": "2017-03-25",
+                "time": "2017-03-25"
             },
             {  "title": "C++ Class Member Function Template NOT Virtual",
                 "location": "./archive/cpp-class-member-function-template-not-virtual.html",
-                "time": "2017-03-12",
+                "time": "2017-03-12"
             },
             { "title": "关于 static 关键字的思考",
                 "location": "./archive/some-notes-about-cpp-static-keyword.html",
