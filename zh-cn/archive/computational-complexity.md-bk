@@ -1,0 +1,57 @@
+## Turing machine & P/NP problem
+
+This post explain the concepts of Turing machine, P/NP problem and their "connection".
+
+### \#1, Turing Machine
+
+图灵机原型[1]:
+
+![alt text](../img/turing-machine.png)
+
+简单地说图灵机有四个组件:
+
+- 纸带(tape)，上面标有0或1
+- 读纸带的头(head)
+- 一个状态寄存器(state register)
+- 一个储存程序/规则的表(instructions table)
+
+图灵机的运作过程如下: head不断往前移动，每移动到一个方块，根据 instruction table 中的规则执行相应动作。比如上图中，此时图灵机处于状态 23，如果当前方块的内容是 1，则擦除其内容然后往其中写入1，并向右移动，而且图灵机转入状态 359......
+
+##### Turing Complete
+
+所有能完成与图灵机相同功能的程序都是图灵完备的。
+
+### \#2, N vs. NP
+
+P，即 polynomial，是指能在多项式时间内解决的问题。NP，即 non-deterministic polynomial，即能在多项式时间内验证答案是否正确的问题；
+
+NP-hard是指比任何 NP 问题都难的问题（但是NP-hard问题不一定是NP问题）。NP-complete问题是指，所有NP问题都能"归约"到这个问题的问题，这里的"归约"就是说，如果可以把问题 A 在多项式时间内转化到问题 B，那么通过解决问题 B 我就可以解决问题 A，比如，解一元一次方程可以归约到一元二次方程，如果有了解一元二次方程的解法那么就可以解决一元一次方程了（反过来不成立）。
+
+很容易可以看出，如果一个问题既是 NP 问题又是 NP-hard 问题，那么它就是 NP-complete 了。
+
+下面举几个例子来说明 P、NP、NP-complete、NP-hard 的含义：
+
+- 乘法操作是 P 问题
+- 解数独是 NP 问题，因为给定一个数独的解，很容易（在多项式时间内）验证这个解是否正确（但是要求出这个解就没有那么简单了）
+- 下棋这个操作是 NP-hard，因为即使给定一个解，你也没有办法在多项式时间内验证这个解是否是正确/最优的；比如，某人告诉你，这种情况时这样子下会比较好，你没有办法在多项式时间内判断他说的这个走法是否是正确/最优的，要验证这一点必须遍历所有可能（ 2^n^ 的复杂度）。
+- [哈密顿回路问题](https://en.wikipedia.org/wiki/Hamiltonian_path_problem)
+
+可以看出，P 问题是 NP 问题的子集；但是 NP 问题是不是 P 问题的子集呢？换句话说， P =? NP
+
+如果 P != NP 的话那么 P、NP、NP-complete 和 NP-hard 的关系如左下图所示，否则如右下图所示：
+
+![alt tex](../img/p_vs_np.svg) 
+
+#### N =? NP 的重要性
+
+为什么证明 N = NP 那么重要呢？举个例子，在数学上，对一个猜想给出证明是一个多项式时间的操作，所以是 P 问题；验证一个证明是否成立是一个多项式时间的操作，所以是 NP 问题。如果能证明 P = NP，那么就意味着**对一个猜想给出证明** = **验证一个证明是否成立**，也就是说如果我们能在多项式时间内验证一个证明是否成立(which is very easy)，那么我们就可以知道证明这个猜想只需要多项式时间（当然这并不说明可以直接给出证明，只是，由于证明这个猜想只需要多项式时间，所以直接穷举就行...）可怕。引用 [Scott Aaronson 的话](http://www.scottaaronson.com/blog/?p=122)：
+
+> If P=NP, then the world would be a profoundly different place than we usually assume it to be. There would be no special value in “creative leaps,” no fundamental gap between solving a problem and recognizing the solution once it’s found. Everyone who could appreciate a symphony would be Mozart; everyone who could follow a step-by-step argument would be Gauss; everyone who could recognize a good investment strategy would be Warren Buffett. 
+
+### \#3, P/NP 问题的图灵机定义
+
+~ to be finished ~
+
+### \# Reference
+
+\[1]: [Turing Machines Explained](https://www.youtube.com/watch?v=dNRDvLACg5Q)
