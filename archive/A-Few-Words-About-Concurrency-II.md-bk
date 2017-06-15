@@ -6,7 +6,7 @@ I have been reading about concurrency these days and wish to be able to write co
 
 ### \#1, Introduction
 
-By [definition](https://en.wikipedia.org/wiki/Memory_model_(programming)), a **memory model** describes the interactions of threads through memory and their shared use of data. In a world, it is a *contract* between programmers and systems, which specifies whether some sort of memory operations are allowed or not. For example:
+By [definition](https://en.wikipedia.org/wiki/Memory_model_(programming)), a **memory model** describes the interactions of threads through memory and their shared use of data. In a word, it is a *contract* between programmers and systems, which specifies whether some sort of memory operations are allowed/guaranteed or not. For example:
 
 ```C
 int X, Y;
