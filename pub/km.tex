@@ -1,25 +1,4 @@
-% TEMPLATE for Usenix papers, specifically to meet requirements of
-%  USENIX '05
-% originally a template for producing IEEE-format articles using LaTeX.
-%   written by Matthew Ward, CS Department, Worcester Polytechnic Institute.
-% adapted by David Beazley for his excellent SWIG paper in Proceedings,
-%   Tcl 96
-% turned into a smartass generic template by De Clarke, with thanks to
-%   both the above pioneers
-% use at your own risk.  Complaints to /dev/null.
-% make it two column with no page numbering, default is 10 point
 
-% Munged by Fred Douglis <douglis@research.att.com> 10/97 to separate
-% the .sty file from the LaTeX source template, so that people can
-% more easily include the .sty file into an existing document.  Also
-% changed to more closely follow the style guidelines as represented
-% by the Word sample file. 
-
-% Note that since 2010, USENIX does not require endnotes. If you want
-% foot of page notes, don't include the endnotes package in the 
-% usepackage command, below.
-
-% This version uses the latex2e styles, not the very ancient 2.09 stuff.
 \documentclass[letterpaper,twocolumn,10pt]{article}
 \usepackage{usenix}
 \usepackage{graphicx}
@@ -42,8 +21,8 @@
 
 %for single author (just remove % characters)
 \author{
-{\rm Your Name Here}\\
-Your Institution\\
+{\rm Yubin Ruan}\\
+South China University of Technology\\
 \and
 {\rm Second Name}\\
 Second Institution
@@ -75,11 +54,12 @@ our implementation can have negligible impact on existing services.
 
 \section{Introduction}
 Data access control and monitoring in complex distributed systems have been a
-real world concern~\cite{SomeBigPaper2009} but have not yet gathered enough
+% TODO more papers here
+real world concern~\cite{cloudComputing:2010} but have not yet gathered enough
 attention. Large internet companies which provide heterogeneous services
 often have their data stored in different data centers but the technologies
-they use to process these data, such as Mapreduce~\cite{mapreduce2003} and
-Spark~\cite{spark2010}, are built with no security in mind, making it hard to
+they use to process these data, such as Mapreduce~\cite{MapReduce:2008} and
+Spark~\cite{Spark:2015}, are built with no security in mind, making it hard to
 precisely grant data access permission to relevant users and, in case of data
 being stolen, trace how the data are transferred. In this paper we try to
 mitigate this situation by using a model to capture user program behaviors
@@ -124,27 +104,28 @@ affecting existing services. This utility can also be used to
 time of testing.\\
 
 Under the hood we have interposition in libc, using the LD\_PRELOAD
-technique~\cite{LD-PRELOAD-CITE} or using the \textit{hotpatcher} utility
-program described above. Whenever a program try to operate on the data of
-interest (e.g, reading or writing), a piece of information, which is
-necessary for data tracing afterward, will be collected by our interposition
-code and then sent to a message queue in a piece of shared memory. The shared
-memory is set up by a daemon called \textit{KMagent} when it is started
-(usually at boot time) and is shared among all processes at that single
-machine. \textit{KMagent} is the consumer here, continuously polling the
-shared message queues and collecting data, whereas all the other processes
-are producers. The message queue in shared memory is wait-free and operations
-on it are guided by a protocol to make them efficient and safe, affecting no
+technique~\cite{LDPRELOADKrentel:2013, LDPRELOADLee:2011, LDPRELOADSaito:2005}
+or using the \textit{hotpatcher} utility program
+described above. Whenever a program try to operate on the data of interest
+(e.g, reading or writing), a piece of information, which is necessary for
+data tracing afterward, will be collected by our interposition code and then
+sent to a message queue in a piece of shared memory. The shared memory is set
+up by a daemon called \textit{KMagent} when it is started (usually at boot
+time) and is shared among all processes at that single machine.
+\textit{KMagent} is the consumer here, continuously polling the shared
+message queues and collecting data, whereas all the other processes are
+producers. The message queue in shared memory is wait-free and operations on
+it are guided by a protocol to make them efficient and safe, affecting no
 existing services. As will be demonstrated below, with the current
-implementation, the overhead within a single event is about 1\textit{us} on
+implementation, the overhead within a single event is about 1\textit{us} on 
 % TODO machine specification
-our[-- TODO machine specification --]. With proper sampling strategies, we show
-that our implementation have only negligible impact on file events, 10\%
+our[-- TODO machine specification --]. With proper sampling strategies, we
+show that our implementation have only negligible impact on file events, 10\%
 overhead on process event and 10\% overhead on network event. 
 
 Periodically a central service try to pull from all machines to collect newly
 % TODO and then analyse those data offline or use streaming stategy
-generated data. We use a \textit{bulk mode}~\cite{jeffdeanCACM} to make this
+generated data. We use a \textit{bulk mode}~\cite{CACMDean:2013} to make this
 operation cheap. Besides, our system is \textit{data-oriented}, which makes
 % TODO explain this "data-oriented", because mostly people will forget our
 % focuse on "data-oriented" (including me)
@@ -152,18 +133,19 @@ the volume of collected data small, thus placing only low burden on the
 system.\\
 
 There has already been lots of works in using tracing techniques to gather
-information about distributed system behaviors~\cite{magpie, dapper}.
-However, those works almost all focus on performance analysis and
-trouble-shooting. Most of them are targeted to some specified program
-(\textit{e.g.}, web server)~\cite{singleprocess-oriented-paper} and require
-help from the operation system kernel. Compared to them, our attention is on
-tracking how data is accessed and transferred, and then determine whether
-those operations are legitimate. Our system can affect \textit{every} process
-on a machine with sufficiently low overhead. With the implementation in
-userspace, the whole system is also easy to test and customize. We draw
-some ideas from~\cite{tracenotper1, tracenotper2}. Our model can capture
-user behaviors precisely. Along the way, we design an simple-yet-efficient
-system which impose negligible impact on existing services.\\
+information about distributed system behaviors~\cite{magpie:2004, magpie:2003,
+pinpoint:2002, xtrace:2007, dapper:2010}.  However, those works almost all
+focus on performance analysis and trouble-shooting. Most of them are targeted
+to some specified program (\textit{e.g.}, web server)~\cite{magpie:2004,
+magpie:2003} and require help from the operation system kernel. Compared to
+them, our attention is on tracking how data is accessed and transferred, and
+then determine whether those operations are legitimate. Our system can affect
+\textit{every} process on a machine with sufficiently low overhead. With the
+implementation in userspace, the whole system is also easy to test and
+customize. We draw some ideas from~\cite{BackTraceKing:2003,
+BackTraceKing:2005}. Our model can capture user behaviors precisely. Along the
+way, we design an simple-yet-efficient system which impose negligible impact
+on existing services.\\
 
 To summarize, our contributions are:
 \begin{enumerate}
@@ -183,16 +165,12 @@ show that it has negligible impact on existing services. We discuss related
 work and future work in section 5 and section 6 respectively and then
 conclude in section 7.
 
-% TODO
-% More fascinating text. Features\endnote{Remember to use endnotes, not
-% footnotes!} galore, plethora of promises.\\ 
-
 \section{Model} \label{sec:themodel}
 
 % note: you can also use the wonderful epsfig package...
 \begin{figure}[t]
     \centering
-    \includegraphics[scale=0.07]{saomodel}
+    \includegraphics[scale=0.08]{saomodel.eps}
     \caption{The Subject-Action-Object Model}
     \label{fig:saomodel}
 \end{figure}
@@ -225,7 +203,7 @@ in a distributed system.\\
 % add a * to make this figure span across two columns.
 \begin{figure*}
     \centering
-    \includegraphics[scale=0.06]{filetransfermodel}
+    \includegraphics[scale=0.06]{filetransfermodel.eps}
     \caption{left: file access and transfer in a single machine. right: distributed system }
     \label{fig:filetransfermodel}
 \end{figure*}
@@ -258,28 +236,28 @@ TODO probability model
 
 \section{Implementation}
 
-\subsection{System Overview}
-KM is implemented in userspace and relies on the LD\_PRELOAD
-mechanism~\cite{LD-PRELOAD-CITE} of the dynamic linker. In short, whenever a
-program starts, the dynamic linker will load the shared libraries listed in
-the LD\_PRELOAD environment variable before any other libraries that the
-program depends on, including libc.so. After the dynamic linker is done with
-symbols relocation, symbols exported by shared libraries in LD\_PRELOAD will
-``shadow" those with the same names in libc.so. Because libc is the common
-runtime which provides system call wrappers and common routines for application to interact with
-the operating system and most programs depends on libc.so, we can use this
-feature to add wrappers around libc's and insert some interposition code between
-user program code and libc. This is illustrated in Figure~\ref{fig:ldpreload}.
+\subsection{System Overview} KM is implemented in userspace and relies on the
+LD\_PRELOAD mechanism of the dynamic linker. In short, whenever a program
+starts, the dynamic linker will load the shared libraries listed in the
+LD\_PRELOAD environment variable before any other libraries that the program
+depends on, including libc.so. After the dynamic linker is done with symbols
+relocation, symbols exported by shared libraries in LD\_PRELOAD will ``shadow"
+those with the same names in libc.so. Because libc is the common runtime which
+provides system call wrappers and common routines for application to interact
+with the operating system and most programs depends on libc.so, we can use
+this feature to add wrappers around libc's and insert some interposition code
+between user program code and libc. This is illustrated in
+Figure~\ref{fig:ldpreload}.
 
 % use `H' to fix figure placement, with help from the `float' package
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.07]{singlemachine}
+    \includegraphics[scale=0.07]{singlemachine.eps}
     \caption{The LD\_PRELOAD Mechanism}
     \label{fig:ldpreload}
 \end{figure}
 
-This schema is common for libc interposition~\cite{citesomebody}. However, to
+This schema is common for libc interposition~\cite{LDPRELOADLee:2011}. However, to
 make the implementation safe and efficient is not easy. To make it safe, one
 have to adhere strictly to the semantic of every API and every piece of code
 should be multithread-safe and async-signal-safe. To make it efficient, only
@@ -385,19 +363,20 @@ CPU~\cite{somebodyhere}, assigning each process a ``local'' message queue
 will greatly reducer false-sharing, thus boosting performance of the whole
 system. 
 
-Each message queue is essentially a ring buffer~\cite{ringbuffer} with a
-\textit{index} that can be advanced by both the consumer and producers: 
+Each message queue is essentially a ring buffer~\cite{ringbufferLee:2009,
+Lynx:2016} with a \textit{index} that can be advanced by both the consumer and
+producers: 
 
 % use `H' to fix figure placement, with help from the `float' package
 \begin{subfigures}
     \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.04]{messagequeue}
+    \includegraphics[scale=0.04]{messagequeue.eps}
     \caption{\label{fig:singlemq}A single message queue}
 \end{figure}
     \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.04]{afterfetchandadd}
+    \includegraphics[scale=0.04]{afterfetchandadd.eps}
     \caption{\label{fig:afterfa}After three fetch-and-add operations}
 \end{figure}
 \end{subfigures}
@@ -504,103 +483,6 @@ We've preserved some real ones in addition to the template-speak.
 After the bibliography you are DONE.
 
 {\footnotesize \bibliographystyle{acm}
-\bibliography{../common/bibliography}}
-
-
-\theendnotes
+\bibliography{km.bib}}
 
 \end{document}
-
-% Examples from the original latex source
-
-% Some embedded literal typset code might 
-% look like the following :
-% 
-% {\tt \small
-% \begin{verbatim}
-% int wrap_fact(ClientData clientData,
-%               Tcl_Interp *interp,
-%               int argc, char *argv[]) {
-%     int result;
-%     int arg0;
-%     if (argc != 2) {
-%         interp->result = "wrong # args";
-%         return TCL_ERROR;
-%     }
-%     arg0 = atoi(argv[1]);
-%     result = fact(arg0);
-%     sprintf(interp->result,"%d",result);
-%     return TCL_OK;
-% }
-% \end{verbatim}
-% }
-% 
-% Now we're going to cite somebody.  Watch for the cite tag.
-% Here it comes~\cite{Chaum1981,Diffie1976}.  The tilde character (\~{})
-% in the source means a non-breaking space.  This way, your reference will
-% always be attached to the word that preceded it, instead of going to the
-% next line.
-
-% It can get tricky typesetting Tcl and C code in LaTeX because they share
-% a lot of mystical feelings about certain magic characters.  You
-% will have to do a lot of escaping to typeset curly braces and percent
-% signs, for example, like this:
-% ``The {\tt \%module} directive
-% sets the name of the initialization function.  This is optional, but is
-% recommended if building a Tcl 7.5 module.
-% Everything inside the {\tt \%\{, \%\}}
-% block is copied directly into the output. allowing the inclusion of
-% header files and additional C code." \\
-% 
-% Sometimes you want to really call attention to a piece of text.  You
-% can center it in the column like this:
-% \begin{center}
-% {\tt \_1008e614\_Vector\_p}
-% \end{center}
-% and people will really notice it.\\
-% 
-% \noindent
-% The noindent at the start of this paragraph makes it clear that it's
-% a continuation of the preceding text, not a new para in its own right.
-% 
-% 
-% Now this is an ingenious way to get a forced space.
-% {\tt Real~$*$} and {\tt double~$*$} are equivalent. 
-% 
-% Now here is another way to call attention to a line of code, but instead
-% of centering it, we noindent and bold it.\\
-% 
-% \noindent
-% {\bf \tt size\_t : fread ptr size nobj stream } \\
-% 
-% And here we have made an indented para like a definition tag (dt)
-% in HTML.  You don't need a surrounding list macro pair.
-% \begin{itemize}
-% \item[]  {\tt fread} reads from {\tt stream} into the array {\tt ptr} at
-% most {\tt nobj} objects of size {\tt size}.   {\tt fread} returns
-% the number of objects read. 
-% \end{itemize}
-% This concludes the definitions tag.
-% 
-% \subsection{How to Build Your Paper}
-% 
-% You have to run {\tt latex} once to prepare your references for
-% munging.  Then run {\tt bibtex} to build your bibliography metadata.
-% Then run {\tt latex} twice to ensure all references have been resolved.
-% If your source file is called {\tt usenixTemplate.tex} and your {\tt
-%   bibtex} file is called {\tt usenixTemplate.bib}, here's what you do:
-% {\tt \small
-% \begin{verbatim}
-% latex usenixTemplate
-% bibtex usenixTemplate
-% latex usenixTemplate
-% latex usenixTemplate
-% \end{verbatim}
-% }
-% 
-% 
-% \subsection{Last SubSection}
-% 
-% Well, it's getting boring isn't it.  This is the last subsection
-% before we wrap it up.
-
