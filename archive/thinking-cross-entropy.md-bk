@@ -1,120 +1,108 @@
-# Thinking cross-entropy
+## Thinking cross-entropy
 
 In this essay I want to talk about [cross-entropy](https://en.wikipedia.org/wiki/Cross_entropy) and some interesting things that I found related to it.
 
-## what is cross-entropy
----------------------------
+### what is cross-entropy
 
 The term *cross-entropy* is from [information theory][information theory]. The detail mathematical explanation of it is pretty complicated for many people, especially those who have not profound background in mathematics. But basically, from the machine learning perspective, we can just write it as:
 
-$$ \boldsymbol \varepsilon = - y log{\hat y} - (1-y) log(1-\hat y) $$(1)
+​                                                            $\boldsymbol \varepsilon = - y log{\hat y} - (1-y) log(1-\hat y)$
 
-(You can view $$ y $$ as the label, $$ \hat y $$ as prediction, from a machine learning perspective, if you will)
+(You can view $ y $ as the label, $ \hat y $ as prediction, from a machine learning perspective, if you will)
 
-## why use cross-entropy 
----------------------------------
+### why use cross-entropy
 
 Basically cross-entropy is used as a [cost function][cost function wiki]. You can find it in many machine learning algorithms, including [rnn](./2016-12-12-rnn-explain-impl.html) and [logistic regression][logistic regression wiki]. However, the reason why it is so often used as a cost function is not obvious (at least for me). 
 
 For me, there is one reason, and it's about the [convexity problem][convexity problem wiki] in *gradient descent* algorithm. 
 
-### $$\blacksquare$$ The convexity problem of a gradient descent algorithm
+#### $\blacksquare$ The convexity problem of a gradient descent algorithm
 
-Generally, when using gradient descent algorithm to fit parameters, we would like the cost $$ J $$ to descent to the global minimum:
+Generally, when using gradient descent algorithm to fit parameters, we would like the cost $ J $ to descent to the global minimum:
 
-![alt text][../img/gradient-descent-convex.png]
-
-<center><p style="font-size: 1px"> figure 1 </p></center>
+![image](../img/logistic-convex.png)
 
 In linear regression, using LMS, we can define the cost function as:
 
-$$ \italic Cost(h_\theta (x^{(i)}), y^{(i)}) = {1\over 2} (h_\theta(x^{(i)}) - y^{(i)})^2 $$(2)
+​                                          $Cost(h_\theta (x^{(i)}), y^{(i)}) = {1\over 2} (h_\theta(x^{(i)}) - y^{(i)})^2$
 
-where $$ x^{(i)} $$ is the $$ i $$th training sample, $$ y^{(i)} $$ is the prediction and $$ h_\theta(x^{(i)}) $$ is the hypothesis function. The hypothesis function is generally:
+where $ x^{(i)} $ is the $ i $th training sample, $ y^{(i)} $ is the prediction and $ h_\theta(x^{(i)}) $ is the hypothesis function. The hypothesis function is generally:
 
-$$ {h_{\boldsymbol\theta}(\boldsymbol x) }= \boldsymbol\theta \boldsymbol X = \theta_0 + \theta_1 x_1 + \theta_2 x2 + ... $$(3)
+​                                          ${h_{\boldsymbol\theta}(\boldsymbol x) }= \boldsymbol\theta \boldsymbol X = \theta_0 + \theta_1 x_1 + \theta_2 x2 + ... $
 
-Because of this simple hypothesis function, the cost function in linear regression is a `"`convex`"`(as shown in figure 1). However, things become different when it comes to logistic regression. In fact, if we continue to use LMS as the cost function in logistic regression:
+Because of this simple hypothesis function, the cost function in linear regression is a "convex" (as shown in the figure above). However, things become different when it comes to logistic regression. In fact, if we continue to use LMS as the cost function in logistic regression:
 
-$$ \italic Cost(h_\theta (x^{(i)}), y^{(i)}) = {1\over 2} (h_\theta(x^{(i)}) - y^{(i)})^2 $$(4)
+​                                          $Cost(h_\theta (x^{(i)}), y^{(i)}) = {1\over 2} (h_\theta(x^{(i)}) - y^{(i)})^2$
 
-$$ {h_{\boldsymbol\theta}(\boldsymbol x)} = {1 \over {1+e^{-\boldsymbol\theta^T \boldsymbol X}}} $$(5)
+​                                          $ { h_{\boldsymbol\theta}(\boldsymbol x)} = {1 \over {1+e^{-\boldsymbol\theta^T \boldsymbol X}} } $
 
- we would end up with a `"`non-convex`"` like this:
+ we would end up with a "non-convex" like this:
 
-![alt text][../img/gradient-descent-non-convex.png]
+![alt text](../img/logistic-none-convex.png)
 
-<center><p style="font-size: 1px"> figure 2 </p></center>
+In this case, the cost function is no longer a "convex" and the algorithm may or may not converge the global minimum.
 
-In this case, the cost function is no longer a `"`convex`"` and the algorithm may or may not converge the global minimum.
-
-### $$\blacksquare$$ Using cross entropy to help solve the convexity problem
+#### $\blacksquare$ Using cross entropy to help solve the convexity problem
 
 To solve the convexity problem of logistic regression, we can re-define the cost function to be:
 
-$$ \boldsymbol{Cost} =
-  \begin{cases}
-    -log(h_\theta (x))       &  \text{if } y = 1\\
-    -log(1 - h_\theta (x))   &  \text{if } y = 0\\
-  \end{cases}
-$$(6)
+​                                                           $ \boldsymbol{Cost} = \begin{cases} -log(h_\theta (x))       &  \text{if } y = 1\\ -log(1 - h_\theta (x))   &  \text{if } y = 0\\  \end{cases}$
 
 that is,
 
-$$ \boldsymbol{Cost} = -y log(h_{\boldsymbol\theta}({\boldsymbol x})) - (1-y)log(1-h_{\boldsymbol\theta}({\boldsymbol x})) $$(7)
+​                                                           $ \boldsymbol{Cost} = -y log(h_{\boldsymbol\theta}({\boldsymbol x})) - (1-y)log(1-h_{\boldsymbol\theta}({\boldsymbol x})) $
 
 which is a cross entropy.
 
-Why we use $$eq.6$$ as a cost function? How can it guarantee convexity?
+Why we use that as a cost function? How can it guarantee convexity?
 
- * The reason we use it as a cost function is that *we can give the algorithm higher penalty when it predict a wrong result*. From $$eq.6 $$ we can see that: 1) when $$y=1$$ and we predict $$\hat y = 0$$, we receive a cost of nearly infinite; 2) when $$y=0$$ and we predict $$\hat y = 1$$ we also receive a cost of nearly infinite. From this respective, we can see that it's a good cost function.
+*  The reason we use it as a cost function is that *we can give the algorithm higher penalty when it predict a wrong result*. From equation above we can see that: 
 
- * The convexity analysis is pretty complicated, but in fact, after this logarithm transform, the cost function is very likely to become a convex(as that in figure 1). You can find its proof [here][logistic-cost-function-convex-proof].
+   - when $y=1$ and we predict $\hat y = 0$, we receive a cost of nearly infinite; 
+   - when $y=0$ and we predict $\hat y = 1$ we also receive a cost of nearly infinite.
+
+   From this respective, we can see that it's a good cost function.
+
+
+* The convexity analysis is pretty complicated, but in fact, after this logarithm transform, the cost function is very likely to become a convex (as that in the first figure above). You can find its proof [here][logistic-cost-function-convex-proof].
 
 After that, we can calculate the gradient as follow:
 
-$$ J(\boldsymbol{\theta}) = - {1\over m} [\displaystyle \sum_{i=1}^{m} (y^{(i)} log(h_{\theta}(x^{(i)})) + (1-y^{(i)})log (1-h_{\theta}(x^{(i)}))] $$(8)
+​                                                  $ J(\boldsymbol{\theta}) = - {1\over m} [\displaystyle \sum_{i=1}^{m} (y^{(i)} log(h_{\theta}(x^{(i)})) + (1-y^{(i)})log (1-h_{\theta}(x^{(i)}))] $
 
-$$ \theta_j := \theta_j - \alpha {\partial \over \partial \theta_j} J(\boldsymbol{\theta}) $$(9)
+​                                                   $ \theta_j := \theta_j - \alpha {\partial \over \partial \theta_j} J(\boldsymbol{\theta}) $
 
-where $$m$$ is the number of training samples.
+where $m$ is the number of training samples.
 
 Thus, we finally get
 
-$$\theta_j := \theta_j + \alpha(y^{(i)} - h_{\theta}(x^{(i)}))x_j^{(i)} $$(10)
+​                                                 $\theta_j := \theta_j + \alpha(y^{(i)} - h_{\theta}(x^{(i)}))x_j^{(i)} $
 
 which is the same as that of linear regression.
- 
-## Deriving logistic regression gradient descent from statistical perspective
--------------------------
+
+### Logistic regression gradient descent from a statistical perspective
+
 It turns out that we can also interpret the logistic gradient descent algorithm from a statistical perspective, using the **Maximum Likelihood Principle**.
 
-For a problem where $$ y \in \{0, 1\} $$ and the hypothesis function is $$h_{\theta}(x)$$, we assume that
+For a problem where $ y \in \{0, 1\} $ and the hypothesis function is $h_{\theta}(x)$, we assume that
 
-$$ P(y=1|x;\theta) = h_{\theta}(x) $$(11)
+​                                                      $ P(y=1|x;\theta) = h_{\theta}(x) $
 
-$$ P(y=0|x;\theta) = 1-h_{\theta}(x) $$(12)
+​                                                     $ P(y=0|x;\theta) = 1-h_{\theta}(x) $
 
 which equivalently is:
 
-$$p(y|x;\theta) = (h_{\theta}(x))^y (1-h_{\theta}(x))^{1-y} $$(13)
+​                                                      $p(y|x;\theta) = (h_{\theta}(x))^y (1-h_{\theta}(x))^{1-y} $
 
-Assuming that $$m$$ training examples were generated independently, we can then write down the likelihood of the parameters as
+Assuming that $m$ training examples were generated independently, we can then write down the likelihood of the parameters as
 
-$$\begin{align*} 
-L(\theta) &= p(\arrow y|X;\theta) \\
-       &= \displaystyle\prod_{i=1}^{m} p(y^{(i)}|x^{(i)};\theta) \\
-       &= \displaystyle\prod_{i=1}^{m} (h_{\theta}(x^{(i)}))^{y^{(i)}} (1 - h_{\theta}(x^{(i)}))^{1- y^{(i)}} 
-\end{align*}
-$$(14)
+​                                                      $\begin{align*} L(\theta) &= p(y|X;\theta) \\ &= \displaystyle\prod_{i=1}^{m} p(y^{(i)}|x^{(i)};\theta) \\ &= \displaystyle\prod_{i=1}^{m} (h_{\theta}(x^{(i)}))^{y^{(i)}} (1 - h_{\theta}(x^{(i)}))^{1- y^{(i)}}  \end{align*} $
 
-log it to make the calculation easier:
+and log it to make the calculation easier:
 
-$$\ell(\theta) = log(L(\theta))
-             = \displaystyle\sum_{i=1}^{m}(y^{(i)} log(h(x^{(i)})) + (1-y^{(i)}) (1-log(h(x^{(i)}))))
-$$(15)
+​                                                      $\ell(\theta) = log(L(\theta)) = \displaystyle\sum_{i=1}^{m}(y^{(i)} log(h(x^{(i)})) + (1-y^{(i)}) (1-log(h(x^{(i)})))) $
 
-As you can see, this is also in the form of cross entropy. And then we can use the same method to derive the gradient descent algorithm. $$\blacksquare$$
+As you can see, this is also in the form of cross entropy. And then we can use the same method to derive the gradient descent algorithm. $\blacksquare$
 
 
 [information theory]: https://en.wikipedia.org/wiki/Information_theory
