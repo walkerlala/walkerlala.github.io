@@ -1,0 +1,417 @@
+## Machine Intelligence on Images
+
+Ok. Enough for human love. Time for love on machines.
+
+这里将之前在学习图像识别的相关知识做一个小总结，没有innovative的东西，权当reference。下面的东西没有太强的逻辑联系。我会不定时更新。
+
+### LeNet 5
+
+[Gradient-based learning applied to document recognition](http://www.dengfanxin.cn/wp-content/uploads/2016/03/1998Lecun.pdf), Yann LeCun et al. (1998, cited: 10000+)
+
+这篇1998年的论文是将convNet应用于图像识别的开山之作，其中提出的卷积网络架构一直沿用到现在，比如local receptive field, shared-weight (weight replication), sub-sampling(pooling)等技巧，在目前的深度神经网络中也一直在使用。在文章里面作者详细讲解了使用各个组件的原因，比如，local receptive field是模仿猫的视觉系统，令每一个隐含层节点都之接受一小部分的上层神经元的信息，这样不仅减少了需要训练的参数，而且还能够提取各种图像结构信息(elementary features, such as oriented edges, end-points, corners); shared-weight的使用是为了抵抗图像的变动(invariance w.r.t translation, local distortion, position shift)，而且能够使得同一个feature map能够提取出相同类型的特征; sub-sampling不仅能防止过拟合，还能减少录入图像的位置信息（在图像识别任务中，图像的位置信息没有多大用处）。
+
+网络的结构如下:
+
+| Layer | Type           | Maps | Size  | Kernel Size | Stride | Activation |
+| ----- | -------------- | ---- | ----- | ----------- | ------ | ---------- |
+| Out   | FullyConnected | -    | 10    | -           | -      | RBF        |
+| F6    | FullyConnected | -    | 84    | -           | -      | tanh       |
+| C5    | Convolution    | 120  | 1x1   | 5x5         | 1      | tanh       |
+| S4    | AvgPooling     | 16   | 5x5   | 2x2         | 2      | tanh       |
+| C3    | Convolution    | 16   | 10x10 | 5x5         | 1      | tanh       |
+| S2    | AvgPooling     | 6    | 14x14 | 2x2         | 2      | tanh       |
+| C1    | Convolution    | 6    | 28x28 | 5x5         | 1      | tanh       |
+| In    | Input          | 1    | 32x32 | -           | -      | -          |
+
+这个网络对于手写文字识别（MNIST数据集），可以达到99%+的正确率。
+
+Stanford的cs231n里面讲解的convnet几乎是同一个东西，唯一不同的是cs231n中图片多了一点，另外加了一些近年来表现比较好的网络，比如AlexNet, GoogleNet。
+
+tensorflow实现代码: [mnist_lenet.py](../code/mnist_lenet.py)，在MNIST数据集上准确率可以达到98.96%。（里面的实现和上面表格里的结构差不多，为了方便省去了C5层）
+
+### AlexNet
+
+AlexNet([Image classification with deep convolutional network](http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf), Alex Krizhevsky et al.)，2012年ImageNet ILSVRC challenge的冠军。(top 5 error of 16% compared to runner-up with 26% error). 这种网络不同于上面所说的LeNet，在这种网络中，
+
+  1. 卷积层后面直接跟着卷积层（以前都是卷积层后面跟着pooling层），而且做得更深了，
+  2. 除了使用一般的data augmentation技术之外，还引入了一种叫做 fancy PCA 的技术:
+> The second form of data augmentation consists of altering the intensities of the RGB channels in training images. Specifically, we perform PCA on the set of RGB pixel values throughout the ImageNet training set. To each training image, we add multiples of the found principal components, with magnitudes proportional to the corresponding eigenvalues times a random variable drawn from a Gaussian with mean zero and standard deviation 0.1.
+
+作者希望通过fancy pca这种color shifting的方式将图片中某个值较大的channel减小得相对较多，而值较小的channel减少得相对较少。[这里](https://deshanadesai.github.io/notes/Fancy-PCA-with-Scikit-Image)有一个使用skilearn和numpy实现PCA的代码。
+
+
+  3. 另外使用了一个技术:local response normalization(LRN):
+
+> A **Local Response Normalization(LRN)** layer make the neurons that most strongly activate inhibit neurons **at the  same location but in neighboring feature maps**, which encourages different feature maps to **specialize and push apart**, forcing them to explore a wider range of features. It's typically used in lower layer to have a large pool of lower layer features that the upper part can build upon.
+
+简单来说就是通过一个手段使得各个feature map所收集到的feature更加的不同，从而使得整个网络整体的泛化能力更强。Local Response Normalization(LRN) 的细节在论文的3.3节提到，原理如下：
+
+​                                            $\Large{b^i_{x,y} = a^i_{x,y} / (k + \alpha \sum^\limits{min(N-1, i+n/2)}_{j=max(0,  i-n/2)} (a^i_{x,y})^2)}$
+
+其中 $k$, $n$, $\alpha$, $\beta$ 都是hyper-parameter，通过cross-validation等validation方法得到, $n$ 是"neighbor"的数量（前后的neighbor数量), $N$ 是 kernel 的数量，所以上面的求和号求的是周围 $n$ 个相邻的kernel feature map的值。$i$ 是指第 $i$ 个feature map(第 $i$ 个kernel) 的意思。因此，通过这种normalization，在neighbor中比较小的值就会显得更小了，而较大的值就能够凸显出来，从而达到上文说的
+
+> inhibit neurons **at the  same location but in neighboring feature maps**
+
+可视化如下([source](https://yeephycho.github.io/2016/08/03/Normalizations-in-neural-networks/)):
+
+![image](../img/local-response-normalization.png)
+
+AlexNet的网络结构如下:
+
+| Layer | Type            | Maps   | Size    | Kernel Size | Stride | Padding | Activation |
+| ----- | --------------- | ------ | ------- | ----------- | ------ | ------- | ---------- |
+| Out   | Fully Connected | -      | 1000    | -           | -      | -       | Softmax    |
+| F9    | Fully Connected | -      | 4096    | -           | -      | -       | ReLU       |
+| F8    | Fully Connected | -      | 4096    | -           | -      | -       | ReLU       |
+| C7    | Convolution     | 256    | 13x13   | 3x3         | 1      | SAME    | ReLU       |
+| C6    | Convolution     | 384    | 13x13   | 3x3         | 1      | SAME    | ReLU       |
+| C5    | Convolution     | 384    | 13x13   | 3x3         | 1      | SAME    | ReLU       |
+| S4    | MaxPooling      | 256    | 13x13   | 3x3         | 2      | VALID   | -          |
+| C3    | Convolution     | 256    | 27x27   | 5x5         | 1      | SAME    | ReLU       |
+| S2    | Max Pooling     | 96     | 27x27   | 3x3         | 2      | VALID   | -          |
+| C1    | Convolution     | 96     | 55x55   | 11x11       | 4      | SAME    | ReLU       |
+| In    | Input           | 3(RGB) | 224x224 | -           | -      | -       | -          |
+
+这是我的一份实现: [cifar10_alexnet.py](../code/cifar10_alexnet.py)。里面用到的方法和论文里面的几乎一样，但是做了一点简化（少了几层）否则在我的笔记本上训练起来太慢了。。。另外，alexnet有一个新版本，[One weird trick for parallelizing convolutional neural networks](https://arxiv.org/abs/1404.5997)，讲的是将神经网络的训练并行化，粗略地看了一下，里面讲的并行化主要分两种，一种是model parallelization一种是data parallelization，其中model parallelization的意思是每个worker负责一部分的神经元(的所有数据)，data parallelization的意思是每个worker负责(所有神经元的)一部分数据，由于神经网络里面卷积神经网络的计算密集但是参数少，而全连接神经网络的计算简单但是参数多，所以将data parallelization用于卷积神经网络，而将model parallelization用于全连接神经网络。这里有[一份开源实现](https://github.com/tensorflow/models/blob/master/research/slim/nets/alexnet.py)，需要注意的是LRN层因为被证明用处不大而被去掉了。
+
+### ZF-Net
+
+ZF-Net([Visualizing and Understanding Convolutional Networks](https://arxiv.org/abs/1311.2901),Matthew D Zeiler, Rob Fergus)，2013年的ImageNet冠军，跟AlexNet相比只是调了一些参数...这篇文章最大的贡献在于提出了一些可视化卷积神经网络的方法，其中的idea是，使用**能使得某个神经元的activation最大的输入**来代表这个神经元。在这种做法下，可以看到层次越深的神经元，它能提取出的特征就越高级：
+
+![image](../img/zf-net.png)
+
+
+
+### GoogleNet
+
+GoogleNet([Going Deeper with Convolutions](https://arxiv.org/abs/1409.4842), Szegedy et al.)，2014年的ImageNet冠军，贡献在于增加了Inception module，使得需要训练的参数大为减少（因此层数更加深了）.
+
+![image](../img/google-net-1.png)
+
+inception module的motivation是：既然每增加一层卷积神经网络都需要仔细地配置，那么为什么不把卷积神经网络的各个component都放在一起，让他们自己学习呢？所以文章作者将3x3,5x5,1x1和max-pooling都放在一起组成一个inception module，然后一个个inception module 一层层地 stack 在一起，组成一个很深的神经网络。其中值得注意的是里面的1x1的卷积神经层，这种卷积神经网络首次出现在一种[network in network(2014, Min Lin et al.)](https://arxiv.org/abs/1312.4400)的神经网络结构中，其作用在于将前一层神经网络的channel数减少，同时减少参数的数量：
+
+假设我们要将一个channel数量为192的一层卷积神经网络shrink到32个channel的，我们可以用5x5的filters，总共32个，如下：
+
+![image](../img/google-net-2.png)
+
+那么此时这一层神经网络的计算量是:5x5x192x28x28x32 = 120M次乘法操作。而如果将这个shrink操作换成使用1x1卷积层的network in network的结构：
+
+![image](../img/google-net-3.png)
+
+则此时的计算量则是 1x1x192x28x28x16 + 5x5x16x28x28x32 = 12M次乘法操作，相比而言计算量大大减少了，因此上面inception module的中间的3x3和5x5的卷积层都使用了这种network in network的结构。
+
+另外关于GoogleNet的一个细节是它的side branch (右边的两个softmax输出):
+
+![image](../img/google-net-4.png)
+
+这两个side branch的作用是使得网络的中间输出结果也不会太差，因此间接地达到regularization的作用。
+
+这种网络还有很多变种，如
+
+ 1. Inception V2, 在2015年的论文[Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](https://arxiv.org/abs/1502.03167)中提出（Batch Normalization后面会讲），主要是增加了Batch Normalization的方法进行规范化，然后借鉴VGG使用两个3x3的卷积层代替1个5x5的卷积层的方法。
+ 2. Inception V3，在2015年的论文[Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567)中提出，主要特点是对卷积层进行更多样的拆分，更大程度地减少参数。比如将7x7的卷积拆成1x7和7x1的卷积。
+ 3. Inception V4，在2016年的论文[Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)，主要是结合了ResNet的思想。
+
+### VGGNet
+
+VGGNet([Very Deep Convolutional Networks For Large Scale Image Recognition](https://arxiv.org/pdf/1409.1556.pdf), Simonyan et al.; [VGG Homepage](http://www.robots.ox.ac.uk/~vgg/research/very_deep/))，2014年出的，也是也个很有名的神经网络，在ImageNet2014的比赛中其性能跟同年的Inception相差不大，主要贡献在于（用实践）证明了神经网络的层数可以做到的非常深。这里讲讲它的一些创新点：
+
+1. 大量堆叠3x3的卷积。这样做有两个好处：1) 两个3x3的卷积串联相当于一个5x5的卷积层（如下图），即1个像素会跟周围的5x5的像素产生关联，3个3x3的卷积层串联相当于一个7x7的卷积层；但是，3个串联的3x3的卷积只拥有1个7x7的卷积的55%的参数。更重要的是,3个3x3的卷积串联在一起拥有比1个7x7的卷积更多的线性变换，因为前者可以使用三次ReLu，因此学习能力大大增强。
+   ![160-rotated](../img/vgg-3x3.png)
+
+2. VGG在训练的时候，经常是先训练前面层次的简单网络，然后再用前面层次的网络的参数去初始化后面的几个复杂的层次，这样会使得训练的收敛速度更快。这个做法和我们在一般训练任务中在别人构建好的模型的基础上训练是异曲同工的。
+
+3. VGG在训练的时候对图片进行 scale，然后随机裁取224x224的大小的图片进行训练。这种数据增强的方式可以很好的防止训练的过拟合。另外，VGG还使用multi-scale的方法，将图片scale到一个尺寸Q，并将图片输入神经网络计算，最后在最后一个卷积层使用滑窗的方式将不同的分类结果进行平均。
+
+VGG在tensorflow中的开源实现：https://github.com/machrisaa/tensorflow-vgg
+
+### ResNet
+
+ResNet([ Deep Residual Learning for Image Recognition](http://arxiv.org/abs/1512.03385), Kaiming He et al.; [Identity Mappings in Deep Residual Networks](https://arxiv.org/abs/1603.05027), Kaiming He et al.)，ref1是2015的ImageNet冠军，ref2是2016年出的改进版。ResNet可谓是目前所有CNN中的state-of-the-art。resnet的结构的关键是它的skip connection/shotcut:
+
+![image](../img/resnet-1.png)
+
+这种skip connection的意思是将网络层 $k$ 的输出结果直接跳过层 $k+1$ 输出给层 $k+2$ (其实是 $k+2$ 层之前的 ReLU 计算单元：
+
+![image](../img/resnet-2.png)
+
+通过skip connection，可以使得神经网络网络在很早的时候就拥有类似identity function的效果，也就是说，神经网络在一个比较好的基础上进行训练；同时，skip connection可以使得后面的层次的神经网络能够很好地回传给前面的层次，从而在一定程度上避免了梯度消失等训练困难的问题，这是它能够达到比较高的深度的原因之一（一般的resnet都有一两百层，而类似VGGNet和GoogleNet等网络一般也就几十层)。关于Resnet的解释有很多，其中有两篇比较有名，解释得也比较好：
+
+  1. [Residual Networks Behave Like Ensembles of Relatively Shallow Networks （2016, Andreas Veit et al.)](https://arxiv.org/pdf/1605.06431.pdf), 从resnet的网络结构方面解释。
+  2. [The Shattered Gradients Problem: If resnets are the answer, then what is the question?(2017, David et al.)](https://arxiv.org/pdf/1702.08591.pdf)，从梯度方面解释。
+
+下面有 1. 的详解。
+
+##### 对ResNet的一点reasoning
+
+[Residual Networks Behave Like Ensembles of Relatively Shallow Networks](https://arxiv.org/pdf/1605.06431.pdf)，一篇对ResNet的解释，其贡献在于: 
+
+- 1)从一个比较新颖的角度（类似于将ResNet展开）看待Residual network（方便大众理解residual network）。首先一般的residual network都可以表示为
+
+​                                                         $\Large{y_i \equiv f_i(y_{i-1}) + y_{i-1}}$
+
+也就是
+
+![image](../img/resnet-1.png)
+
+展开之后就是
+
+![resnet-33](../img/resnet-3.png)
+
+图形化表示如下
+
+![image](../img/resnet-4.png)
+
+- 2)发现residual network中的各个residual module之间的依赖非常小，删除其中的一个两个path对整体的性能没有太大的影响；而且呈现出一种ensemble的特征（一个residual network里面的各个path就像ensemble learning中的各个component一样），
+- 3)发现residual network中真正effective的大多是一些短的path，因此也解释了为什么residual network可以有效对抗gradient vanishing问题（要知道resnet的基本特征就是非常非常的深）
+
+对于residual network的这些特性的解释，作者在Discussion一章做了一些reasoning。整体上来说，很不错的paper。
+
+### Why deep learning comes so late?
+
+有一个topic也是要说一下的：最早的LeNet在1990年左右就出现并且用于手写文字识别时的正确率已经可以达到99%+了，为什么深度神经网络要到2010年之后才火起来并且渐渐能够达到商用水平呢？答案是后面已经无法训练更深层次的深度神经网络了，所以对于深度神经网络的研究就没有那么快了（当然还是有的，比如Hinton的DeepBelief就是2006年左右出的）。为什么无法训练更深层的神经网络呢？因为
+
+- 1)硬件水平跟不上，当时的GPU用不上。Nvidia在1999年左右推出GPU，当时GPU都被用于图像处理这一领域。在2007年Nvidia推出CUDA库，才使得GPU第一次可以用于general purpose computing。然后2009年的一篇paper [Large-scale Deep Unsupervised Learning using Graphics Processors](https://www-cs.stanford.edu/people/ang/papers/icml09-LargeScaleUnsupervisedDeepLearningGPU.pdf)展示了用GPU来训练deep belief network的性能约是CPU的70倍，从此之后用GPU训练深度神经网络的热潮便一发不可收拾。紧接着Nvidia就推出了cuDNN库，专门用于训练深度神经网络，现有的大多数深度学习库比如Tensorflow的底层用的都是cuDNN。所以说，聪明人应该在2007年就应该买Nvidia的股票了...当然现在用于深度学习的硬件不只是GPU，还有TPU(Google), FPGA(Microsoft),神经网络处理器(Intel)，还有一个IPU(GraphCore，有兴趣可以看看GraphCore创始人的这两篇采访([ref1]( https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-learning), [ref2](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-intelligence-part-2))，他着重讲述了一个topic: the future of AI chip.)
+- 2) 随着神经网络层数的加深，会有gradient vanishing的问题。这个问题虽然不是the only bottleneck，但是算是主要原因之一。目前这个问题已经解决得很好，比如目前在所有神经网络里面都有用到的batch normalization技术以及一些initialization技术(e.g., He initialization)和gradient clipping的方法，就可以在很大程度上解决这个问题。后面会展开讲这个问题。
+
+### Batch Normalization
+
+目前主流用的神经网络都会用到一种Batch Normalization(BN)算法([Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](https://arxiv.org/pdf/1502.03167.pdf), Sergey Ioffe, Christian Szegedy;)，这种算法可以使得使用梯度下降训练的深层神经网络的**训练速度加快很多**，而且在*一定程度上可以防止梯度消失(gradient vanishing)的问题*。
+
+BN算法是指在前向神经网络的神经元的输入和激活之间加入一个(batch) normalization的步骤，也就是矩阵乘积之后，激活函数之前（即对 $x=Wu+b$ 做 normalization，其中 $u$ 是上一层的神经元的输出，$x$ 是当前神经元的输入)。算法流程如下:
+
+![image](../img/batch-normalization-1.png)
+
+可以看到，也就是通过BN过程，将当前神经元的输入从 $x_i$ 换成了 $y_i$。其中前三步即通常意义的归一化，需要注意的是，这里的mini-batch是指在batch stochastic gradient descent类型的算法中的一个batch，上图中的mean和variance也是这个batch的mean和variance；另外，步骤三中加了一个 $\epsilon$ 的目的是为了防止除数为零。做完归一化之后，得到的数据的分布是一个mean为0和 variance为1的分布。对每一层都做了BN之后，就可以保证每一层的输入都符合大致不变的一个分布，这样就可以使得训练速度加快。最后一步的意思后面讲。
+
+上面的算法可视化如下:
+
+![image](../img/batch-normalization-2.png)
+
+上图中第一步将bias值 $b_{h_x}$ 去掉的原因是因为后面做normalization的时候会减去均值，因此前面一步中有无bias值都无所谓。
+
+**为什么使输入的分布大致不变之后训练的速度会加快?** 作者在论文中给出的reasoning是，如果某一层的输入的分布大致不变，那么这一层的参数在学习过程中就不需要不断地adapt输入分布的变化。在通常的神经网络中，一个神经网络层 $K$ 的输入依赖于前面的层 $K-1$，$K-2$...的输出，假设输入数据的分布大致是一样的，那么由于在学习的过程中层 $K-1$，$K-2$...的参数在不断变化，层 $K$ 的输入的分布也会不断变化，因此层 $K$ 的参数在学习的过程中会由于不断地adapt这个分布的变化而导致收敛得很慢（很好理解：上一批数据是这个分布，下一批数据却是那个分布，这就会导致学习到的参数跳来跳去的），因此训练时间很长；增加了一个BN层之后，输入的数据都分布在[-1, 1]区间内，类似一个正态分布（其实不是正态分布，但是类似；参考中心极限定理；文章中有给出一些reference），因此就可以假设输入的分布大致不变。
+
+另外，由于将输入都做了归一化，那么最终得到的gradient就不会因为参数的大小问题而变得太大或太小，也就可以预防gradient exploding和gradient vanishing的问题（在深层神经网络中，一个微小的变化就会因为神经网络的层次过深而导致蝴蝶效应式的变化），因为learning rate调节起来比较简单，很容易调节出一个适合的值，加快了训练速度。文章3.3节讲述了这个问题，但是没有讲述清楚，下面给一个例子：
+
+假设使用sigmoid作为激活函数，如果不做归一化，那么输入数据可能很大(>> 1)也可能很小(<< -1)，因此他们的gradient就很小；归一化之后输入都分布在[-1, 1]之间，因此gradient就在一个可预测的范围之内：
+
+![image](../img/batch-normalization-3.png)
+
+（当然，对于sigmoid的这个问题，现在大多数都是通过换成ReLU激活函数解决，或者通过He Initialization的方法解决，这里只是提供一个例子）
+
+**但是，将输入的分布强制限制在一个分布（类正态分布）内，会导致模型的表达能力（capacity）变差。** 如上图，如果将某一层的输入限制在[-1, 1]之间，那么就相当于只使用了sigmoid函数的线性部分，从而导致整个神经网络最终接近一个线性表达式，最终表达能力下降。为了解决这个问题，引入了一个scale and shift的步骤（图一最后一步）。这一步的reasoning是：为了恢复网络的表达能力，可以在做完normalization之后再做一个“还原”操作
+
+​                                                                     $\Large{x_i^{(k)} = \hat{x}^{(k)} \sqrt{\sigma^2_{\beta} + \epsilon} + \mu^{(k)}_\beta}$
+
+前面的normalization是减去均值除以标准差，那么还原操作就是相反的过程，即先对尺寸进行缩放，然后平移；当然，如果直接这么做的话，那么整个BN操作就没什么意义了，因此可以将上面的式子换成
+
+​                                                                    $\Large{ y_i^{(k)} = \gamma^{(k)}\hat{x}_i^{(k)} + \beta^{(k)}}$
+
+其中 $\gamma$ 和 $\beta$ 都是**可学习的**。这样就可以使得因训练所需而“刻意”加入的BN能够有可能还原最初的输入，从而保证整个network的capacity，这样一来，训练的过程既可以加快，最终模型中某一层的分布又可以被还原（不受影响）：
+> 在初始化的时候，我们将 γ 初始化为1.0，将 β 初始化为 0，那么在网络开始训练时，这两个参数对「还原」来说是不起作用的。即刚开始训练的时候，中间每层网络的数据都会经过归一化，从而避免激活函数导数为 0 的问题。随着网络逐渐优化，γ 和 β 会逐渐得到训练，因此中间层的「还原」力度会越来越明显。按照作者的意思（其实是我对论文的理解），当网络优化到一定程度时，γ 和 β 可以还原出原来的数值，这样就可以保证网络对特征的表达能力不会受影响，而此时网络也基本训练完毕了，因此即使梯度消失也就无关紧要了。
+
+训练的过程和测试（使用最终的模型）的过程有一些需要注意的地方，比如训练的时候需要在除数里面加入$\epsilon$，测试过程中使用的mean和variance是整个数据集的mean和variance。详情看论文和下面的一些参考。
+
+**参考**:
+- \[1]: [YJango的Batch Normalization--介绍](https://zhuanlan.zhihu.com/p/27938792)，知乎专栏，引用了一些图。但 是其实里面的内容讲得不是很好。
+- \[2]: [深度学习中 Batch Normalization为什么效果好？](https://www.zhihu.com/question/38102762)，知乎问答，最高 分的几个回答的分析都有点道理。
+- \[3]: [解读Batch Normalization](http://blog.csdn.net/shuzfan/article/details/50723877)，CSDN博客，整片文章的主题大约是“为什么要用Batch Normalization”，reasoning做得很不错，虽然不完整。
+- \[4]: [论文笔记：Batch Normalization](http://jermmy.xyz/2017/09/02/2017-9-2-paper-notes-batch-normalization/)，个人博客，围绕着Batch Normalization来做reasoning，而且给出了实现上需要注意的一些细节(i.e., 测试的时候模型应该怎么用)
+
+### PCA - Principle Component Analysis
+
+这两天补了一下一些线性代数方面的东西，这里讲一下 PCA (principle component analysis)。PCA的作用在于通过寻找数据的各个 principle component。简单地来说，principle component analysis是对数据做“基变换”，使得变换后，数据在新的基下有更大的variance，即各个数据点在新的坐标系下具有更好的区分性。
+
+如下，以投影长度为新的基，可以看到在灰色的线转到跟中间的紫色的线重合时variance最大\[1]，
+
+![Q7HIP](../img/pca-1.gif)
+![image](../img/pca-2.png)
+
+PCA 其实就是找这些sample data的协矩阵(covariance matrix)的特征值\[1]\[2]
+
+\[1]\[2]里面的解释已经非常清晰了，除了理解起来不太容易。我看了\[3]里面的“线性代数的本质”，对性转换有了很好的理解，因此很多式子都无需证明，很直观（e.g., 任何线性变换换成在以特征向量为基的坐标系下，其矩阵都是对角的）。
+
+\[1]: https://stats.stackexchange.com/questions/2691/making-sense-of-principal-component-analysis-eigenvectors-eigenvalues
+
+\[2]: https://stats.stackexchange.com/questions/217995/what-is-an-intuitive-explanation-for-how-pca-turns-from-a-geometric-problem-wit
+
+\[3]: https://www.bilibili.com/video/av6731067/
+
+### t-SNE
+
+另一个用得很多的降维方法是t-SNE。t-SNE的数学稍微复杂一点我还在看，但是概念很简单，我能找到的最好的解释是这个[Youtube视频](https://www.youtube.com/watch?v=NEaUSP4YerM)
+
+### Object Localization and Detection
+
+[OverFeat: Integrated Recognition, Localization and Detection using Convolutional Networks (Pierre Sermanet et al.)](https://arxiv.org/abs/1312.6229)，ILSVRC2013 localization task的冠军。文章使用卷积神经网络对图像做object localization, landmark detection 和 object detection。
+
+object localization 假定图像中只有**一个物体**，在分类的同时框出图像中的物体(给出红色框框的左上角的x, y 以及长和宽):
+
+![image](../img/object-localization-1.png)
+
+detection 的意思是将图片中相关的物体的识别（detect)且框出来：
+
+![image](../img/object-localization-2.png)
+
+（p.s. 不一定都是同一种物体，可以是其他，比如自动驾驶任务中要求对前方的车和行人做object detection)
+
+landmark detection是objection detection的变种，比如将一个人脸的左眼角的位置标出来。
+
+使用卷积神经网络做 object localization 的方法是: 在输出类别的同时输出红框框(bounding box)的四个值（左上角x轴值 $b_x$，左上角y轴值 $b_y$，长 $b_h$，宽 $b_w$；ps. 这就是所谓的端到端(end-to-end)的学习方法):
+
+![image](../img/object-localization-3.png)
+
+使用卷积神经网络做 object detection 的方法跟object localization的方法差不多，但是由于object detection需要detect多个物体，因此需要对一张图片里面的各个块（称之为 “Cell”, 可能重叠）进行object localization，然后将每个结果结合起来。也就是说，用一个sliding window，横扫一张图片的每一块，一块块地识别。唯一的问题是，对一张图里面的一块块子图做识别，会有计算量过大的问题，因此上面的论文中提出了将各个块的识别放在一起，一次过用卷积来做(implement sliding windows convolutionally)：
+
+![image](../img/object-localization-4.png)
+
+由上图可以看到，如果两个块有重叠，那么那么重叠的部分的计算机会重叠在一起，因此避免了重复的计算，将计算量大大减少了。唯一的问题是卷积神经网络后面的全连接层的处理。因为全连接网络跟卷积神经网络的结构完全不一样，因此不能用卷积的方式将两个全连接层合并在一起，为此，需要将全连接层的连接方式换成卷积的方式：
+
+![image](../img/object-localization-5.png)
+
+剩下的问题是，如何避免一个物体被多次识别。为了避免这个问题，可以使用NonMax suppression算法。
+
+##### NonMax Suppression
+
+先来介绍一个概念, Intersection over Union (IoU):
+
+![image](../img/object-localization-6.png)
+
+(i.e., 即计算**重叠的部分**占**两者的总面积(重叠的部分只算一次)**的多少)
+
+NonMax suppression 算法的步骤是，对于每一个类，先找出其概率最大的那个框，然后算它和跟它有重叠的 IoU，如果 IoU > 0.5 或者其他则认为两者里面是同一个物体，因此丢弃；这样遍历之后，就剩下一些单独的物体了：
+
+![image](../img/object-localization-7.png)
+
+FYI: 以上很多材料都来自Andrew NG的deeplearning course的[convnet系列](https://www.youtube.com/playlist?list=PLkDaE6sCZn6Gl29AoE31iwdVwSG-KnDzF).
+
+### The YOLO Algorithm
+
+YOLO算法：\[[You Only Look Once: Unified, Real-Time Object Detection (Redmon et al, 2015)](https://arxiv.org/abs/1506.02640)\]
+
+这个算法引入了一些方法来同时检测**同一位置**的多个物体。这里的同一位置是指多个物体处于同一个块(cell)内。为了达到这个功能，论文中提出使用多个 "Anchor box" 来做检测。如果设置 Anchor box 的数量为 2 个则可以同时检测两个物体，3 个则 3 个，etc. 这里以 2  Anchor Box 个为例子：
+
+![image](../img/anchor-box-1.png)
+
+当指定 Anchor box 的数量为 2 时，这个卷积神经网络的每一个块（cell）的输出就不是左边那个 y 了，而是右边那个；右边的 y 分为两部分，上半部分为 Anchor Box 1 的的输出结果，下半部分为 Anchor Box 2 的输出结果。因此，不同于上面所说的 object detection 算法，此时，每个 object 不仅仅是属于某个块（cell）了，还同时属于那个块的 Anchor box。
+
+需要注意的问题是，虽然 Anchor Box 的数量可以自由确定，但是每个 Anchor Box 的方向是需要自己手动指定的。
+
+结合 Anchor box 和上面所说的 Nonmax suppression 算法，就可以得到 YOLO 算法了。这个算法可以同时对一张图片里面的多个**可能重叠**的物体进行检测：
+
+![image](../img/anchor-box-2.png)
+
+### R-CNN Algorithms
+
+R-CNN (Region Proposal CNN) 系列算法：
+
+1. [Rich feature hierarchies for accurate object detection and semantic segmentation (Girskik et al, 2013)](https://arxiv.org/abs/1311.2524)
+
+2. [Fast R-CNN (Ross Girshick, 2015)](https://arxiv.org/abs/1504.08083)
+
+3. [Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks (Ren et al, 2015)](https://arxiv.org/abs/1506.01497)
+
+这个系列的算法的目的是加快 object detection 的速度。由上面的算法，很多很明显的空白的没有物体的地方都会经过卷积神经网络的识别，上面的算法的目的是通过一些**region segmentation**算法将各个区域区分开来，然后去掉无用的区域，再有针对性地做识别：
+
+![image](../img/r-cnn-1.png)
+
+##### Detectron from Facebook
+
+目前开源的state-of-art的object detection的库当属facebook的[Detectron](https://github.com/facebookresearch/Detectron)，其中有很多可用的 R-CNN 系列算法。
+
+e.g.,
+![image](../img/detectron-1.png)
+
+
+
+### Everything You Need To Know About Tensorflow
+
+Tensorflow是一种图模型，关于它的大体的机制可以看它最开始的论文: [TensorFlow: A system for large-scale machine learning, Google 2016](https://research.google.com/pubs/pub45381.html)。另外，有兴趣的同学或许可以看看Graphcore CEO的一个访谈[link1](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-learning), [link2](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-intelligence-part-2)，讲的是AI芯片的未来，其中就重点提到图模型；很好的课外读物！
+
+当然，看完这些你还是不会写Tensorfow的，还得看Tensorflow的tutorial。比如最开始的 [MNIST For ML Beginners](https://www.tensorflow.org/versions/r1.2/get_started/mnist/beginners)，使用softmax regression来进行手写文字识别，准确率可以达到 90%+；进阶的 [Deep MNIST for Experts](https://www.tensorflow.org/versions/r1.2/get_started/mnist/pros)，使用卷积神经网络进行手写文字识别，准确率可以达到98%+左右。看完这两个之后就算是学会了怎么用 Tensorflow 写 Hello World了。
+
+然后可以看看如果[用 Tensorflow 来构建 AlexNet](https://www.tensorflow.org/tutorials/deep_cnn)，看看复杂一点的TF代码长什么样。
+
+另外有[tensorflow model](https://github.com/tensorflow/models)，里面包含了tensorflow官方的对一些网络结构的实现，比如 [Resnet](https://github.com/tensorflow/models/blob/master/official/resnet)；另外还有一些第三方的（很多研究者）的实现。
+
+一个例子展示tensorflow的本质：
+
+假设要打印一个常数，在tensorflow里可以怎么做？直接print出来是不行的
+
+```python
+>>> matrix = tf.constant([[3., 3.]])
+>>> print(matrix)
+Tensor("Const:0", shape=(1, 2), dtype=float32)
+```
+需要使用tensorflow的图模型:
+```python
+import tensorflow as tf
+sess = tf.InteractiveSession()
+
+# create the tensor
+matrix1 = tf.constant([[3., 3.]])
+matrix2 = tf.constant([[2.],[2.]])
+
+# pass those tensor through a op
+product = tf.matmul(matrix1, matrix2)
+
+# pass `product' through operation 'Print', which is an identity operation
+# having side effect of printing the second argument out when evaluated
+# (the second argument is a list of tensor to be print. The first argument
+# is here because there must be some tensor to be the input of an op...)
+product = tf.Print(product, [product], message="This is product: ")
+
+# when product is evaluated, all its proceeding operators will get
+# evaluated, includeing Print, which will print the the values out.
+product.eval()
+```
+### Face Recognition
+
+**Basic schema**: 学习一个"相似函数"，使其输出两张图片的相似度：
+
+​                                $\Large{ d(img1, img2) = \text{degree of diffference between images}  }$
+
+#### Siamese network
+
+来自文章 [DeepFace: Closing the Gap to Human-Level Performance in Face Verification, Taigman et al. 2014](https://www.cs.toronto.edu/~ranzato/publications/taigman_cvpr14.pdf)。主要就是将一张图片encode到一个vector里面 (a.k.a embedding)，以便可以计算图片之间的相似度：
+
+![image](../img/face-recognition-1.png)
+
+使用这种网络，整个系统的学习的目标就是使得如果两张图片是同一个人，那么 $d(x^{(1)}, x^{(2)})$ 的值就会很小，否则就很大：
+
+![image](../img/face-recognition-2.png)
+
+#### The Loss Function - Triplet Loss
+
+这种 loss function 来自文章 [FaceNet: A Unified Embedding for Face Recognition and Clustering, Schroff et al. 2015](https://arxiv.org/abs/1503.03832)。
+
+文章里面将当前图片称为 "Anchor"，如果一张图片里面的人跟 Anchor 是同一个，那么就被称为 "Positive"，否则称为 "Negative"：
+
+![image](../img/face-recognition-3.png)
+
+在此基础上，整个系统的学习目标是使得对于所有的 AP 和 AN 对，都有 $d(A, P) <= d(A, N)$，也就是
+
+​                                          $ \Large{{\Vert f(A) - f(P) \Vert}^2 \le {\Vert f(A) - f(N) \Vert}^2}$
+
+为了防止两边都为零的情况下不等式成立，可以加上一个参数（论文里面称为"margin"）使得不等式变成
+
+​                                          $\Large{{\Vert f(A) - f(P) \Vert}^2 + \alpha \le {\Vert f(A) - f(N) \Vert}^2}$
+
+这个其实很容易理解，也就是使得 $d(A, P)$ 和 $d(A, N)$ 之间有一定距离。
+
+在此基础上我们定义损失函数为
+
+​                       $ \Large{L(A, P, N) = \max(0, {\Vert f(A) - f(P) \Vert}^2 - {\Vert f(A) - f(N) \Vert}^2 + \alpha)}$
+
+由于涉及到 $A$, $P$, 和 $N$ ，所以称为 triplet loss。所以一个batch的loss就是
+
+​                                                        $\Large{J = \sum\limits^m_{i=1}{L(A^{(i)}, P^{(i)}, N^{(i)})}}$ 
+
+当然，很容易看出，AP和AN是不能随机选的，否则 $L(A, P, N)$ 是很容易被满足的。
+
+### Neural Style Transfer
+
+Neural style transfer 所做的事就是自动地将一个图片的style应用到另外一张图片上，以生成一张新的图片：
+
+【to be continued】

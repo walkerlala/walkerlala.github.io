@@ -12,6 +12,11 @@
 ###
     "blog":
        [
+        { "title": "Machine Intelligence On Images",
+            "location": "./archive/on-machine-image-intelligence.html",
+            "time": "2018-03-09",
+            "summary": "这里将之前在学习图像识别的相关知识做一个小总结，没有innovative的东西，权当reference。下面的东西没有太强的逻辑联系。我会不定时更新。"
+        },
         {  "title": "P/NP & Turing machine",
             "location": "./archive/computational-complexity.html",
             "time": "2017-06-11",
@@ -50,6 +55,10 @@
         "archive":
         {"blog": 
             [
+            { "title": "Machine Intelligence On Images",
+                "location": "./archive/on-machine-image-intelligence.html",
+                "time": "2018-03-09"
+            },
             {  "title": "P/NP & Turing machine",
                 "location": "./archive/computational-complexity.html",
                 "time": "2017-06-11"
