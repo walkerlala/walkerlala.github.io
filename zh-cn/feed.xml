@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Yubin's Blog</title>
+        <description>
+            The Fastdrivers Organization.
+        </description>
+        <link>http://fastdrivers.org/</link>
+        <atom:link href="http://fastdrivers.org/feed.xml" rel="self" type="application/rss+xml" />
+        <!--
+        <pubDate>Mon, 12 Mar 2018 02:05:09 +0800</pubDate>
+        <lastBuildDate>Mon, 12 Mar 2018 02:05:09 +0800</lastBuildDate>
+        -->
+        <copyright> Copyright © Yubin Ruan </copyright>
+        <webMaster>Yubin Ruan, ablacktshirt@gmail.com </webMaster>
+        <managingEditor>Yubin Ruan, ablacktshirt@gmail.com </managingEditor>
+        <generator>By-hand</generator>
+
+        <item>
+            <title>Machine Intelligence On Images</title>
+            <description> 这里将之前在学习图像识别的相关知识做一个小总结，没有innovative的东西，权当reference。下面的东西没有太强的逻辑联系。我会不定时更新。</description>
+            <pubDate>Fri, 08 March 2018 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/on-machine-image-intelligence.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/on-machine-image-intelligence.html</guid>
+        </item>
+        <item>
+            <title>P/NP Turing machine</title>
+            <description>解释 P/NP 问题以及图灵机</description>
+            <pubDate>Sun, 11 June 2017 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/computational-complexity.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/computational-complexity.html</guid>
+        </item>
+        <item>
+            <title>Oh My Pointer to Pointer</title>
+            <description>这是一篇关于C语言编程手法的博文。我们来讲讲指针，或者准确来说关于指针的一个奇技淫巧。</description>
+            <pubDate>Sat, 25 March 2017 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/oh-my-pointer-to-pointer.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/oh-my-pointer-to-pointer.html</guid>
+        </item>
+        <item>
+            <title>C++ Class Member Function Template NOT Virtual</title>
+            <description>C++的类成员函数模板能否被声明为virtual的？ 偶然在SO上看到这个问题。我想，需要对C++的一整套机制(对象模型、模板、链接模型)有深入了解才能回答这个问题吧。</description>
+            <pubDate>Sun, 12 March 2017 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/cpp-class-member-function-template-not-virtual.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/cpp-class-member-function-template-not-virtual.html</guid>
+        </item>
+        <item>
+            <title>关于 static 关键字的思考</title>
+            <description>唔...以前写过这个话题，但是不完善，改一改。关于 static 的作用就不赘述了(文件域的static, 函数内的static, 类里面的static ...)，可以参考[1]，这里只想说C++里面的静态成员变量和静态成员函数的一些gotcha。</description>
+            <pubDate>Sun, 12 March 2017 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/some-notes-about-cpp-static-keyword.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/some-notes-about-cpp-static-keyword.html</guid>
+        </item>
+        <item>
+            <title>C++11右值引用与移动语义</title>
+            <description>唔...其实这个话题很广，之所以想写这个，是因为最近用C++写了很多东西，也用到了很多C++11的新特性，包括这个Rvalue Reference，觉得这个东西对理解C++11太重要了。以前我就跟别人说，C++11那一套，把`std::move()`和`std::forward()`这两个函数的实现弄懂了就差不多了，因为在弄懂这个的过程中，你会把C++11所引入的一系列新概念都给弄明白了。</description>
+            <pubDate>Sun, 12 March 2017 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/cpp-universal-ref-move-zh-cn.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/cpp-universal-ref-move-zh-cn.html</guid>
+        </item>
+        <item>
+            <title>C++11 Value Category</title>
+            <description>我以前觉得这个话题实在太难理解了，感觉这一切都是那些数学家/语言学家弄出来的鸡肋，但是后来换了一种思路之后就发现一切都变得豁然开朗了：先大概了解它是什么，然后为什么发生(存在)，然后再回头想想它是什么。</description>
+            <pubDate>Sun, 12 March 2017 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/cpp-value-category-zh-cn.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/cpp-value-category-zh-cn.html</guid>
+        </item>
+    </channel>
+</rss>
