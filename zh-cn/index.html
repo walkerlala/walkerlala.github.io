@@ -62,6 +62,17 @@ if(typeof(String.prototype.trim) === "undefined")
         return String(this).replace(/^\s+|\s+$/g, '');
     };
 }
+
+// 盘古之白, 异步加载
+(function(u, c) {
+  var d = document, t = 'script', o = d.createElement(t), s = d.getElementsByTagName(t)[0];
+  o.src = u;
+  if (c) { o.addEventListener('load', function(e) { c(e); }); }
+  s.parentNode.insertBefore(o, s);
+})('//cdnjs.cloudflare.com/ajax/libs/pangu/3.3.0/pangu.min.js', function() {
+  pangu.spacingPage();
+});
+
 $.get("archive/000-exported", function(data, status){
       if(status == "success"){
           var lines = data.split("\n");
