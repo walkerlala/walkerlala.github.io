@@ -47,7 +47,7 @@
 spin_lock_irqsave(...); /* spinlock that disable local interrupt */</pre><p>FreeBSD&#39;s spinlock donnot allow interrupt.</p><h4><a name='header-c166' class='md-header-anchor '></a>#, The priority inversion problem</h4><p>This is for spinlock.</p><p>If thread B with a higher priority get in and try to acquire the lock that thread A currently holds, then thread B would spin, while at the same time  thread A has no chance to run because it has lower priority, thus not being able to release the lock.</p><p>For this reson, disabing interrupts is desirable.</p></div>
                 <hr>
                                                                 <!-- TODO -->
-                <p class="LastModified">Yubin Ruan, last modified in 2017-04-24</p>
+                <p class="LastModified">Yubin Ruan, last modified on 2017-04-24</p>
                     </div>  <!-- end blog content -->
 
                     <!--  here should be some pictures for seperating -->

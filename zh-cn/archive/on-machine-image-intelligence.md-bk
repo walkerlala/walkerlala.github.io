@@ -8,7 +8,7 @@ Ok. Enough for human love. Time for love on machines.
 
 [Gradient-based learning applied to document recognition](http://www.dengfanxin.cn/wp-content/uploads/2016/03/1998Lecun.pdf), Yann LeCun et al. (1998, cited: 10000+)
 
-这篇1998年的论文是将convNet应用于图像识别的开山之作，其中提出的卷积网络架构一直沿用到现在，比如local receptive field, shared-weight (weight replication), sub-sampling(pooling)等技巧，在目前的深度神经网络中也一直在使用。在文章里面作者详细讲解了使用各个组件的原因，比如，local receptive field是模仿猫的视觉系统，令每一个隐含层节点都之接受一小部分的上层神经元的信息，这样不仅减少了需要训练的参数，而且还能够提取各种图像结构信息(elementary features, such as oriented edges, end-points, corners); shared-weight的使用是为了抵抗图像的变动(invariance w.r.t translation, local distortion, position shift)，而且能够使得同一个feature map能够提取出相同类型的特征; sub-sampling不仅能防止过拟合，还能减少录入图像的位置信息（在图像识别任务中，图像的位置信息没有多大用处）。
+这篇1998年的论文是将convNet应用于图像识别的开山之作，其中提出的卷积网络架构一直沿用到现在，比如local receptive field, shared-weight (weight replication), sub-sampling(pooling)等技巧，在目前的深度神经网络中也一直在使用。在文章里面作者详细讲解了使用各个组件的原因，比如，local receptive field是模仿猫的视觉系统，令每一个隐含层节点都之接受**一小部分**的上层神经元的信息，这样不仅减少了需要训练的参数，而且还能够提取各种图像结构信息(elementary features, such as oriented edges, end-points, corners)； shared-weight的使用是为了抵抗图像的变动(invariance w.r.t translation, local distortion, position shift)，而且能够使得同一个feature map能够提取出相同类型的特征; sub-sampling (i.e., pooling) 不仅能防止过拟合，还能减少录入图像的位置信息（在图像识别任务中，图像的位置信息没有多大用处）。
 
 网络的结构如下:
 
@@ -25,9 +25,9 @@ Ok. Enough for human love. Time for love on machines.
 
 这个网络对于手写文字识别（MNIST数据集），可以达到99%+的正确率。
 
-Stanford的cs231n里面讲解的convnet几乎是同一个东西，唯一不同的是cs231n中图片多了一点，另外加了一些近年来表现比较好的网络，比如AlexNet, GoogleNet。
+Stanford的cs231n里面讲解的convnet几乎是同一个东西，唯一不同的是cs231n中图片多了一点。
 
-tensorflow实现代码: [mnist_lenet.py](../code/mnist_lenet.py)，在MNIST数据集上准确率可以达到98.96%。（里面的实现和上面表格里的结构差不多，为了方便省去了C5层）
+这是我 tensorflow 实现代码: [mnist_lenet.py](../code/mnist_lenet.py)，在MNIST数据集上准确率可以达到98.96%。（里面的实现和上面表格里的结构差不多，为了方便省去了C5层）
 
 ### AlexNet
 
@@ -48,7 +48,7 @@ AlexNet([Image classification with deep convolutional network](http://papers.nip
 
 ​                                            $\Large{b^i_{x,y} = a^i_{x,y} / (k + \alpha \sum^\limits{min(N-1, i+n/2)}_{j=max(0,  i-n/2)} (a^i_{x,y})^2)}$
 
-其中 $k$, $n$, $\alpha$, $\beta$ 都是hyper-parameter，通过cross-validation等validation方法得到, $n$ 是"neighbor"的数量（前后的neighbor数量), $N$ 是 kernel 的数量，所以上面的求和号求的是周围 $n$ 个相邻的kernel feature map的值。$i$ 是指第 $i$ 个feature map(第 $i$ 个kernel) 的意思。因此，通过这种normalization，在neighbor中比较小的值就会显得更小了，而较大的值就能够凸显出来，从而达到上文说的
+其中 $k$, $n$, $\alpha$, $\beta$ 都是hyper-parameter，通过cross-validation等validation方法得到, $n$ 是"neighbor"的数量（前后的neighbor数量), $N$ 是 kernel 的数量，所以上面的求和号求的是周围 $n$ 个相邻的 feature map 的值。$i$ 是指第 $i$ 个feature map 的意思。因此，通过这种normalization，在neighbor中比较小的值就会显得更小了，而较大的值就能够凸显出来，从而达到上文说的
 
 > inhibit neurons **at the  same location but in neighboring feature maps**
 
@@ -74,6 +74,74 @@ AlexNet的网络结构如下:
 
 这是我的一份实现: [cifar10_alexnet.py](../code/cifar10_alexnet.py)。里面用到的方法和论文里面的几乎一样，但是做了一点简化（少了几层）否则在我的笔记本上训练起来太慢了。。。另外，alexnet有一个新版本，[One weird trick for parallelizing convolutional neural networks](https://arxiv.org/abs/1404.5997)，讲的是将神经网络的训练并行化，粗略地看了一下，里面讲的并行化主要分两种，一种是model parallelization一种是data parallelization，其中model parallelization的意思是每个worker负责一部分的神经元(的所有数据)，data parallelization的意思是每个worker负责(所有神经元的)一部分数据，由于神经网络里面卷积神经网络的计算密集但是参数少，而全连接神经网络的计算简单但是参数多，所以将data parallelization用于卷积神经网络，而将model parallelization用于全连接神经网络。这里有[一份开源实现](https://github.com/tensorflow/models/blob/master/research/slim/nets/alexnet.py)，需要注意的是LRN层因为被证明用处不大而被去掉了。
 
+###### 关于 data parallelization & model parallelization
+
+之前跟一个同学的聊天记录
+
+```email
+On Sat, Mar 10, 2018 at 09:13:27AM +0800, Yubin Ruan wrote:
+> On Fri, Mar 09, 2018 at 11:11:30PM +0800, [...] wrote:
+> > [...]
+> > AlexNet 处提到的 model parallelization 和 data parallelization
+> > 是现在大规模机器学习采用的主要方法，比如 Parameter Server
+> > <http://www.cs.cmu.edu/~muli/file/ps.pdf>，Tersorflow，不过我也没怎么看过，有空可以研究下。
+> > 这篇博客对机器学习框架有个大致介绍，写的挺好的：后台程序员转算法的参考秘籍：大规模机器学习框架的四
+> > 重境界
+> > <http://www.infoq.com/cn/articles/four-dimensions-of-large-machine-learning-framework>
+> 
+> 这篇东西写得很好！
+
+我觉得我看懂了。刚刚看了一下李沐那篇parameter server的文章的时候没有看太懂，但
+是从infoQ的这篇文章上看基本上能把大体架构都理解了。
+
+我主要是从同步协议那里出发去理解的[1]。
+
+可以从两个角度去划分这些架构的区别，一个是model，可分为data parallelization和
+model parallelization；另一个是synchronization的模式，分为ASP（如果没猜错的话
+全称应该是 Asynchronous Synchronized Parallism），BSP（Bulk Synchronized
+Parallism[2]），还有两者混合的SSP。
+
+我试着用两个例子来看看如何从这些两个角度选择最佳的分布式模型。一个例子是
+LR(Logistic Regression)，另一个是卷积神经网络，这两者的参数更新使用的都是梯度
+下降。
+
+LR模型中，
+
+    * 假设使用data parallelization，那么应该使用什么同步模型呢？data
+      parallelization其实就可以看作将一个大的batch分成多个小的batch然后计算参
+      数然后再取平均。此时不能用ASP，因为ASP是非同步的，某个计算节点算出梯度的
+      时候，parameter server上的其他参数很有可能已经被更新过了，因此此时计算出
+      来的梯度已经没有意义了，如果用这个梯度去更新parameter server上的参数，可
+      能会导致算法不收敛。可以用 BSP，也就是等所有计算节点都计算完梯度之后，再
+      对这些梯度求一个平均，然后再更新。那么是否可以在ASP和BSP之间取一个折中（
+      SSP）呢？上面那篇文章说， “理论推导证明常数 s 不等于无穷大的情况下，算
+      法一定可以在若干次迭代以后进入收敛状态”， 所以貌似也是可以的。
+
+    * 假设使用model parallelization，那么应该使用什么同步模型呢？model
+      parallelization其实就是由每个计算节点使用同一批数据，但是每个计算节点计
+      算不同参数的梯度。这时候也不能使用ASP，只能使用BSP或者SSP，理由同上。
+
+卷积神经网络模型中，按照[1][3]中的说法，对卷积层应该使用data parallelization，
+因为卷积层的参数少，但是计算量大；对全连接层应该使用model parallelization，因
+为全连接层的参数多，计算量相对小。所以：
+
+    * 对卷积层使用data parallelization时，应该使用什么同步模型？ASP不行，原因
+      还是上面说的那个，只能BSP或者SSP。
+
+    * 对全连接层使用model parallelization的时候，应该使用什么同步模型？还是只
+      能是BSP和SSP，原因同上。
+
+    * 另外一个问题是，卷积层和全连接层之间应该使用什么同步模型？还是BSP和
+      SSP...
+
+
+p.s., spark的同步模型真的是像文章里面说的那样，是BSP模型的吗?
+
+[1]: 因为感觉分布式系统/并行计算的核心其实都是同步、一致性，还有效率。
+[2]: 其实这个概念很古老了，你看这里的论文: https://warwick.ac.uk/fac/sci/dcs/people/alexander_tiskin/research/bsp/
+[3]: One weird trick for parallelizing convolutional neural networks (Alex Krizhevsky), https://arxiv.org/abs/1404.5997
+```
+
 ### ZF-Net
 
 ZF-Net([Visualizing and Understanding Convolutional Networks](https://arxiv.org/abs/1311.2901),Matthew D Zeiler, Rob Fergus)，2013年的ImageNet冠军，跟AlexNet相比只是调了一些参数...这篇文章最大的贡献在于提出了一些可视化卷积神经网络的方法，其中的idea是，使用**能使得某个神经元的activation最大的输入**来代表这个神经元。在这种做法下，可以看到层次越深的神经元，它能提取出的特征就越高级：
@@ -88,17 +156,17 @@ GoogleNet([Going Deeper with Convolutions](https://arxiv.org/abs/1409.4842), Sze
 
 ![image](../img/google-net-1.png)
 
-inception module的motivation是：既然每增加一层卷积神经网络都需要仔细地配置，那么为什么不把卷积神经网络的各个component都放在一起，让他们自己学习呢？所以文章作者将3x3,5x5,1x1和max-pooling都放在一起组成一个inception module，然后一个个inception module 一层层地 stack 在一起，组成一个很深的神经网络。其中值得注意的是里面的1x1的卷积神经层，这种卷积神经网络首次出现在一种[network in network(2014, Min Lin et al.)](https://arxiv.org/abs/1312.4400)的神经网络结构中，其作用在于将前一层神经网络的channel数减少，同时减少参数的数量：
+inception module的motivation是：既然每增加一层卷积神经网络都需要仔细地配置，那么为什么不把卷积神经网络的各个component都放在一起，让他们自己学习呢？所以文章作者将 $3\times3$, $5\times5$, $1\times1$ 和 max-pooling 都放在一起组成一个inception module，然后一个个inception module 一层层地 stack 在一起，组成一个很深的神经网络。其中值得注意的是里面的 $1\times1$ 的卷积神经层，这种卷积神经网络首次出现在一种[network in network(2014, Min Lin et al.)](https://arxiv.org/abs/1312.4400)的神经网络结构中，其作用在于将前一层神经网络的channel数减少，同时减少参数的数量：
 
-假设我们要将一个channel数量为192的一层卷积神经网络shrink到32个channel的，我们可以用5x5的filters，总共32个，如下：
+假设我们要将一个channel数量为192的一层卷积神经网络shrink到32个channel的，我们可以用 $5\times5$ 的filters，总共32个，如下：
 
 ![image](../img/google-net-2.png)
 
-那么此时这一层神经网络的计算量是:5x5x192x28x28x32 = 120M次乘法操作。而如果将这个shrink操作换成使用1x1卷积层的network in network的结构：
+那么此时这一层神经网络的计算量是: $5\times5\times192\times28\times28\times32 = 120M$ 次乘法操作。而如果将这个shrink操作换成使用 $1\times1$ 卷积层的network in network的结构：
 
 ![image](../img/google-net-3.png)
 
-则此时的计算量则是 1x1x192x28x28x16 + 5x5x16x28x28x32 = 12M次乘法操作，相比而言计算量大大减少了，因此上面inception module的中间的3x3和5x5的卷积层都使用了这种network in network的结构。
+则此时的计算量则是 $1\times1\times192\times28\times28\times16 + 5\times5\times16\times28\times28\times32 = 12M$ 次乘法操作，相比而言计算量大大减少了，因此上面inception module的中间的 $3\times3$ 和 $5\times5$ 的卷积层都使用了这种network in network的结构。
 
 另外关于GoogleNet的一个细节是它的side branch (右边的两个softmax输出):
 
@@ -108,20 +176,20 @@ inception module的motivation是：既然每增加一层卷积神经网络都需
 
 这种网络还有很多变种，如
 
- 1. Inception V2, 在2015年的论文[Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](https://arxiv.org/abs/1502.03167)中提出（Batch Normalization后面会讲），主要是增加了Batch Normalization的方法进行规范化，然后借鉴VGG使用两个3x3的卷积层代替1个5x5的卷积层的方法。
- 2. Inception V3，在2015年的论文[Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567)中提出，主要特点是对卷积层进行更多样的拆分，更大程度地减少参数。比如将7x7的卷积拆成1x7和7x1的卷积。
+ 1. Inception V2, 在2015年的论文[Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](https://arxiv.org/abs/1502.03167)中提出（Batch Normalization后面会讲），主要是增加了Batch Normalization的方法进行规范化，然后借鉴VGG使用两个 $3\times3$ 的卷积层代替1个 $5\times5$的卷积层的方法。
+ 2. Inception V3，在2015年的论文[Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567)中提出，主要特点是对卷积层进行更多样的拆分，更大程度地减少参数。比如将 $7\times7$ 的卷积拆成 $1\times7$ 和 $7\times1$ 的卷积。
  3. Inception V4，在2016年的论文[Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)，主要是结合了ResNet的思想。
 
 ### VGGNet
 
 VGGNet([Very Deep Convolutional Networks For Large Scale Image Recognition](https://arxiv.org/pdf/1409.1556.pdf), Simonyan et al.; [VGG Homepage](http://www.robots.ox.ac.uk/~vgg/research/very_deep/))，2014年出的，也是也个很有名的神经网络，在ImageNet2014的比赛中其性能跟同年的Inception相差不大，主要贡献在于（用实践）证明了神经网络的层数可以做到的非常深。这里讲讲它的一些创新点：
 
-1. 大量堆叠3x3的卷积。这样做有两个好处：1) 两个3x3的卷积串联相当于一个5x5的卷积层（如下图），即1个像素会跟周围的5x5的像素产生关联，3个3x3的卷积层串联相当于一个7x7的卷积层；但是，3个串联的3x3的卷积只拥有1个7x7的卷积的55%的参数。更重要的是,3个3x3的卷积串联在一起拥有比1个7x7的卷积更多的线性变换，因为前者可以使用三次ReLu，因此学习能力大大增强。
+1. 大量堆叠 $3\times3$ 的卷积。这样做有两个好处：1) 两个 $3\times3$ 的卷积串联相当于一个 $5\times5$ 的卷积层（如下图），即1个像素会跟周围的 $5\times5$ 的像素产生关联，3个 $3\times3$ 的卷积层串联相当于一个 $7\times7$ 的卷积层；但是，3个串联的 $3\times3$ 的卷积只拥有1个 $7\times7$ 的卷积的55%的参数。2）更重要的是,3个 $3\times3$ 的卷积串联在一起拥有比1个 $7\times7$ 的卷积更多的线性变换，因为前者可以使用三次ReLu，因此学习能力大大增强。
    ![160-rotated](../img/vgg-3x3.png)
 
 2. VGG在训练的时候，经常是先训练前面层次的简单网络，然后再用前面层次的网络的参数去初始化后面的几个复杂的层次，这样会使得训练的收敛速度更快。这个做法和我们在一般训练任务中在别人构建好的模型的基础上训练是异曲同工的。
 
-3. VGG在训练的时候对图片进行 scale，然后随机裁取224x224的大小的图片进行训练。这种数据增强的方式可以很好的防止训练的过拟合。另外，VGG还使用multi-scale的方法，将图片scale到一个尺寸Q，并将图片输入神经网络计算，最后在最后一个卷积层使用滑窗的方式将不同的分类结果进行平均。
+3. VGG在训练的时候对图片进行 scale，然后随机裁取 $224\times224$ 的大小的图片进行训练。这种数据增强的方式可以很好的防止训练的过拟合。另外，VGG还使用multi-scale的方法，将图片scale到一个尺寸Q，并将图片输入神经网络计算，最后在最后一个卷积层使用滑窗的方式将不同的分类结果进行平均。
 
 VGG在tensorflow中的开源实现：https://github.com/machrisaa/tensorflow-vgg
 
@@ -232,11 +300,11 @@ PCA 其实就是找这些sample data的协矩阵(covariance matrix)的特征值\
 
 \[1]\[2]里面的解释已经非常清晰了，除了理解起来不太容易。我看了\[3]里面的“线性代数的本质”，对性转换有了很好的理解，因此很多式子都无需证明，很直观（e.g., 任何线性变换换成在以特征向量为基的坐标系下，其矩阵都是对角的）。
 
-\[1]: https://stats.stackexchange.com/questions/2691/making-sense-of-principal-component-analysis-eigenvectors-eigenvalues
+\[1]: [Making Sense of PCA eigenvectors & eigenvalues (StackExchange)](https://stats.stackexchange.com/questions/2691/making-sense-of-principal-component-analysis-eigenvectors-eigenvalues)
 
-\[2]: https://stats.stackexchange.com/questions/217995/what-is-an-intuitive-explanation-for-how-pca-turns-from-a-geometric-problem-wit
+\[2]: [What is an intuitive explanation for how PCA turns from a geometric problem (with distances) to a linear algebra problem (with eigenvectors)? (StackExchange)](https://stats.stackexchange.com/questions/217995/what-is-an-intuitive-explanation-for-how-pca-turns-from-a-geometric-problem-wit)
 
-\[3]: https://www.bilibili.com/video/av6731067/
+\[3]: [线性代数的本质 (中文版)](https://www.bilibili.com/video/av6731067/)	
 
 ### t-SNE
 
@@ -323,49 +391,6 @@ R-CNN (Region Proposal CNN) 系列算法：
 e.g.,
 ![image](../img/detectron-1.png)
 
-
-
-### Everything You Need To Know About Tensorflow
-
-Tensorflow是一种图模型，关于它的大体的机制可以看它最开始的论文: [TensorFlow: A system for large-scale machine learning, Google 2016](https://research.google.com/pubs/pub45381.html)。另外，有兴趣的同学或许可以看看Graphcore CEO的一个访谈[link1](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-learning), [link2](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-intelligence-part-2)，讲的是AI芯片的未来，其中就重点提到图模型；很好的课外读物！
-
-当然，看完这些你还是不会写Tensorfow的，还得看Tensorflow的tutorial。比如最开始的 [MNIST For ML Beginners](https://www.tensorflow.org/versions/r1.2/get_started/mnist/beginners)，使用softmax regression来进行手写文字识别，准确率可以达到 90%+；进阶的 [Deep MNIST for Experts](https://www.tensorflow.org/versions/r1.2/get_started/mnist/pros)，使用卷积神经网络进行手写文字识别，准确率可以达到98%+左右。看完这两个之后就算是学会了怎么用 Tensorflow 写 Hello World了。
-
-然后可以看看如果[用 Tensorflow 来构建 AlexNet](https://www.tensorflow.org/tutorials/deep_cnn)，看看复杂一点的TF代码长什么样。
-
-另外有[tensorflow model](https://github.com/tensorflow/models)，里面包含了tensorflow官方的对一些网络结构的实现，比如 [Resnet](https://github.com/tensorflow/models/blob/master/official/resnet)；另外还有一些第三方的（很多研究者）的实现。
-
-一个例子展示tensorflow的本质：
-
-假设要打印一个常数，在tensorflow里可以怎么做？直接print出来是不行的
-
-```python
->>> matrix = tf.constant([[3., 3.]])
->>> print(matrix)
-Tensor("Const:0", shape=(1, 2), dtype=float32)
-```
-需要使用tensorflow的图模型:
-```python
-import tensorflow as tf
-sess = tf.InteractiveSession()
-
-# create the tensor
-matrix1 = tf.constant([[3., 3.]])
-matrix2 = tf.constant([[2.],[2.]])
-
-# pass those tensor through a op
-product = tf.matmul(matrix1, matrix2)
-
-# pass `product' through operation 'Print', which is an identity operation
-# having side effect of printing the second argument out when evaluated
-# (the second argument is a list of tensor to be print. The first argument
-# is here because there must be some tensor to be the input of an op...)
-product = tf.Print(product, [product], message="This is product: ")
-
-# when product is evaluated, all its proceeding operators will get
-# evaluated, includeing Print, which will print the the values out.
-product.eval()
-```
 ### Face Recognition
 
 **Basic schema**: 学习一个"相似函数"，使其输出两张图片的相似度：
@@ -414,4 +439,104 @@ product.eval()
 
 Neural style transfer 所做的事就是自动地将一个图片的style应用到另外一张图片上，以生成一张新的图片：
 
-【to be continued】
+![image](../img/neural-style-transfer-1.png)
+
+#### Basic Schema
+
+假设通过损失函数 $J(G)$ 来评价生成的图片的好坏，那么生成这种图片的基本途径是：
+
+1. 随机生成一张图片，e.g., 一张 100 x 100 x 3 的图片
+
+2. 使用梯度下降算法来调整图片： $$ G = G - {\partial \over \partial G} J(G)  $$ 
+
+   （这里是直接对 G 求偏导，而不是对其它参数求偏导，这也符合梯度下降的原则 (cost on targets, descent on what the target depends on (i.e., what help generate the targets))
+
+#### Cost Funtion
+
+这里用的损失函数最先在paper [A Neural Algorithm of Artistic Style, Gatys et al. 2015](https://arxiv.org/abs/1508.06576) 中定义。
+
+假设用一个损失函数 $J(G)$ 评判生成的图片的质量，而由于生成的图片既要和原有的 content 图片相似，又需要与 style 图片相似，所以有：
+
+​                                        $$ \Large {J(G) = \alpha J_{content}(C, G) + \beta J_{style}(C, G)} $$
+
+其中 $\alpha$ 和 $\beta$ 是两个 hyper-parameters。
+
+#### Content Cost Function
+
+如何评价两张图片的 content 是相近的呢？其实可以用上文的 Siamese network 的方法，首先用一个训练好的深度卷积神经网络，比如 VGGNet，来抽取出输出一个 vector，然后计算两个 vector 的相似度。比如假设用 VGGNet 的第 $l$ 层输出来计算相似度，其中 $ a^{[l](C)}$ 是 content 图片在这个网络中的第 $l$ 层的输出结果，$ a^{[l](G)}$ 是生成的图片在这个网络的第 $l$ 层的输出结果，那么两张图片的相似度就可以用以下式子来表示：
+
+​                                                        $$ \Large{J_{content}(C, G) = {\Vert a^{[l](C)} - a^{[l](G)}\Vert}^2} $$
+
+#### Style Cost Function
+
+如何评价两张图片的 style 是相近的呢？首先需要定义 style 是什么。在上面所提及的 paper 中，一张图片的 style 被定义为其在深度神经网络中的某一层的各个 channel 的 correlation：
+
+![image](../img/neural-style-transfer-2.png)
+
+比如说，当红色的 channel 代表的图片是左上角的旋转条纹，黄色的 channel 代表的是中间的圆圈纹理，那么这种 correlation 就是一种 style （关于一个 channel 代表的条纹的意思，参考上面的 ZF-Net）：
+
+![image](../img/neural-style-transfer-3.png)
+
+当另外一张图片输出的这一层的红色 channel 代表类似的旋转条纹，黄色 channel 代表类似的圆圈条纹，此时就可以说这两张图片具有相同的 style。
+
+在这种定义下，我们可以先算出每个图片的 style，如下：
+
+假设我们取神经网络的第 $l$ 层来计算 style，设 $ a^{[l]}_{i, j, k}$ 为第 $l$ 层的第 $k$ 个 channel 的 $(i, j)$ 位置的神经元的激活值，则在 $(i, j)$ 位置上，第 $k$ 和第 $k^{\prime}$ 层的 correlation 是
+
+​                                                $$ \Large{G_{k, k{\prime}}^{[l]} = \sum\limits^{n_H^{[l]}}_{i=1} \sum\limits^{n_W^{[l]}}_{j=1} a^{[l]}_{i, j, k} a^{[l]}_{i, j, k{\prime}} } $$
+
+其中 $n_H^{[l]}$ 是神经网络的第 $l$ 层的 feature map 的高度，$n_W^{[l]}$ 是宽度。由此，可以定义一个 $n_C^{[l]} \times n_C^{[l]}$ 的style matrix $G^{[l]}$ （其中 $n_C^{[l]}$ 是神经网络的第 $l$ 层的 feature map 的 channel 的数量），使得在这个 matrix 中位置在 $(k, k\prime)$ 的值为 $G^{[l]}_{k, k\prime}$
+
+对于 style 图片可以计算出它的 style matrix $G^{[l][S]}_{k, k\prime}$，对于生成的图片也可以计算它的 style matrix $ G^{[l][G]}_{k, k\prime}$，两者相减即得 cost：
+
+​                  $$ \Large{ J^{[l]}_{style}(S, G) = \Vert  G^{[l][S]} - G^{[l][G]} \Vert ^2  = \sum\limits_k  \sum\limits_{k\prime} (G^{[l][S]}_{k, k\prime} - G^{[l][G]}_{k, k\prime})^2 }$$
+
+(注：在论文中作者在前面加了一个参数 $ 1 \over {(2 n_H^{[l]} n_W^{[l]} n_C^{[l]})^2}$，但是由于在 $J(G)$ 中 $J_{style}(S, G)$ 前面本来就有一个 hyper-parameter，所以这个参数不是很重要。)
+
+将所有层次的 cost 加起来，则有
+
+​                                         $$ \Large {J_{style}(S, G) = \sum\limits_l \lambda^{[l]} J^{[l]}_{style}(S, G) }$$
+
+其中 $\lambda^{[l]}$ 是没一层的 hyper-parameter.
+
+### Everything You Need To Know About Tensorflow
+
+Tensorflow是一种图模型，关于它的大体的机制可以看它最开始的论文: [TensorFlow: A system for large-scale machine learning, Google 2016](https://research.google.com/pubs/pub45381.html)。另外，有兴趣的同学或许可以看看Graphcore CEO的一个访谈[link1](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-learning), [link2](https://www.graphcore.ai/posts/how-to-build-a-processor-for-machine-intelligence-part-2)，讲的是AI芯片的未来，其中就重点提到图模型；很好的课外读物！
+
+当然，看完这些你还是不会写Tensorfow的，还得看Tensorflow的tutorial。比如最开始的 [MNIST For ML Beginners](https://www.tensorflow.org/versions/r1.2/get_started/mnist/beginners)，使用softmax regression来进行手写文字识别，准确率可以达到 90%+；进阶的 [Deep MNIST for Experts](https://www.tensorflow.org/versions/r1.2/get_started/mnist/pros)，使用卷积神经网络进行手写文字识别，准确率可以达到98%+左右。看完这两个之后就算是学会了怎么用 Tensorflow 写 Hello World了。
+
+然后可以看看如果[用 Tensorflow 来构建 AlexNet](https://www.tensorflow.org/tutorials/deep_cnn)，看看复杂一点的TF代码长什么样。
+
+另外有[tensorflow model](https://github.com/tensorflow/models)，里面包含了tensorflow官方的对一些网络结构的实现，比如 [Resnet](https://github.com/tensorflow/models/blob/master/official/resnet)；另外还有一些第三方的（很多研究者）的实现。
+
+一个例子展示tensorflow的本质：
+
+假设要打印一个常数，在tensorflow里可以怎么做？直接print出来是不行的
+
+```python
+>>> matrix = tf.constant([[3., 3.]])
+>>> print(matrix)
+Tensor("Const:0", shape=(1, 2), dtype=float32)
+```
+需要使用tensorflow的图模型:
+```python
+import tensorflow as tf
+sess = tf.InteractiveSession()
+
+# create the tensor
+matrix1 = tf.constant([[3., 3.]])
+matrix2 = tf.constant([[2.],[2.]])
+
+# pass those tensor through a op
+product = tf.matmul(matrix1, matrix2)
+
+# pass `product' through operation 'Print', which is an identity operation
+# having side effect of printing the second argument out when evaluated
+# (the second argument is a list of tensor to be print. The first argument
+# is here because there must be some tensor to be the input of an op...)
+product = tf.Print(product, [product], message="This is product: ")
+
+# when product is evaluated, all its proceeding operators will get
+# evaluated, includeing Print, which will print the the values out.
+product.eval()
+```
