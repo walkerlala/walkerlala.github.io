@@ -21,8 +21,8 @@
 
 %for single author (just remove % characters)
 \author{
-{\rm Yubin Ruan}\\
-South China University of Technology\\
+{\rm First Name}\\
+First Institution\\
 \and
 {\rm Second Name}\\
 Second Institution
@@ -78,7 +78,7 @@ writing files; examples of \textit{network event}s are binding a socket,
 connecting to remote machines and accepting incoming connections; examples of
 \textit{process event}s are forking subprocesses and executing executables
 via the \textit{execve()} system call. As will be shown below, these three
-classes of events is sufficient to model program behaviors. 
+classes of events are sufficient to model program behaviors. 
 
 The whole system is designed to be configurable. Strategies can be add or
 delete at anytime using a \textit{KMctl} program or with the corresponding
@@ -89,16 +89,16 @@ strategies used by every single machine. These strategies include turning the
 tracing system on and off, controlling sampling rate and adding a file to be
 tracked. Note that our system is \textit{data-oriented}, which mean that
 instead of collecting all events information, it will only collect
-information related to the data of interest. If during file transfering some
-intermediate file is not in our list (\textit{e.g.}, process A read file
+information related to the data of interest. If during file transfer some
+intermediate files are not in our list (\textit{e.g.}, process A read file
 \textit{a} and write to file \textit{b}. Process B read from file \textit{b}.
 We have file \textit{a} in our list, but the intermediate file \textit{b} is
-not in our list), we will add the intermediate file to the global
+not in our list), we will add the intermediate files to the global
 configuration at runtime, which can then be seen by the whole system. 
 
 Besides, we have implement a utility called \textit{hotpatcher} which can be
 used to insert a dynamic shared object (DSO) into a user program, so that one
-can deploy this tracing system without having to reboot the machine and
+can deploy this tracing system without having to reboot machines and
 affecting existing services. This utility can also be used to
 \textit{partially} deploy the tracing system, which is very helpful at the
 time of testing.\\
@@ -144,7 +144,7 @@ then determine whether those operations are legitimate. Our system can affect
 implementation in userspace, the whole system is also easy to test and
 customize. We draw some ideas from~\cite{BackTraceKing:2003,
 BackTraceKing:2005}. Our model can capture user behaviors precisely. Along the
-way, we design an simple-yet-efficient system which impose negligible impact
+way, we design an simple but efficient system which imposes negligible impact
 on existing services.\\
 
 To summarize, our contributions are:
@@ -185,7 +185,7 @@ our system which then emits a triad \textit{(process A, read, /etc/passwd)}.
 Similarly, if process A calls \textit{fork(2)} (and probably communicate with
 its child process afterward), this ``fork" operation will also be recorded
 and finally a triad \textit{(process A, fork, process B)} will be emitted by
-the system. Same for the network event when a process A bind to socket S. 
+the system. Same for the network event when a process A bind to a socket S. 
 
 Since most Unix-like systems (\textit{e.g.}, Linux) treat most things as
 files, if we can record all the relevant file events, we can then capture
@@ -211,7 +211,7 @@ in a distributed system.\\
 % model on a single machine
 \noindent
 \textbf{Trace on The Same Host} On a single machine, if a file is under
-protection, then any access of it by any process will be recorded by our
+monitor, then any access of it by any process will be recorded by our
 system. Subsequent file operations by that particular process (\textit{e.g.},
 writing to a file in \textit{/tmp} or send it over a socket) will also be
 recorded. These records are all emitted as file events. Because processes
@@ -231,7 +231,14 @@ recorded by KM which then emits them in the form of network events. These
 network events bridge the gap of file transfer between different machines, as
 shown at the right of Figure~\ref{fig:filetransfermodel}.\\
 
-% Now we are going to add in the probability model
+Note, however, that while we use only a triad \textit{(Subject, Action,
+Object)} to model events, the data collected for each event contain sufficient
+information, such as execution time and process name, to chain up together all
+relevant events within a host and across hosts. A detail description of this
+process will be given in section \ref{sec:fwtracing}.
+
+% Now we are going to add in the probability model (note the "build more
+% confidence words above")
 TODO probability model
 
 \section{Implementation}
@@ -277,7 +284,7 @@ which then allocates a piece of memory in the process space of the current
 process. This piece of memory is used to hold relevant information of the
 current process that may be needed afterward. The relevant information will
 be gathered by reading the \texttt{/proc} filesystem (\textit{e.g.}, to get
-process starttime) or invoking proper system call (\textit{e.g.}, getpid()). 
+process starttime) or invoking proper system calls (\textit{e.g.}, getpid()). 
 
 In the interposition code, all our wrappers will perform configuration
 checking, gather information about this particular function invocation and
@@ -315,11 +322,11 @@ section \ref{sec:optm}) for fast searching, it should be fast and safe. After
 that a traid of file event, as described above in section \ref{sec:themodel},
 will be send to message queues in shared memory. Note that we do not have to
 make explicit effort to obtain information of the current process, because we
-already have that information stored at some place at the very beginning, as
-described above. In another word, we ``defer'' the process of information
+already have that information stored at some place at the very beginning.
+In another word, we ``defer'' the process of information
 collection to program startup to speed up the interposition code. The
 \texttt{read\_specified()} is specified to this particular wrapper. It is
-used to filter out some useless wrapper, for optimization. It will be
+used to filter out some useless wrapper for optimization. It will be
 discussed in section \ref{sec:optm}.\\ 
 
 On the other side, there is a \textit{KM agent} which keeps periodically
@@ -342,12 +349,13 @@ such that message transfer are
     \item \textbf{Non-blocking}. Because a blocking
         implementation will not only slow down the interposition code, but
         also probably change the semantic of some functions that we are going
-        to hook;
+        to hook.
     \item \textbf{Atomic}. By atomic it means message from on
         process will not get interleaved with messages from any other
         processes, even though they share the same message queue.
-    \item \textbf{Fast}. In order reduce over, the implementation should be as
-        fast as possible such that it has negligible impact on existing services.
+    \item \textbf{Fast}. In order to reduce overhead, the implementation should
+        be as fast as possible such that it has negligible impact on existing
+        services.
 \end{enumerate}
 As of this writing our implementation meets all the three requirements above,
 with a overall overhead of about 1 \textit{us} each function wrapper on our
@@ -386,7 +394,7 @@ There are only one consumer (\textit{i.e.}, \textit{KM agent}) but many
 producers (\textit{i.e.}, the hooked processes). Upon sending message,
 producers will advance the \textit{index} using the fetch-and-add atomic
 operation such that every producer get its own slot. This process is
-illustrated in figure \ref{fig:afterfa}. Every producer simply take the
+illustrated in Figure~\ref{fig:afterfa}. Every producer simply take the
 module of the result of the fetch-and-add operation on the size of the queue
 to avoid index overflow. To collect messages from producers, the \textit{KM
 agent} periodically polls all the message queues and read the slots one by
@@ -397,7 +405,7 @@ one.\\
 flag variable is used to synchronize between a consumer and any one of the
 producers. Before collecting information in any slot, the consumer will check
 whether that flag is set to SLOTFULL. If so, it will go ahead reading the
-slot, after which the flag is set to SLOTEMPTY.Before writing to any slot,
+slot, after which the flag is set to SLOTEMPTY. Before writing to any slot,
 the producer will check whether whether that flag is set to SLOTEMPTY. If so,
 it will go ahead writing information in that slot, after which the flag is
 set to SLOTFULL. Because there is only one consumer, there is no need to use
@@ -423,7 +431,7 @@ this lock with fetch-and-add operation will eventually overflow the
 underlying unsigned integer to zero, effectively unlocking it. Because we use
 a single byte as the underlying lock, 255 times of fetch-and-add would
 suffice. And because the message queue is long enough, the overflow will not
-happen too fast. The overall algorithm for this process are shown in
+happen too fast. The overall algorithm for this process is shown in
 Algorithm~\ref{algo:syncproducers}.
 
 % make \Return begin on a newline
@@ -445,13 +453,90 @@ Algorithm~\ref{algo:syncproducers}.
 
 \subsection{Forward Tracing} \label{sec:fwtracing}
 
-\subsection{Optimization} \label{sec:optm}
+Once we have data of all relevant events, we can chain up events to get a
+clear picture of how those events relate to each other, and more importantly,
+how a piece of data is transfered with hosts and across hosts.  This procedure
+starts by the data under monitor (which we call the \textit{tracingpoint}),
+and populates by a breath first search.
+
+An example of this is given at Figure~\ref{fig:filetransfermodel}. The event
+order of it is:
+
+\begin{enumerate}
+    \item Process A read file \textit{/etc/passwd} and then open a socket
+        \textit{/var/sock.1} at time \textit{T1}.
+    \item Process A fork a process B and write data to \textit{/var/sock.1} at
+        time \textit{T2}.
+    \item Process B read data from \textit{/var/sock.1} at time \textit{T3}. 
+    \item Process B connect a remote host at address
+        \textit{192.168.20.344:6677} at time \textit{T4}.
+    \item Process C accept the connection from B at time \textit{T5}.
+\end{enumerate}
+
+where time \textit{T1-5} are in ascending order.\\
+
+Clearly these events are suspicious and should be put under administrators'
+attention.
+
+To perform forward tracing, it is required that file \textit{/etc/passwd} is
+%TODO How should we call that "monitor list"?
+added to the monitor list at the very beginning. If it is added, then process
+A's read operation will be intercepted and its subsequent operations of
+opening a socket, forking a subprocess and writing data to that socket will
+all be under interception. Because the socket \textit{/var/sock.1} was opened
+by process A, which is under interception, the path \textit{/var/sock.1} will
+be added to the monitor list automatically by our interception code, such that
+process B's read operation on it will be intercepted. The connect and accept
+operations are monitored all the time so we can chain together process B and
+process C's events. % TODO this is where the probability model comes in
+
+As described in the example above, once a read or write to a file in the
+monitor list is intercepted, we can start from that \textit{tracingpoint} and
+perform a breath first search in our database to get a clear picture of how a
+piece of data is manipulated and transfered. Moreover, with a proper login
+control system, we can have information of which user starts which process at
+which time, and therefore can which users are involved in this series of
+events.
 
 \subsection{DSO Runtime Injection} \label{sec:dso}
 
+Since the whole system works by libc interception, processes which are already
+running at the time of deployment will not be affected. To address this we can
+either reboot the machines or inject a library (in ELF format) into the memory
+space of the running process and change relevant function pointers to have
+them point to the corresponding pointers in the injected library. Since
+rebooting machines is not a universal solution and can do harm to many
+time-sensitive services, we develop the DSO runtie injection technique.
+Besides, being able to dynamically inject a dynamic shared object at runtime
+allows the system adminstrators to \textit{partially} deploy the system. For
+example, some adminstrators might not want to intercept a long-running
+\textit{logind} process. With the DSO runtime injection technique, they are
+free to do so.
+
+The technique of DSO runtime injection consists of 1) injecting the shared
+object into the memory of a running process and 2) change relevant function
+pointers (in libc) to point to that in the injected object. Injecting the
+shared object can be done by using the \textit{ptrace(2)} system
+call~\cite{ptrace:2017}, as in most debuggers. Changinng function pointers can
+be done by analysing the current process's ELF structure, finding the correct
+pointers and changing them. The procedure of doing this is straightforward,
+but it is not easy to doing it in a safe way that does not crash a running
+program, especially when the program is compiled as PIE with
+RELRO~\cite{something}. Also, we have to guarantee that all our operations are
+safe multithread-safe and async-signal-safe such that the behavior of a
+running process will not be affected.
+
+TODO more detail here.
+
+\subsection{Optimization} \label{sec:optm}
+
+Describe the optimization techniques we use.
+
 \section{Experiments and Evaluation}
 
-\section{Related work}
+1. the data output (how things are traced)
+
+2. the performance (overhead)
 
 \section{Future work}
 
