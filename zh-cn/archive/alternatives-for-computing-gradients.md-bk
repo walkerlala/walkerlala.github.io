@@ -1,0 +1,38 @@
+## Alternatives for Computing Gradients
+
+我一直觉得 tensorflow 这个框架很 cool，因为它允许用户在加载数据集进行训练之前先将深度框架搭建好并进行基本的验证（比如神经网络的神经元的数量是否 match 之类），这在很大程度上避免了使用 python  之类的脚本语言训练了四五个小时之后抛出类似 "variable xxx not defined" 之类的低级错误 ("I hate it with a passion!")；另外，tensorflow 允许用户在很低的层面上操纵深度神经网络的结构，具体到任意的神经元，这使得整个网络的结构可以做的很灵活，用户不必固定地使用别人定义好的或者框架自带的结构， 而是可以在别人的基础上进行各种各样的变换（非常利于学习和 reasoning）；实际上，我对很多深度神经网络的细节的了解是从相关的 tensorflow 代码里面看来的；相对地，类似 caffe/keras 的框架将网络结构进行很大程度的抽象，使得用户可以很方便地定义一个神经网络，但是却损失了一定的灵活性。
+
+tensorflow 的一个特点是将所有的操作“符号化“，如果用户需要定义一个`d = a + b * c ` 的算式，需要使用 tensorflow 独有的符号进行操作，而不能使用编程语言的元操作符：
+
+```python
+# a, b, c are all of type tf.Tensor
+d = tf.add(a, tf.multiply(b, c))
+```
+
+ 用图来表示就是
+
+![tf-simple-graph](../img/tf-simple-graph.png)
+
+其中 a, b, c 和 d 都是 "tensor"，简单来说就是数据；tensor 在这个定义好的架构里面流入流出，然后我们就可以根据最后的值做训练，比如用 bp 算法做 gradient descent。
+
+这里有一个问题就是：既然神经网络的架构可以灵活定义，那么在做 gradient descent 的时候，梯度（gradient）如何定义呢？我之前写过一个四层神经网络的[详细推导](../../archive/archive/NN-four-layer-gradient-descent.html)，从里面可以看到每一个参数的梯度的推导都非常复杂，如果神经网络的结构稍微有一点变化，那么整个梯度的表达式就会发生很大的变化了。因此，tensorflow 这个框架是如何在不确定神经网络的结构的前提下算出梯度来的呢？
+
+一种可能性是使用复合求导原则，比如要对 $x^4 = x ^ 2 \times x^2$ 求导：
+$$
+(x^4)^\prime  = (x^2 \times x^2)^\prime = (x^2)^\prime \times x^2 + x^2 \times (x^2)^\prime = 4 \times x^3
+$$
+那么在 tensorflow 里面这个 $x^4 = x^2 \times x^2$ 表示为
+
+![tf-simple-gradient](../img/tf-simple-gradient.png)
+
+于是利用复合求导，对上面的 `tf.multiply` 符号，它的求导结果是 
+
+$(\textit{left-input} \times \textit{right-input})^\prime = \textit{left-input}^\prime \times \textit{right-input} + \textit{left-input} \times \textit{right-input}^\prime $ 
+
+对下面的`tf.multiply`符号，结果也如是；两者一结合，就得到上面的 $4 \times x^3$ 了。所以，只要在求导的过程中，对每一个节点都是用复合求导原则，那么最终就能将导数求出来。参考 [Automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation)。
+
+但是，其实还有一种比较 clever 的做法：利用导数的公式进行近似求导。导数的定义是
+$$
+f(x)^\prime = \lim_{\epsilon \to 0} {{f(x+\epsilon) - f(x)} \over \epsilon }
+$$
+所以...在求导的时候，我们可以将输入值 $x$ 代入求出 $f(x)$，选一个足够小的 $\epsilon$ 值求出 $f(x+\epsilon)$，然后相减，除以 $\epsilon$ ，就可以求出此时的梯度了。Whoop!

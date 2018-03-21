@@ -12,6 +12,11 @@
 ###
     "blog":
        [
+        { "title": "Alternatives for Computing Gradients",
+            "location": "./archive/alternatives-for-computing-gradients.html",
+            "time": "2018-03-21",
+            "summary": "对tensorflow框架里面求梯度的方法的一些解读和扩展"
+        },
         { "title": "Machine Intelligence On Images",
             "location": "./archive/on-machine-image-intelligence.html",
             "time": "2018-03-09",
@@ -55,6 +60,10 @@
         "archive":
         {"blog": 
             [
+            { "title": "Alternatives for Computing Gradients",
+                "location": "./archive/alternatives-for-computing-gradients.html",
+                "time": "2018-03-21"
+            },
             { "title": "Machine Intelligence On Images",
                 "location": "./archive/on-machine-image-intelligence.html",
                 "time": "2018-03-09"

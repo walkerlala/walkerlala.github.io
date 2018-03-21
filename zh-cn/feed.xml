@@ -17,6 +17,13 @@
         <generator>By-hand</generator>
 
         <item>
+            <title>Alternatives for Computing Gradients</title>
+            <description>对tensorflow框架里面求梯度的方法的一些解读和扩展</description>
+            <pubDate>Wed, 21 March 2018 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/zh-cn/archive/alternatives-for-computing-gradients.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/zh-cn/archive/alternatives-for-computing-gradients.html</guid>
+        </item>
+        <item>
             <title>Machine Intelligence On Images</title>
             <description> 这里将之前在学习图像识别的相关知识做一个小总结，没有innovative的东西，权当reference。下面的东西没有太强的逻辑联系。我会不定时更新。</description>
             <pubDate>Fri, 08 March 2018 00:00:00 GMT</pubDate>
