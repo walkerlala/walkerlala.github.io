@@ -12,6 +12,11 @@
 ###
     "blog":
         [
+        {  "title": "A Unfinished Work on IDC security",
+            "location": "./archive/a-unfinished-work-on-idc-security.html",
+            "time": "2018-03-23",
+            "summary": "I want to put here a unfinished paper which describe a project I was involved when I was an intern at Baidu Inc. Some of the techniques described in that is very interesting and might inspire people."
+        },
         {  "title": "A Few Words About Concurrency (Part II)",
             "location": "./archive/A-Few-Words-About-Concurrency-II.html",
             "time": "2017-05-08",
@@ -50,6 +55,10 @@
     "archive":
     {"blog": 
         [
+        {  "title": "A Unfinished Work on IDC security",
+            "location": "./archive/a-unfinished-work-on-idc-security.html",
+            "time": "2018-03-23"
+        },
         {  "title": "A Few Words About Concurrency (Part II)",
             "location": "./archive/A-Few-Words-About-Concurrency-II.html",
             "time": "2017-05-08",
