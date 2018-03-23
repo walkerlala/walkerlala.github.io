@@ -1,8 +1,8 @@
-## A Unfinished Work on IDC Security
+## An Unfinished Work on IDC Security
 
 TL;DR: 
 
->  I want to put here [a *unfinished* paper](../pub/km.pdf) which describe a project I was involved when I was an intern at Baidu Inc. Some of the techniques described in that is very interesting and might inspire people. (Please ignore section 6 and 7)
+>  I want to put here [an *unfinished* paper](../pub/km.pdf) which describe a project I was involved when I was an intern at Baidu Inc. Some of the techniques described in that is very interesting and might inspire people. (Please ignore section 6 and 7)
 
 In the last few months I was in Baidu Inc. as a intern, working on the security department. I was mainly involved in a project that aims to audit users behaviors in IDC (Internet Datacenter). Specifically, we wanted to know what a user do with a piece of data and whether or not are those data get stolen. This project is similar with the [*linux-audit*](https://github.com/linux-audit) project, except that we had more control to the models we used and more compatibility (the kernels deployed in the IDC are pretty old and the corresponding *linux-audit* version contains many bugs). 
 
