@@ -51,6 +51,21 @@
             "location": "./archive/cpp-value-category-zh-cn.html",
             "time": "2017-01-28",
             "summary": "我以前觉得这个话题实在太难理解了，感觉这一切都是那些数学家/语言学家弄出来的鸡肋，但是后来换了一种思路之后就发现一切都变得豁然开朗了：先大概了解它是什么，然后为什么发生(存在)，然后再回头想想它是什么。"
+        },
+        { "title": "No Silver Bullet 读后感",
+            "location": "./archive/no-silver-bullet-review.html",
+            "time": "2016-03-28",
+            "summary": "enthusiasm jumps when there is a running system, even a simple one..."
+        },
+        { "title": "The fancy Chopin Op.11",
+            "location": "./archive/the-fancy-chopin-op11.html",
+            "time": "2016-02-28",
+            "summary": "一次通选课作业."
+        },
+        { "title": "上帝难以琢磨，但他并不邪恶",
+            "location": "./archive/simplicity.html",
+            "time": "2016-01-28",
+            "summary": "Simplicity matters."
         }
         ],
 
@@ -91,6 +106,18 @@
             { "title": "C++11 Value Category",
                 "location": "./archive/cpp-value-category-zh-cn.html",
                 "time": "2017-01-28"
+            },
+            { "title": "No Silver Bullet 读后感",
+                "location": "./archive/no-silver-bullet-review.html",
+                "time": "2016-03-28"
+            },
+            { "title": "The fancy Chopin Op.11",
+                "location": "./archive/the-fancy-chopin-op11.html",
+                "time": "2016-02-28"
+            },
+            { "title": "上帝难以琢磨，但他并不邪恶",
+                "location": "./archive/simplicity.html",
+                "time": "2016-01-28"
             }
             ]
         }

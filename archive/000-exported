@@ -46,6 +46,11 @@
             "location": "./archive/rnn-explain-impl.html",
             "time": "2016-12-12",
             "summary": "What exactly is Recurrent Neural Network(RNN) and how to use/implement is"
+        },
+        {  "title": "How to build a GCC cross compiler",
+            "location": "./archive/build-gcc-cross-compiler.html",
+            "time": "2016-03-28",
+            "summary": "DONT'T DO THIS, EVER ..."
         }
     ],
 
@@ -91,6 +96,10 @@
         {  "title": "RNN Immediate Partial Derivative",
             "location": "./archive/rnn-immediate-partial-derivative.html",
             "time": "2016-12-30"
+        },
+        {  "title": "How to build a GCC cross compiler",
+            "location": "./archive/build-gcc-cross-compiler.html",
+            "time": "2016-03-28"
         }
         ]
     }
