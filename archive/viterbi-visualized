@@ -223,6 +223,6 @@ header, .context-menu, .megamenu-content, footer { font-family: "Segoe UI", Aria
 </style>
 </head>
 <body class='typora-export' >
-<div  id='write'  class = 'is-node'><h2><a name='header-n0' class='md-header-anchor '></a>Visualizing the Viterbi Algorithm</h2><blockquote><p>NOTE! Dijkstra said that <a href='https://people.eecs.berkeley.edu/~pattrsn/talks/BadTalk.pdf'>pictures are for week minds</a>.</p></blockquote><p><img src='../img/viterbi.jpg' alt='viterbi-algorithm' /></p></div>
+<div  id='write'  class = 'is-node'><h2><a name='header-n0' class='md-header-anchor '></a>Visualizing the Viterbi Algorithm</h2><blockquote><p>NOTE! Dijkstra said that <a href='https://people.eecs.berkeley.edu/~pattrsn/talks/BadTalk.pdf'>pictures are for week minds</a> ;-)</p></blockquote><p><img src='../img/viterbi.jpg' alt='viterbi-algorithm' /></p></div>
 </body>
 </html>
