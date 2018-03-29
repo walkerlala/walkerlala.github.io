@@ -17,6 +17,13 @@
         <generator>By-hand</generator>
 
         <item>
+            <title>Visualizing the Viterbi Algorithm</title>
+            <description>A visualization of the Viterbi algorithm</description>
+            <pubDate>Thur, 29 March 2018 00:00:00 GMT</pubDate>
+            <link>http://fastdrivers.org/archive/viterbi-visualized.html</link>
+            <guid isPermaLink="true">http://fastdrivers.org/archive/viterbi-visualized.html</guid>
+        </item>
+        <item>
             <title>A Unfinished Work on IDC security</title>
             <description> I want to put here a unfinished paper which describe a project I was involved when I was an intern at Baidu Inc. Some of the techniques described in that is very interesting and might inspire people.</description>
             <pubDate>Fri, 23 March 2018 00:00:00 GMT</pubDate>

@@ -12,6 +12,11 @@
 ###
     "blog":
         [
+        {  "title": "Visualizing the Viterbi Algorithm",
+            "location": "./archive/viterbi-visualized.html",
+            "time": "2018-03-29",
+            "summary": "A visualization of the Viterbi algorithm"
+        },
         {  "title": "An Unfinished Work on IDC security",
             "location": "./archive/an-unfinished-work-on-idc-security.html",
             "time": "2018-03-23",
@@ -60,6 +65,10 @@
     "archive":
     {"blog": 
         [
+        {  "title": "Visualizing the Viterbi Algorithm",
+            "location": "./archive/viterbi-visualized.html",
+            "time": "2018-03-29"
+        },
         {  "title": "An Unfinished Work on IDC security",
             "location": "./archive/an-unfinished-work-on-idc-security.html",
             "time": "2018-03-23"
