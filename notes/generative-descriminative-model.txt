@@ -1,0 +1,120 @@
+Sort out some of the materials I read today:
+
+## Generative vs Discriminative model
+
+    * Example of generative models
+        1. Gaussian mixture model (GMM)
+        2. Hidden Markov model (HMM)
+        3. Naive Bayes (NB)
+        4. Latent Dirichlet allocation (LDA)
+        5. Restricted Boltzmann Machine (LRB)
+
+    * Example of discriminative models
+        1. Logistic Regression (LR)
+        2. Support Vector Machine (SVM)
+        3. Maximum Entropy Markov Model (MEMM)
+        4. Conditional Random Field (CRF)
+        5. Neural Networks (NN)
+
+
+    A discriminative model is the one that models the condition probability
+    p(y|x), where y is the label and x is the feature; a generative model is the
+    one that model the joint probability p(x, y). Here is an example:
+
+        Given the dataset as:
+
+        (1, 0), (1, 0), (2, 0), (2, 1)
+
+        p(y|x) is
+
+           y=0,   y=1
+         +------+-----
+      x=1| 1    | 0
+         +------+-----
+      x=2| 1/2  | 1/2
+         +------+-----
+
+
+        p(x, y) is
+
+           y=0,   y=1
+         +------+-----
+      x=1| 1/2  | 0
+         +------+-----
+      x=2| 1/4  | 1/4
+         +------+-----
+
+    So one can see that these two distributions are different, -subtly-.
+
+    * A rule of thumb: discriminative models generally outperform generative
+    model in classification task. This is well discussed in [1].
+
+    * Characteristics
+        - Discriminative models learn the (hard or soft) boundary between classes
+        - Generative models model the distribution of individual classes
+
+    * For discriminative models, how to associate "condition probability" and
+    "boundary between classes"
+
+    In a discriminative model, we are choosing what is the most likely class
+    considering x, and this is like we were trying to model the decision
+    boundary between the classes.
+
+    * Another way to understand generative model (what does it mean by "modeling
+    the distribution of individual class"? and why is the name "generative" ?)
+
+    To classify something, you can simpy use p(y|x), that is, discriminative
+    models, which is simply
+
+        f(x) = argmax p(y|x)
+                 y
+    
+    However, with bayesian's formula, we can transform that into
+
+        p(y|x) = p(x|y) * p(y) / p(x)
+
+    So now we have
+    
+        f(x) = argmax { p(x|y) * p(y) / p(x) }
+                 y
+
+    Because the denominator is irrelevant when doing this argmax (and actually
+    it is very easy to see that p(x) can be expressed using p(x|y) and p(y) ),
+    it is simply
+
+        f(x) = argmax { p(x|y) * p(y) }
+                 y
+
+    And we have p(x, y) = p(x|y) * p(y) , that is, we are modelling the joint
+    probability distribution.
+
+    So, now in the generative model, we are modelling two things:
+        1. p(y), distribution of each class
+        2. p(x|y), distribution of each class's feature, this is explained below
+
+    suppose we want to classify whether an animal is a dog or elephant by it
+    features, we can easily use a discriminative algorithm to do that;
+    alternatively, we can
+        1) look at elephants, and build a model of what elephants look like
+        2) look at dogs, and build a model of what dogs look like
+    Finally, to classify an animal, we can match it against the elephant model
+    and the dog model, to see whether it looks more like the elephants or more
+    like the dogs that we have seen in the training set. IOW, we already know
+    what a dog looks like (we know the probability of every feature) and what a
+    elephant looks like, if features of the new animal have a low probability in
+    the distribution p(x|y=dog), then it is most likely not a dog. The same go
+    for elephants. (狗的特征分布大概是这样的，其中 xxx 特征的概率最高，如果一个
+    待分类的动物的特征不在（或者在但是概率很低），那么这个动物就不怎么可能是狗了）
+    This example is taken from NG's note[2].
+
+    And why is the name "generative"?
+    It's called generative because once you have p(x|y=dog) and p(x|y=elephant),
+    given a dog/elephant, you can "generate" its respective x (just take those
+    with the highest probability)
+
+
+[1, unread] http://papers.nips.cc/paper/2020-on-discriminative-vs-generative-classifiers-a-comparison-of-logistic-regression-and-naive-bayes.pdf
+(This paper is a highly-cited treatment for this issue)
+
+[2, unfinished] http://cs229.stanford.edu/notes/cs229-notes2.pdf
+

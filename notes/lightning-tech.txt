@@ -1,0 +1,122 @@
+
+    A note for the Lightning protocol
+----------------------------------------
+
+0. Why Lightning
+
+ 1) confirmation in bitcoin blockchain is too slow
+ 2) tiny spent in bitcoin blockchain will create lots of transactions, which
+    is not that tiny, and will take up lots of disk space. This implies that
+    as the blockchain grow larger and larger, only some big companies will be
+    able to setup a full node to verify transactions, and individuals have to
+    rely on these centralized companies.
+
+with Lightning, payments between two peers can go on off-blockchain, which
+means that there will be lots of fast/incremental transaction going
+off-blockchain. These payments will end up as a large final transaction and
+broadcast to the entire blockchain. The RFC draft for this is [6].
+
+1. Revoking transaction
+
+This is a mechanism to avoid any side of a channel to broadcast to the whole
+bitcoin blockchain old transactions that are benefitial to him/her. Imagine
+Alice and Bob have just aggreed on a transaction output of (1) Alice getting 8
+$B and Bob getting 2 $B. If Alice want to get 1 $B from Bob (maybe Alice sells
+something to Bob), that is, make a new transaction of (2) Alice getting 9 $B
+and Bob getting 1 $B, she will create such a transaction, sign it, and send it
+to Bob. Bob will sign it too (i.e., this is a multi-sign transaction), making
+it a valid transaction. But, now that transaction (1) and (2) have both been
+signed by Alice and Bob, they are both valid to be broadcast to the whole
+bitcoin blockchain. For Bob, it will be benefitial to him to broadcast the
+older transaction (1) such that he will get more money. So how to prevent Bob
+from broadcasting (1)?
+
+The trick here is Bob will send back to Alice the private key that he used to
+signed (1) after receiving from Alice the half-signed transaction (2). After
+that, if Bob were ever to broadcast transaction (1), Alice will get all his
+money because now Alice has the private key. Note that there are at least 2
+problems needed to be solved here:
+
+    1) now that both Alice and Bob have Bob's private key of transaction (1),
+       who get Bob's money?
+    2) what incentivizes Bob to send back to Alice his private key for
+       transaction (1)? After all, Bob is free to not do so after receiving
+       the half-signed transaction (2) from Alice.
+
+Solutions:
+
+    1) We use a timelock. A timelock in a blockchain is a kind of lock that
+       can "lock bitcoins up" in an output, to make them spendable (to be
+       included in a subsequent input) only at some point in the future[5].
+       Transaction (1) is time-locked, so Bob cannot spend it immediately, but
+       Alice can, so Alice get spend her 8 $B straight away and create a
+       transaction that take as input Bob's 2 $B. This transaction will get
+       into the whole blockchain before Bob can do anything (NOTE!! the reason
+       why Alice can use a time-locked transaction but Bob (the receiver)
+       cannot is unclear now. See [1] and the implementation).
+
+    2) Becase Alice will not sell/give Bob the goods until receiving the
+       private key :-) And if the transaction is from 9-1 to 8-2, that is, the
+       newer transaction is more benifitial to Bob, Bob will send his private key
+       anyway. There is one more reason: to get his money spendable more
+       quickly, because of the symmetry payment structure, below.
+
+2. Symmetry payment to avoid timeout
+
+In fact, the transactions above are all symmetry. Suppose Alice and Bob want
+to aggree on a transaction of Alice getting 8 $B and Bob getting 2 $B. Alice
+and Bob will both create a half-signed transaction and send it to the other:
+Alice will create a transaction with 8 $B for Alice and 2 $B for Bob, sign it,
+and add a timelock for Bob's 2 $B part, and then send it to Bob, with the
+temporary private key of the last transaction. Bob will also create a
+transaction with 2 $B for Bob and 8 $B for Alice, sign it, and add a timelock
+for Alice's 8 $B part, and then send it to Alice, with the temporary private
+key of the last transaction. The feature of these symmetry transactions is
+that
+
+    1) if Bob publish the transaction he got from Alice, he will have to wait
+       for the timelock to expire, while Alice can get her money immediately.
+
+    2) if Alice publish the transaction she got from Bob, she will have to
+       wait for the time lock to expire, while Bob can get his money
+       immediately.
+
+So, since these too transactions have the same output, both parties want the
+other to publish his/her transaction so that they can get their money
+instantly. So, we can require that a half-signed transaction must come with a
+private key for the last transaction.
+
+But, note that this mechanism is not just for the "revokable" trick, it is
+designed mainly to advoid the timeout fallback: in the original payment
+channel, the opening transaction had a fallback clause; if Alice stop
+responding, Bob have to wait for this to kick in to get his money back. But to
+get the latest transaction (instead of the original one), he need Alice's
+sign (and vice versa for Alice), therefore this symmetry mechanism.
+
+3. Hashed Timelock Contracts (HTLCs) to build a network
+
+If we are to build channels only between two peers, it will still be
+inefficient. The Lightning Draft[6] propose to use hashed timelock contracts
+to build a network of these channels, such that if one have a channel
+connected to this network, he can have transaction with anyone in this
+channel.
+
+This way, transactions through this network will inevitably pass through
+untrusted peer. To solve this problem, we use a challenge-like trick: suppose
+Alice want to send 10 $B to Bob, and the transaction have to flow through
+Mark, but Alice doesn't trust Mark. In this situation, Alice will use a
+question from Bob (Bob gave it to Alice previously), and use this as a
+challenge for Mark: if you know the answer to this question, then you have my
+money. Of course Mark doesn't know the answer, so he have to ask Bob, which
+know.
+
+Essentially this question is a hash.
+
+--END
+
+[1]: https://rusty.ozlabs.org/?p=450
+[2]: https://rusty.ozlabs.org/?p=462
+[3]: https://rusty.ozlabs.org/?p=467
+[4]: https://rusty.ozlabs.org/?p=477
+[5]: https://bitcoinmagazine.com/articles/understanding-the-lightning-network-part-building-a-bidirectional-payment-channel-1464710791/
+[6]: https://lightning.network/lightning-network-paper.pdf
