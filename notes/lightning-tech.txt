@@ -51,9 +51,17 @@ Solutions:
        Transaction (1) is time-locked, so Bob cannot spend it immediately, but
        Alice can, so Alice get spend her 8 $B straight away and create a
        transaction that take as input Bob's 2 $B. This transaction will get
-       into the whole blockchain before Bob can do anything (NOTE!! the reason
-       why Alice can use a time-locked transaction but Bob (the receiver)
-       cannot is unclear now. See [1] and the implementation).
+       into the whole blockchain before Bob can do anything.
+
+       The reason why Alice can spend the time-locked output of a transaction
+       while Bob cannot is explained at [7], section "Commitment revocation
+       secret key": 
+
+          Every commitment transaction has a unique commitment revocation
+          secret-key value that allows the other peer to spend all outputs
+          immediately: revealing this key is how old commitment transactions
+          are revoked. To support revocation, each output of the commitment
+          transaction refers to the commitment revocation public key.
 
     2) Becase Alice will not sell/give Bob the goods until receiving the
        private key :-) And if the transaction is from 9-1 to 8-2, that is, the
@@ -120,3 +128,4 @@ Essentially this question is a hash.
 [4]: https://rusty.ozlabs.org/?p=477
 [5]: https://bitcoinmagazine.com/articles/understanding-the-lightning-network-part-building-a-bidirectional-payment-channel-1464710791/
 [6]: https://lightning.network/lightning-network-paper.pdf
+[7]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md
