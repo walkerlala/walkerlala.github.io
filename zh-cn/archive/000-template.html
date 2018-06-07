@@ -123,6 +123,26 @@ $.get(content_file, function(data, status){
   pangu.spacingPage();
 });
 
+// replace several place holder
+var place_holder_replace = function(blog) {
+   var replaced_flag = false;
+   for(var i=0;i<blog.length;i++){
+       var title = blog[i].title;
+       var link  = blog[i].location;
+       var time  = blog[i].time;
+       var summary = blog[i].summary;
+
+       // replace stuff
+       if (page_path == link.split("/").pop()) {
+           document.head.innerHTML = document.head.innerHTML.replace(/REPLACE-PLACEHOLDER-TITLE/g, title);
+           document.body.innerHTML = document.body.innerHTML.replace(/REPLACE-PLACEHOLDER-DATE/g, time);
+           replaced_flag = true;
+           break;
+       }
+   }
+   return replaced_flag;
+}
+
 // get blog meta data
 $.get("./000-exported", function(data, status){
     if(status == "success"){
@@ -137,24 +157,14 @@ $.get("./000-exported", function(data, status){
         data = newlines.join(" ");
         var j = JSON.parse(data);
         var blog = j.blog;   //load blogs
-        var replaced_flag = false;
-        for(var i=0;i<blog.length;i++){
-            var title = blog[i].title;
-            var link  = blog[i].location;
-            var time  = blog[i].time;
-            var summary = blog[i].summary;
-
-            // replace stuff
-            if (page_path == link.split("/").pop()) {
-                document.head.innerHTML = document.head.innerHTML.replace(/REPLACE-PLACEHOLDER-TITLE/g, title);
-                document.body.innerHTML = document.body.innerHTML.replace(/REPLACE-PLACEHOLDER-DATE/g, time);
-                replaced_flag = true;
-                break;
-            }
-        }
+        var replaced_flag = place_holder_replace(blog);
         if(!replaced_flag) {
-            alert("There are some format problem in this page. Please report this problem "
-                    + "to the author at `ablacktshirt@gmail.com'.\n Thank you!")
+            blog = j.archive.blog;
+            replaced_flag = place_holder_replace(blog);
+            if(!replaced_flag) {
+                alert("There are some format problem in this page. Please report this problem "
+                        + "to the author at `ablacktshirt@gmail.com'.\n Thank you!")
+            }
         }
     }else{
         alert("Javascript fail to read necessary data from github.\n"
