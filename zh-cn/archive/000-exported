@@ -17,6 +17,11 @@
 #            "time": "2018-03-21",
 #            "summary": "对tensorflow框架里面求梯度的方法的一些解读和扩展"
 #        },
+        { "title": "C++ Memory Model",
+            "location": "./archive/cpp-mm.html",
+            "time": "2018-11-03",
+            "summary": "这里主要想讲讲 C11/C++11 的内存模型，略去用得比较多的 atomic 接口，主要讲 memory order..."
+        },
         { "title": "Machine Intelligence On Images",
             "location": "./archive/on-machine-image-intelligence.html",
             "time": "2018-03-09",
@@ -70,6 +75,10 @@
         "archive":
         {"blog": 
             [
+            { "title": "C++ Memory Model",
+                "location": "./archive/cpp-mm.html",
+                "time": "2018-11-03"
+            },
             { "title": "十日游后致队友",
                 "location": "./archive/xibeiyou.html",
                 "time": "2018-05-23"

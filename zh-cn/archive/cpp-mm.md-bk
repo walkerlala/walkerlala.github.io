@@ -1,0 +1,340 @@
+# C++ 内存模型
+
+内存模型（memory model）是个比较难懂的东西，但是如果我们想更好地了解关于并行计算算法，特别是无锁算法以及无锁数据结构，那么内存模型就是一个绕不过的点。在此之前我关于内存模型的认知都是比较偏向于具体的东西，比如 CPU 中的 store buffer, invalidate queue 等器件导致的 memory reordering 以及用于防止这种 reordering 的 lfence, sfence, mfence 等指令（X86)，比如在编程语言层面上使用 "volatile"  和 "memory" （汇编）来防止编译器的 reordering，以及大家都很熟的原子操作指令 cas 和 xadd 等。但是其实在编程语言层面上，内存模型已经被抽象化了，即为了可移植性而提供通用的接口，使得用户不必再面向硬件编程。比如 C++ 11 的 [atomic 库](https://en.cppreference.com/w/cpp/atomic)和 JAVA 提供的许多并行算法和数据结构接口。
+
+这里主要想讲讲 C11/C++11 的内存模型，略去用得比较多的 atomic 接口，主要讲 memory order （在内存模型的定义中 memory order / memory barrier 这一类东西是占去一大半的）。
+
+### 无处不在的乱序内存操作
+
+> 需要注意的一点是以下的讨论都假设并行操作的情景，假如是一条线程/进程顺序的情景，就不需要关于内存模型的讨论。此外下面的例子都以 C/C++ 语言展示。
+
+Memory order 这个东西之所以存在是因为在并行操作的环境下，由于编译器和 CPU 的优化，不同的线程对另某些内存操作的观察结果可能不同，比如对于线程 1 中的操作：
+
+```cpp
+x = 1; //step 1
+y = 1; //step 2
+```
+
+线程 2 看到的可能是
+
+```cpp
+y = 1;
+x = 1;
+```
+
+为什么？因为优化：编译器在编译程序的时候会对程序进行优化，CPU 在执行程序的时候会有乱序执行、prefetching 等操作，导致 memory reordering 的发生。大致来说，可以分为这么三种 levels：
+
+1. 编译器将某个操作优化掉
+2. 编译器将某些操作乱序摆放
+3. CPU 乱序执行
+
+##### 编译器将某个操作优化掉
+
+为什么会有这种情形呢？比如有一下两个函数，它们写在两个不同的文件中（分离编译），然后在不同的线程中执行：
+
+```cpp
+// main.cpp
+int G = 1; //global definition
+
+//f1.cpp
+extern int G;
+int func1() {
+    some_func_call();
+    
+    // a useless store
+    G = 0;
+    return 0;
+}
+
+//f2.cpp
+extern int G;
+int fun2() {
+    if (0 == G) {
+        press_the_button();
+        return 0;
+    }
+    return 1;
+}
+```
+
+在上面的`func1()` 中，因为整个 **f1.cpp** 文件都没有用到这个变量（可能编译器以为是某个程序员删代码的时候删漏了？…），所以编译器会以为`G=0` 是一个没用的操作（分离编译导致编译器看不到 **f2.cpp** 里面的操作）而将这一个操作优化（删除）掉。
+
+为了防止这种情况，在 C/C++ 里面可以用 volatile 关键字对变量进行操作，
+
+```cpp
+*((volatile int *) &G) = 1; // 使用 volatile 使得这个赋值操作不会被优化掉
+```
+
+*volatile* 其实就是告诉编译器**这个变量是易变的，所以请不要将那些对它的操作优化掉**。而之所以要做上面这种 casting，而不是简单地将 G 的类型定义为 *volatile int*，更多是出于 defensive programming 的原则，比如：
+
+```cpp
+//main.cpp
+volatile int G = 0;
+...
+
+//f1.cpp
+extern int G; // OMG I forget the `volatile` thing so the compiler will miss it
+int func1() {
+	//...
+ 
+    // a useless store
+    G = 0;
+    return 0;
+}
+```
+
+所以我们将“**每次对它的操作**”视为 volatile 的，而不是将这个变量设为 volatile 的，这样更符合我们赋予他的语意。
+
+> 有一篇流传甚广的关于 volatile 的文档：https://www.kernel.org/doc/html/v4.17/process/volatile-considered-harmful.html 。里面讲述了类似的观点。（请不要漏了文档后面的 references）。
+>
+> 另外 C/C++ 的 volatile 和 Java/C# 中的不是同一回事，Java/C# 中的 volatile 的功能更强大一点。
+
+##### 编译器将某些操作乱序摆放
+
+为什么编译器会将某些操作乱序摆放呢？举个很简单的例子：
+
+```cpp
+const int rows = 10000;
+const int cols = 10000;
+long sum = 0;
+
+int arr[rows][cols] = {0};
+init_arr(arr);
+
+// 有以下两种方式可以遍历这个 arr
+
+// #1
+for (int i = 0; i < rows; i++) {
+    for (int j = 0; i < cols) {
+        sum += arr[i*rows + j];
+    }
+}
+
+// #2
+for (int j = 0; j < cols; j++) {
+    for (int i = 0; i < rows; i++) {
+        sum += arr[i*rows + j];
+    }
+}
+```
+
+这两种方式的结果是一样的，但是显然 #1 的速度会更快（因为 CPU 的 cache 的原因，所以一行行地读比一列列地读更加地快。可以参考 Scott Meyers 的  "CPU Cache and why you care"）。所以当 CPU 遇到 #2 这种程序时，会将其优化成 #1 的程序。
+
+如何防止编译器做这种 re-ordering 呢？使用 compiler barrier：
+
+```asm
+#define barrier()   __volatile__ __asm__ ("": : : "memory");
+```
+
+在 C 语言中使用 ”memory" 这种 clobber，会使得编译器相信此处有内存访问，而内存访问是有副作用的，因此它就不会将 前后的操作乱序摆放了。
+
+##### CPU 乱序执行
+
+即使过了编译器这一关，CPU 也有可能将前后的指令乱序执行，比如 prefetching，out-of-order execution, super-scalar 等模式都会导致前后两条指令的执行顺序倒过来。比如下图中，因为使用了 store-buffer，CPU0 可以将某个许多写操作 "batch write" 到公共存储里面，所以，即使 CPU0 上面的读写顺序是 write Y, read X, 在 CPU1 看来其顺序可能是 read X, write Y.
+
+![cpu-reorder](../img/cpu-reorder.png)
+
+为了防止这种乱序执行，可以使用 memory fence/barrier 等指令，比如在 X86 上的 `lfence` (load/read fence), `sfence`(store/write fence), `mfence`(memory fence)^1^ . 另外其他一些序列化指令比如 CPUID, LOCK 等也起到 memory fence 的效果。
+
+> 有人可能会觉得怎么写一个程序那么危险，到处都有乱序…其实如果是单线程执行的，那么就完全不用担心上面所说的。编译器、CPU会保证单线程程序的 program order。
+
+### 使用 fence/barrier 来指定执行顺序
+
+memory fence 和 memory barrier 是同义词，以下统一用 memory barrier。
+
+> 很多架构，如 X86 和 ARM 都提供显式的 barrier 指令，但是有些架构并不提供（比如 IBM 的指令集并不直接提供？）。下面的例子多以我熟悉的 X86 架构解释。
+
+如上面所说，对于编译器的 re-ordering，可以使用编译器的 barrier 来防止：
+
+```c++
+#define barrier()  __volatile__ __asm__ ("":::"memory")
+
+for (int i = 0; i < rows; i++) {
+	barrier();
+    for int j = 0; j < cols; j++) {
+        sum += arr[i*rows + j];
+    }
+}
+```
+
+到了 CPU 那里，这个顺序也还有可能会被 re-order，所以想要防止这种 re-order，还得加硬件的 barrier 指令，这些指令分别为 read barrier, write barrier 和适普的 memory barrier。
+
+1. read barrier，意思是只对**读操作**有 barrier 的作用，即读操作不会被乱序，但是不保证写操作的顺序，也不保证读写操作之间的顺序。X86 里面的 `lfence` 指令就有这样的语义。
+
+2. write barrier，意思是只对**写操作**有 barrier 的作用，即写操作不会被乱序，但是不保证读操作的顺序，也不保证读写操作之间的顺序。X86 里面的 `sfence` 就有这样的语义。
+3. full barrier，意思是对读写操作的乱序都有作用（包括”读+读“，”读+写“，”写+读“，”写+写“）。X86 里面的 `mfence` 就有这样的语义。
+
+> 默认模式下，X86是不会对 read-read, write-write, read-write 做 re-order 的，只会对 write-read 做 re-order，所以 lfence 和 sfence 都是不需要的。
+
+需要注意的是，memory barrier 并不只有这几种语义，还有
+
+1. Acquire barrier， 是对**读操作**来说的，的意思是，barrier 之前的读操作不会跑到 barrier 之后去，但是 barrier 之后的读操作可能会跑到 barrier 之前去；参考下文的 acquire-release 语义。
+2. Release barrier，是对**写操作**来说的，其意思是，barrier 之后的写操作不会跑到 barrier 之前去，但是 barrier 之前的写操作可能跑到 barrier 之后去；参考下文的 acquire-release 语义。
+3. Consume barrier。（这个名字是我起的）。这种 barrier 是为了防止有依赖关系的读写操作的 re-ordering，除了在 Alpha 这种架构中用到外已经没有用了。参考脚注2。
+
+在 C++ 里面，可以使用 `atomic_thread_fence` 这个函数来实现各种类型的 memory barrier。
+
+##### 几个问题：
+
+1. 既然过了 compier 这一层还有 CPU 这一层，是否既要加 compiler barrier 又要加 CPU barrier?
+
+   很多时候，只需要加 compile barrier 即可。比如因为 X86 默认只会 re-order write-read 这种操作，所以其他情形下都是只加 compiler barrier 即可。
+
+2. 写并行算法时，什么时候才需要 memory barrier。
+
+   只有在多线程之间使用多于一个变量进行交互时才需要 memory barrier。
+
+但是其实直接使用 memory barrier 是很困难的，比如你需要仔细推敲各条语句之间的执行顺序是否影响最终效果。一般的并行算法论文里面，在指定 memory order 时，使用的都是抽象的模型（下文），并不直接使用 barrier 指令。在 Linux Kernel 等项目中也是使用封装好的接口。
+
+### 抽象的内存模型
+
+之所以称之为抽象的内存模型是因为…它是抽象的，换句话说，它只有定义上的语义，在硬件层面上找不到直接对应的操作；另外，由于抽象，它的适用范围更广泛，不仅在 C++ 里面适用，在 Java 里，甚至在硬件设计时也适用（POWER 指令集就有相对应的 acquire-release 操作）。
+
+##### Relaxed Ordering 语义
+
+Relaxed ordering 其实就是保证单条线程的 ordering，效果很上文说的 *barrier()* 函数一样。
+
+```c++
+-Thread 1-
+y.store (20, memory_order_relaxed)
+x.store (10, memory_order_relaxed)
+
+-Thread 2-
+if (x.load (memory_order_relaxed) == 10)
+  {
+    assert (y.load(memory_order_relaxed) == 20) /* assert A */
+    y.store (10, memory_order_relaxed)
+  }
+
+-Thread 3-
+if (y.load (memory_order_relaxed) == 10)
+  assert (x.load(memory_order_relaxed) == 10) /* assert B */
+```
+
+保证单条线程的 ordering 的意思其实就是，在最终效果上，Thread 1 看到的还是原本的 program order， 即使 Thread 1 的操作被编译器和 CPU 做了 re-order。但是对 Thread 2 和 Thread 3 来说就不一定了；换句话说，Thread 1 与 Thread 2 和 Thread 3 之间并没有任何同步。
+
+> relaxed ordering 可以使单个线程之中的操作**在效果上**不被 re-order，因此达到所谓的 sequence-before 的效果。
+
+##### Acquire-Release 语义
+
+```c++
+ -Thread 1-                                           -Thread 2-
+ y = 20;                                      if (x.load(std::memory_order_acquire) == 10)
+ x.store (10, std::memory_order_release);          assert (y.load() == 20)
+```
+
+这里的 release 和 acquire 操作和上文的 release barrier / acquire barrier 其实是类似的意思，只不过这里将某个操作绑定到某个变量身上而已。release 达到的效果是，在外界看来，release 之前的**写操作**都不能被 re-order 到 release 操作后面；acquire 达到的效果是，在外界看来，acquire 之后的**读操作**都不能被 re-order 到 acquire 之前去。所以，release-acquire 都是一起用的（达到所谓的 happens-before 的效果）。
+
+###### 更广泛的 Acquire-Release 语义
+
+acquire-release 语义其实可以推得更广一点：Critical Section ^3^
+
+1. 用锁来实现 critical section
+
+   ```c++
+   {
+       std::lock_guard<mutex> guard(mut_x);  // enter critical section (acquire)
+       ...read/write X...
+   }                                         // exit critical section (release)
+   ```
+
+   这里，`mut_x`是用来保护 `X` 这个变量的。
+
+2. 用 atomic 变量实现 critical section
+
+   ```c++
+   std::atomic<int> whose_turn = ...;
+   while (whose_turn != me){ }         // enter critical section (acquire)
+   ...read/write X...
+   whose_turn = someone_else;          // exit critical section (release)
+   ```
+
+3. Transactional memory
+
+   ```c++
+   atomic {                    // enter critical section (acquire)
+       ...read/write X...
+   }                           // exit critical section (release)
+   ```
+
+无论是怎样实现的 critical section，都有一个特性：只有一个线程能处于 critical section，它在 critical section 里面的操作，会**同时**被所有其他线程看见。这个”同时“，换句话说，就是没有任何 critical section 里面的操作能逃出 "enter critical section" 和 "exit critical section" 两条边界（但是外面的操作可以逃进来）。因此，"enter critical section" 其实就是一个 acquire 操作，"exit critical section" 其实就是 release 操作。
+
+用 Hurb Sutter 的图^3^：
+
+![critical-section](../img/critical-section.png)
+
+![acquire-release](../img/acquire-release.png)
+
+##### Acquire-Consume 语义
+
+不表。可参看脚注 2 和 4。
+
+##### Sequential Consistency
+
+```c++
+ -Thread 1-       -Thread 2-                   -Thread 3-
+ y.store (20);    if (x.load() == 10) {        if (y.load() == 10)
+ x.store (10);      assert (y.load() == 20)      assert (x.load() == 10)
+                    y.store (10)
+                  }
+```
+
+Sequential Consistency 不仅保证两个线程之间的 ordering，而是保证 Thread 1、2、3 看到的都是一样的顺序。
+
+##### Acquire-release 和 Sequential Consistency 的区别
+
+还是使用这个例子：
+
+```c++
+// store() 和 load() 里面的 memory order 待指定
+ -Thread 1-       -Thread 2-                   -Thread 3-
+ y.store (20);    if (x.load() == 10) {        if (y.load() == 10)
+ x.store (10);      assert (y.load() == 20)      assert (x.load() == 10)
+                    y.store (10)
+                  }
+```
+
+Sequential Consistency 是全局的，所以在 Sequential Consistency 的情况下，两个 assert 都不会 fail 。但是 Acquire-Release 却只保证对应的 acquire-release 操作之间的同步，上面的例子中 Thread 1 和 Thread 2 使用 x 来同步，因此 Thread 2 里面的 assert 不会 fail，但是 Thread 1 和 Thread 3 之间没有同步，因此 thread 3 中的 assert 可能会 fail。
+
+##### 是否可以混用，比如混用 memory_order_relaxed 和 memory_order_acq_rel
+
+DONT DO IT.
+
+比如
+
+```c++
+-Thread 1-
+y.store (20, memory_order_relaxed)
+x.store (10, memory_order_seq_cst)
+
+-Thread 2-
+if (x.load (memory_order_relaxed) == 10)
+  {
+    assert (y.load(memory_order_seq_cst) == 20) /* assert A */
+    y.store (10, memory_order_relaxed)
+  }
+
+-Thread 3-
+if (y.load (memory_order_acquire) == 10)
+  assert (x.load(memory_order_acquire) == 10) /* assert B */
+```
+
+这个结果如何真的很难看出。
+
+##### 硬件实现
+
+https://www.cl.cam.ac.uk/~pes20/cpp/cpp0xmappings.html
+
+在很多平台上，这些抽象的语义都是用 barrier 来实现的。
+
+---
+
+1. mfence 的效果类似于 lfence + sfence，但是其实并不严格相等，TODO
+
+2. https://www.kernel.org/doc/Documentation/memory-barriers.txt
+
+3. https://herbsutter.com/2013/02/11/atomic-weapons-the-c-memory-model-and-modern-hardware/
+
+   https://channel9.msdn.com/Shows/Going+Deep/Cpp-and-Beyond-2012-Herb-Sutter-atomic-Weapons-1-of-2
+
+4. https://gcc.gnu.org/wiki/Atomic/GCCMM/AtomicSync
