@@ -17,6 +17,11 @@
 #            "time": "2018-03-21",
 #            "summary": "对tensorflow框架里面求梯度的方法的一些解读和扩展"
 #        },
+        { "title": "Flags",
+            "location": "./archive/non-exists.html",
+            "time": "2018-11-03",
+            "summary": "立个 flag，写一些牛逼但是小众的并行算法/数据结构 :-)"
+        },
         { "title": "C++ Memory Model",
             "location": "./archive/cpp-mm.html",
             "time": "2018-11-03",
