@@ -12,6 +12,12 @@
 ###
     "blog":
        [
+        { "title": "关于这个世界的一点看法",
+            "location": "./archive/my-world-view.html",
+            "time": "2019-08-26",
+            "summary": "Some thoughts"
+        },
+
 #        { "title": "Alternatives for Computing Gradients",
 #            "location": "./archive/alternatives-for-computing-gradients.html",
 #            "time": "2018-03-21",
@@ -80,6 +86,10 @@
         "archive":
         {"blog": 
             [
+            { "title": "关于这个世界的一点看法",
+                "location": "./archive/my-world-view.html",
+                "time": "2019-08-26"
+            },
             { "title": "C++ Memory Model",
                 "location": "./archive/cpp-mm.html",
                 "time": "2018-11-03"
